@@ -1,3 +1,4 @@
+import { SystemMapLink } from "./system-map-link";
 import { getI18n } from "@/i18n/server";
 import type { DisplayNames } from "../names";
 import type { LatestEvent, PilotProfile } from "../types";
@@ -14,7 +15,7 @@ export async function EventEvidence({ event, names }: { event: LatestEvent | nul
       <span className="block font-medium text-ink">
         {target ?? t.intel.pilot.unknownHull} · {f.relativeTime(event.time)}
       </span>
-      <span className="block text-ink-3">{names.systems.get(event.systemId)?.name ?? e.unknown}</span>
+      <span className="block text-ink-3"><SystemMapLink id={event.systemId}>{names.systems.get(event.systemId)?.name ?? e.unknown}</SystemMapLink></span>
       {!event.isLoss && (
         <span className="block text-ink-2">
           {e.observedHull(event.shipTypeId ? (names.types.get(event.shipTypeId)?.name ?? e.unknown) : e.unknown)}
@@ -67,7 +68,7 @@ export async function PilotEvidence({
                 <span className="truncate">{event ? (hull ? (names.types.get(hull)?.name ?? e.unknown) : e.unknown) : e.noEvent}</span>
                 {event && <span className="shrink-0 whitespace-nowrap text-3xs text-ink-3">· {f.relativeTime(event.time)}</span>}
               </span>
-              {event && <span className="mt-0.5 block text-3xs text-ink-3">{names.systems.get(event.systemId)?.name ?? e.unknown} · {e.attackers(event.attackerCount)}</span>}
+              {event && <span className="mt-0.5 block text-3xs text-ink-3"><SystemMapLink id={event.systemId}>{names.systems.get(event.systemId)?.name ?? e.unknown}</SystemMapLink> · {e.attackers(event.attackerCount)}</span>}
             </span>
           </div>
         );

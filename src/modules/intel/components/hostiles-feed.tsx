@@ -1,3 +1,4 @@
+import { SystemMapLink } from "./system-map-link";
 import Link from "next/link";
 import { Portrait } from "@/components/ui/eve-image";
 import { getI18n } from "@/i18n/server";
@@ -38,11 +39,12 @@ export async function HostilesFeed({
                     <StandingBadge standing={s.standing} />
                   </div>
                   <div className="truncate text-xs text-ink-3">
-                    {t.intel.feed.seen({ ago: f.relativeTime(s.seenAt), system, by: s.seenBy, times: s.times, fought: s.fought })}
+                    {t.intel.feed.seen({ ago: f.relativeTime(s.seenAt), system: null, by: s.seenBy, times: s.times, fought: s.fought })}
                   </div>
                 </div>
                 <ScoreBadge score={score} />
               </Link>
+              {s.systemId && system && <SystemMapLink id={s.systemId} className="mb-2 ml-10 inline-block text-xs text-ink-3">{system}</SystemMapLink>}
             </li>
           );
         })}

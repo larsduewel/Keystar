@@ -10,6 +10,12 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Added
 
+- Link Threat Intel systems to a centered map with automatic jump-range highlighting and LY distances from the chosen origin.
+
+- Add shortest stargate route planning with two-hour gate-kill evidence and linked killmails, plus carrier, jump freighter and Black Ops range highlighting with Jump Drive Calibration selection.
+
+- Add a searchable, interactive 3D EVE universe map under Combat, with real system positions and security status.
+
 - **Sortable ore breakdown.** Click any column header of the mining dashboard's ore breakdown to sort by it; click
   again to reverse the order.
 - **Grouped ore types.** The ore breakdown combines the grades and variants of each ore (Scordite, Scordite
@@ -28,6 +34,10 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
   in focus, alerts stay in-page toasts. This needs the browser's permission and an HTTPS address.
 
 ### Changed
+
+- Add mouse panning (right-, middle-, or Shift-drag), a continuously looping light beam along selected travel routes, and a star-map navigation icon; retain reduced-motion support.
+
+- Align the universe map with Threat Intel’s glass panels and compact controls; batch canvas rendering and cache geometry and labels for smoother rotation. Remove the system sidebar, center searched systems with a fading rotation, and keep wheel zoom from scrolling the page.
 
 - Keep browser-fetched zKillboard counters in a private, temporary preview only. Remove browser uploads to the shared pilot cache; the worker verifies statistics before shared profiles and danger scores use them.
 

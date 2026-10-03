@@ -1,3 +1,4 @@
+import { SystemMapLink } from "./system-map-link";
 import { eventTargetHull, newestEvents } from "../evidence";
 import { TypeIcon } from "@/components/ui/eve-image";
 import { getI18n } from "@/i18n/server";
@@ -34,11 +35,10 @@ export async function LatestKills({ events, names, limit = 5, compact = false }:
                   <span className="sr-only">{l.srKind(e.isLoss)}</span>
                   {other ?? t.intel.pilot.unknownHull}
                 </span>
-                {!compact && <span className="block text-3xs text-ink-3">
-                  {f.relativeTime(e.time)} · {system ?? "?"} · {e.solo ? l.solo : l.pilots(e.attackerCount)}
-                </span>}
+
               </span>
             </a>
+            {!compact && <span className="block text-3xs text-ink-3">{f.relativeTime(e.time)} · <SystemMapLink id={e.systemId}>{system ?? "?"}</SystemMapLink> · {e.solo ? l.solo : l.pilots(e.attackerCount)}</span>}
           </li>
         );
       })}
@@ -56,7 +56,7 @@ export async function LastSeen({ profile, names }: { profile: PilotProfile; name
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-ink-2">
         {seen.shipTypeId && <TypeIcon id={seen.shipTypeId} size={16} className="rounded" />}
-        {t.intel.latest.lastSeen(seen.isLoss, ship, f.relativeTime(seen.time), system)}
+        {t.intel.latest.lastSeen(seen.isLoss, ship, f.relativeTime(seen.time), null)} {system && <SystemMapLink id={seen.systemId}>{system}</SystemMapLink>}
       </span>
     );
   }
