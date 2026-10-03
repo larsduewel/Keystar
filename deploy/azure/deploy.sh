@@ -57,6 +57,7 @@ services:
   worker:
     image: $image
     command: [worker]
+    environment: {KEYSTAR_ROLE: worker}
     env_file: [runtime.env, sso.env]
     restart: unless-stopped
     mem_limit: 192m

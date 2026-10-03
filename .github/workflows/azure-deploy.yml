@@ -103,6 +103,10 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
       # This workflow runs from protected main; never execute deployment scripts from a preview branch.
       - uses: azure/login@v2
         with:
@@ -120,7 +124,7 @@ jobs:
           [[ "$BRANCH" =~ ^[a-zA-Z0-9_./-]{1,200}$ ]] || exit 2
           [[ "$SHA" =~ ^[a-f0-9]{40}$ ]] || exit 2
           result=$(az vm run-command invoke -g "$RESOURCE_GROUP" -n "$VM_NAME" \
-            --command-id RunShellScript --scripts "/usr/local/sbin/keystar-deploy '$BRANCH' '$SHA'" -o json)
+            --command-id RunShellScript --scripts "printf %s '$(base64 -w0 deploy/azure/deploy.sh)' | base64 -d >/opt/keystar/deploy-next; bash -n /opt/keystar/deploy-next && install -m 700 /opt/keystar/deploy-next /usr/local/sbin/keystar-deploy && /usr/local/sbin/keystar-deploy '$BRANCH' '$SHA'" -o json)
           message=$(jq -r '.value[].message' <<<"$result")
           echo "$message"
           url=$(grep -o 'DEPLOYMENT_URL=https://[^[:space:]]*' <<<"$message" | tail -1 | cut -d= -f2-)
