@@ -6,6 +6,11 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+### Fixed
+
+- The mining CSV export no longer turns negative security status (`-0.45`) into text, so null-sec and wormhole rows
+  stay numeric in spreadsheets. Names starting with `=`, `+`, `-` or `@` are still neutralised.
+
 ## [0.6.0] - 2026-10-03
 
 ### Changed

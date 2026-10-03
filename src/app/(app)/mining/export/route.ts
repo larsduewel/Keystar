@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { audit } from "@/core/audit";
 import { getCurrentUser } from "@/core/auth/dal";
 import { getSettings } from "@/core/settings";
+import { csvCell } from "@/modules/mining/csv";
 import { parseMiningFilters } from "@/modules/mining/filters";
 import { MINING_PERMISSIONS } from "@/modules/mining/module";
 import { getLedgerRows, miningScope, type LedgerRow } from "@/modules/mining/queries";
@@ -27,14 +28,6 @@ const HEADER = [
   "unit_price_isk",
   "value_isk",
 ];
-
-function csvCell(value: string | number | null): string {
-  if (value === null) return "";
-  const s = String(value);
-  // Quote, and neutralise spreadsheet formula injection from names.
-  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
-  return /[",\r\n]/.test(safe) || safe !== s ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
 
 function csvLine(r: LedgerRow): string {
   return [
