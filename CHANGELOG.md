@@ -46,6 +46,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 - Move D-scan input and matching results into a header dropdown and generate optional written briefings from the blue Briefing button in a dialog.
 - Replace loading prose with evidence overlays and independent loading indicators for each pending pilot tag/card.
 - Fetch pending statistics from the scan creator’s browser at 100 ms intervals with at most four concurrent requests for private provisional previews and rate-limit backoff. Only server-verified results enter the shared cache and danger scores. Server zKillboard calls are spaced by 200 ms; statistics requests avoid a redirect.
+- **Account-based Codex reviews.** Remove the inherited Claude review workflow and document automatic GitHub reviews using the owner Codex account, without CI API credentials.
+
 
 - **Revoking optional access stays in Keystar.** "Revoke access" on the Live fleet page, "Stop wallet import" and
   "Stop" for EVE mail now switch the access off right away instead of opening the EVE login. Turning it back on works

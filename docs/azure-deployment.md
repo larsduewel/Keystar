@@ -4,7 +4,7 @@ The fork larsduewel/Keystar uses one Azure Standard_B1ms Ubuntu host in Germany 
 
 ## Automatic checks and deployments
 
-Every PR runs lint, types, migration consistency, unit/database tests, a production build, container build and CodeQL. CI also runs on every branch push and merge queues. Claude review is opt-in through ENABLE_CLAUDE_REVIEW=true and its token; it is not required for ordinary quality checks.
+Every PR runs lint, types, migration consistency, unit/database tests, a production build, container build and CodeQL. CI also runs on every branch push and merge queues. Codex code review uses the owner account through the GitHub integration, separately from Actions. Connect larsduewel/Keystar in Codex settings and enable automatic code review for all pull requests. It follows AGENTS.md and posts reviews on GitHub; no OpenAI API key or Claude token is stored in CI. Account review limits apply. See [Codex GitHub review setup](https://learn.chatgpt.com/docs/third-party/github). Code review is advisory; the required quality checks remain unchanged.
 
 Azure deployment runs from protected main after a successful CI push. It publishes an immutable commit-tagged image, uses GitHub OIDC to access only the dedicated VM, applies migrations and checks /api/health before activating HTTPS. Main deploys production; other branches deploy staging. External-fork PRs receive no cloud credentials. Manual activation accepts a branch and reruns quality checks/build before deployment.
 

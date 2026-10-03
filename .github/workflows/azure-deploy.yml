@@ -97,12 +97,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ needs.prepare.outputs.branch == 'main' && 'production' || 'staging' }}
     concurrency:
-      group: azure-host-deploy
+      group: azure-host-${{ needs.prepare.outputs.branch == 'main' && 'production' || 'staging' }}
       cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
       # This workflow runs from protected main; never execute deployment scripts from a preview branch.
       - uses: azure/login@v2
         with:
@@ -119,8 +123,20 @@ jobs:
           set -euo pipefail
           [[ "$BRANCH" =~ ^[a-zA-Z0-9_./-]{1,200}$ ]] || exit 2
           [[ "$SHA" =~ ^[a-f0-9]{40}$ ]] || exit 2
-          result=$(az vm run-command invoke -g "$RESOURCE_GROUP" -n "$VM_NAME" \
-            --command-id RunShellScript --scripts "/usr/local/sbin/keystar-deploy '$BRANCH' '$SHA'" -o json)
+          # Keep production and previews in separate GitHub queues. Azure still serializes host commands.
+          result=''
+          for attempt in $(seq 1 40); do
+            if result=$(az vm run-command invoke -g "$RESOURCE_GROUP" -n "$VM_NAME" \
+              --command-id RunShellScript --scripts "printf %s '$(base64 -w0 deploy/azure/deploy.sh)' | base64 -d >/opt/keystar/deploy-next; bash -n /opt/keystar/deploy-next && install -m 700 /opt/keystar/deploy-next /usr/local/sbin/keystar-deploy && /usr/local/sbin/keystar-deploy '$BRANCH' '$SHA'" -o json 2>deploy-error.log); then
+              break
+            fi
+            if grep -qi 'execution is in progress\|Conflict' deploy-error.log; then
+              echo 'Waiting for the host deployment to finish'; sleep 15
+            else
+              cat deploy-error.log; exit 1
+            fi
+          done
+          [[ -n "$result" ]] || { echo 'Host deployment queue timed out'; exit 1; }
           message=$(jq -r '.value[].message' <<<"$result")
           echo "$message"
           url=$(grep -o 'DEPLOYMENT_URL=https://[^[:space:]]*' <<<"$message" | tail -1 | cut -d= -f2-)
