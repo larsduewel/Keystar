@@ -6,6 +6,7 @@ apt-get install -y -qq docker.io docker-compose-v2 caddy openssl curl jq
 systemctl enable --now docker caddy
 umask 077
 mkdir -p /opt/keystar/instances /etc/caddy/sites /opt/keystar/backups
+chmod 755 /etc/caddy/sites
 if [[ ! -f /swapfile ]]; then
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
