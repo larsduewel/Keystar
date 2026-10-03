@@ -15,6 +15,7 @@ jobs:
     # Runs triggered by Dependabot or by a pull request from a fork get neither Actions secrets
     # (CLAUDE_CODE_OAUTH_TOKEN) nor an OIDC token, so the review can't run there.
     if: |
+      vars.ENABLE_CLAUDE_REVIEW == 'true' &&
       github.event.pull_request.user.login != 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository
     # Optional: Filter by PR author

@@ -1,25 +1,33 @@
-# Azure deployment plan
+# Azure hosting and automatic deployments
 
-Repository: larsduewel/Keystar. Each non-main branch gets its own staging URL; main deploys to production only after CI succeeds.
+The fork larsduewel/Keystar uses one Azure Standard_B1ms Ubuntu host in Germany West Central, resource group rg-keystar-lowcost. This budget setup runs production and **one active staging branch**. It targets EUR 30/month, not an unlimited preview fleet.
 
-## Quality gate
+## Automatic checks and deployments
 
-CI runs on every branch push, every pull request, and merge-queue events. It checks lint, TypeScript, migration consistency, unit/integration tests against disposable PostgreSQL, production builds and container builds. CodeQL checks pull requests targeting any branch.
+Every PR runs lint, types, migration consistency, unit/database tests, a production build, container build and CodeQL. CI also runs on every branch push and merge queues. Claude review is opt-in through ENABLE_CLAUDE_REVIEW=true and its token; it is not required for ordinary quality checks.
 
-## Hosting requirements
+Azure deployment runs from protected main after a successful CI push. It publishes an immutable commit-tagged image, uses GitHub OIDC to access only the dedicated VM, applies migrations and checks /api/health before activating HTTPS. Main deploys production; other branches deploy staging. External-fork PRs receive no cloud credentials. Manual activation accepts a branch and reruns quality checks/build before deployment.
 
-- Separate production and staging Azure resource groups and deployment identities.
-- Azure Container Apps for the web app and background worker, using the existing production container image.
-- PostgreSQL with persistent storage and backups. Production has its own database; each staging branch has an isolated database and credentials.
-- Immutable images identified by commit SHA; deploy only a successful CI push from this repository. Pull requests from external forks run checks without deployment credentials.
-- GitHub-to-Azure OIDC authentication; no stored Azure client secrets. Production identity restricted to the production GitHub environment and main. Staging identity has no access to production resources.
-- HTTPS URLs, /api/health readiness checks, and deployment summaries containing the branch URL.
-- Per-branch staging web apps can scale to zero. Workers and PostgreSQL incur ongoing costs and must be sized against the agreed budget.
-- Branch identifiers must include a stable hash so slash-normalized branch names cannot collide.
-- Demo-only staging databases: do not copy production ESI tokens or personal data into branch deployments.
-- Production EVE SSO requires its deployed URL registered as the application callback. Keep a stable APP_SECRET; changing it invalidates encrypted stored tokens.
-- Budget alerts notify about spending; they do not impose a hard spending cap.
+Only the main workflow can use either deployment environment. Preview branch code is built without Azure credentials; the host deployment script validates branch names and SHA values. GitHub environments use federated identity, not stored Azure passwords. The VM role only reads the VM and invokes Run Command, which is privileged access to this dedicated server.
 
-## Pending provisioning choices
+## URLs and staging isolation
 
-Azure CLI is authenticated to Azure-Abonnement. Confirm subscription/resource group and monthly budget before creating paid resources. Select region, database sizing, branch retention and staging-worker behavior from that budget. Provision and validate infrastructure, configure GitHub environments and identity trusts, deploy staging, then validate production and enable deployment automation.
+Production: https://keystar-larsduewel.germanywestcentral.cloudapp.azure.com
+
+Each staging branch has a stable URL b-<first-12-characters-of-SHA256(branch)>.<public-ip>.sslip.io. The most recently deployed staging branch is active. Activating another stops the previous preview containers and returns HTTP 503 at its old URL; its separate database is preserved. Re-activate it through the Azure deployment workflow's branch input. Preview URLs use the free sslip.io DNS service.
+
+Each instance has separate database credentials and APP_SECRET. Previews contain seeded demo data and never receive production EVE credentials. PostgreSQL is private, and database connect permissions are restricted to the owning role. All instances share a budget VM/PostgreSQL process; this is not hardened isolation for hostile tenants. Do not give untrusted contributors branch push rights.
+
+## Costs and resource limits
+
+Retail estimates checked 2026-10-04: B1ms EUR 0.0211/hour (about EUR 15.40 at 730 hours), 32 GB E4 Standard SSD about EUR 2.11/month, plus public IPv4, operations, traffic and applicable taxes. Limits: one production and one preview, capped container memory/CPU, no managed PostgreSQL or paid container registry. The 2 GB host uses swap and is for light use; it is not highly available.
+
+A EUR 25 pre-tax monthly Azure budget notifies resource-group Owners at 80% actual spend and 100% forecast. Budget notifications are **not a hard spending cap**. Traffic, disk operations and taxes can change the bill; check Cost Management before increasing usage.
+
+## Operations
+
+Host bootstrap and deploy scripts: deploy/azure/bootstrap.sh and deploy/azure/deploy.sh. SSH and database ingress are closed; only 80/443 are open. Use Azure VM Run Command for maintenance. Deployment uses root-only files under /opt/keystar; never commit runtime.env, sso.env, host.env or key files. The production APP_SECRET must remain stable after characters are linked.
+
+Daily PostgreSQL dumps retain seven days under /opt/keystar/backups. They share the VM disk and do not protect against host/disk loss; use an off-host backup before relying on production for irreplaceable data. Image cleanup removes unused images older than 48 hours. No preview databases are automatically destroyed.
+
+Production EVE sign-in requires a registered EVE application with callback https://keystar-larsduewel.germanywestcentral.cloudapp.azure.com/auth/callback. Store its ID and secret only in the root-only production sso.env file, and set ADMIN_CHARACTER_IDS before enabling sign-in. Production starts without demo mode; preview uses demo mode with synthetic data only. SOURCE_URL links to the exact source commit to satisfy the source-offer requirement for modified AGPL network software.
