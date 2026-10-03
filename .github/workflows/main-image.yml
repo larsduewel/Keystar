@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    if: vars.ENABLE_MAIN_IMAGE == 'true' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
