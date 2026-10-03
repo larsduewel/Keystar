@@ -29,6 +29,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- **Account-based Codex reviews.** Remove the inherited Claude review workflow and document automatic GitHub reviews using the owner Codex account, without CI API credentials.
+
 
 - **Revoking optional access stays in Keystar.** "Revoke access" on the Live fleet page, "Stop wallet import" and
   "Stop" for EVE mail now switch the access off right away instead of opening the EVE login. Turning it back on works
