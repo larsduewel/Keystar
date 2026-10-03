@@ -252,6 +252,17 @@ export const pnl = {
       demo: "Not available in demo mode",
       deleteHistory: "Delete history",
       deleteHistoryHint: "Delete this character's imported wallet transactions",
+      /** Toasts for deleting the imported history. */
+      toast: {
+        deleted: (name: string) => `Wallet history of ${name} deleted`,
+        failed: (name: string) => `Couldn't delete the wallet history of ${name}`,
+        errors: {
+          forbidden: "You no longer have access to the mining P&L.",
+          notOwned: "That character isn't linked to your account any more.",
+          stillImporting: "Stop wallet import for this character first.",
+          unknown: "Something went wrong. Reload the page and try again.",
+        },
+      },
       notes: {
         enable: () => (
           <>
@@ -261,7 +272,7 @@ export const pnl = {
         ),
         autoCount:
           "“Count tagged purchases automatically” is off by default: purchases tagged as mining costs are only suggested until you include them. Switch it on for characters that buy for mining only; you can still exclude single purchases.",
-        stop: "Stopping removes the scope on the EVE login again. Imported history is kept until you delete it.",
+        stop: "Stopping switches wallet import off in Keystar right away; re-authorise the character on My Characters to remove the scope from its EVE token too. Imported history is kept until you delete it.",
       },
     },
     income: {

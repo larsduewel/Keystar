@@ -66,6 +66,7 @@ export function ToastViewport({ label, children }: { label: string; children: Re
  */
 export function Toast({
   href,
+  newTab = true,
   linkLabel,
   dismissLabel,
   color,
@@ -76,6 +77,8 @@ export function Toast({
   children,
 }: {
   href?: string;
+  /** Open `href` in a new tab (external pages); false for pages of Keystar itself. */
+  newTab?: boolean;
   linkLabel?: string;
   dismissLabel: string;
   /** Edge and countdown colour. */
@@ -115,8 +118,8 @@ export function Toast({
       {href ? (
         <a
           href={href}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={newTab ? "_blank" : undefined}
+          rel={newTab ? "noopener noreferrer" : undefined}
           title={linkLabel}
           className={cn(body, "transition-colors hover:bg-surface-contrast/5")}
           style={{ borderLeftColor: color }}

@@ -1,6 +1,7 @@
 import { Hourglass } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { FlashToasts } from "@/components/shell/flash-toasts";
 import { SectionScope } from "@/components/shell/section-scope";
 import { Sidebar, visibleNav } from "@/components/shell/sidebar";
 import { isSidebarCollapsed, SIDEBAR_COOKIE } from "@/components/shell/sidebar-config";
@@ -9,10 +10,11 @@ import { TopBar } from "@/components/shell/topbar";
 import { ToastProvider } from "@/components/ui/toast";
 import { requireUser } from "@/core/auth/dal";
 import { getCorporation } from "@/core/corp";
+import { availableAlerts } from "@/core/modules/registry";
 import { env } from "@/core/env";
+import { optionalScopeLabels } from "@/core/modules/registry";
 import { getSettings } from "@/core/settings";
 import { getI18n } from "@/i18n/server";
-import { KILLBOARD_PERMISSIONS } from "@/modules/killboard/module";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const user = await requireUser();
@@ -31,6 +33,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <SidebarProvider collapsed={sidebarCollapsed}>
       <ToastProvider>
+        <FlashToasts scopeLabels={optionalScopeLabels(t)} />
         <SectionScope items={crumbs}>
           <Sidebar user={user} corpTicker={userCorp?.ticker ?? null} />
           <div className="section-glow flex min-w-0 flex-1 flex-col">
@@ -39,7 +42,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
               serverStatus={settings["eve.serverStatus"]}
               demo={env().KEYSTAR_DEMO_MODE}
               crumbs={crumbs}
-              liveKills={user.can(KILLBOARD_PERMISSIONS.view) && Boolean(settings["corp.homeCorporationId"])}
+              alerts={availableAlerts(user, settings).map((a) => ({ id: a.id, label: a.label(t), hint: a.hint(t) }))}
             />
             <main className="mx-auto w-full max-w-[1600px] flex-1 px-8 pt-8 pb-16">
               {user.role === "guest" && (

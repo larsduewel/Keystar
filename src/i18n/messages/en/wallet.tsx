@@ -12,6 +12,7 @@ export const wallet = {
   module: {
     scopes: {
       characterWallet: "Reads market purchases and sales so the mining P&L can count mining costs and sale prices (opt-in).",
+      characterWalletLabel: "Wallet import",
       corporationWallets:
         "Reads corporation wallet balances, journal and market transactions for the finances pages (needs Accountant or Junior Accountant).",
       divisions: "Reads the names of the corporation's wallet divisions (needs Director).",

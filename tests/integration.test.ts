@@ -1201,6 +1201,44 @@ describe.skipIf(!enabled)("integration", async () => {
       }
     });
 
+    it("clears in-app switches on a new EVE consent and reports what it changed", async () => {
+      const { encryptToken } = await import("@/core/crypto");
+      const { provisionFromSso } = await import("@/core/auth/provision");
+      const { FLEET_SCOPE } = await import("@/modules/fleet/logic");
+      const MINING = "esi-industry.read_character_mining.v1";
+      // Wallet import switched off in Keystar; the token still holds it.
+      await db()
+        .insert(schema.esiTokens)
+        .values({ characterId: 2, refreshTokenEnc: encryptToken("r"), scopes: [MINING], disabledScopes: [WALLET_SCOPE] });
+      const { getEsi } = await import("@/core/esi");
+      const reply = <T,>(data: T) => ({ data, status: 200, expiresAt: null, pages: 1, fromCache: false, notModified: false, lastModified: null });
+      const getSpy = vi
+        .spyOn(getEsi(), "get")
+        .mockImplementation(async (path: string) =>
+          reply(path.startsWith("/corporations/") ? { name: "Home", ticker: "HOME", member_count: 3 } : { corporation_id: 100 }),
+        ) as unknown as { mockRestore: () => void };
+      const postSpy = vi.spyOn(getEsi(), "post").mockImplementation(async () => reply([]));
+      const link = (characterId: number, name: string, scopes: string[]) =>
+        provisionFromSso({
+          verified: { characterId, name, ownerHash: `h${characterId}`, scopes, expiresAt: new Date(Date.now() + 1e6) },
+          tokens: { access_token: "a", refresh_token: "r", expires_in: 1200, token_type: "Bearer" },
+          intent: "link",
+          currentUserId: userB,
+        });
+      try {
+        // Re-authorise links leave switched-off scopes out, so the new token drops them for good.
+        const result = await link(2, "Bravo", [MINING, FLEET_SCOPE]);
+        expect(result).toMatchObject({ newCharacter: false, lostOptionalScopes: [], addedOptionalScopes: [FLEET_SCOPE] });
+        const [token] = await db().select().from(schema.esiTokens).where(sql`character_id = 2`);
+        expect(token).toMatchObject({ scopes: [MINING, FLEET_SCOPE], disabledScopes: [] });
+        // A character the account didn't have before.
+        expect((await link(4, "Charlie", [MINING])).newCharacter).toBe(true);
+      } finally {
+        getSpy.mockRestore();
+        postSpy.mockRestore();
+      }
+    });
+
     it("hints at realised sale prices per raw unit, raw or compressed", async () => {
       await db().insert(schema.walletTransactions).values([
         tx(3, 21, 62516, { isBuy: false, quantity: 10, unitPrice: 1100 }), // 10 compressed = 1000 raw
@@ -1347,6 +1385,39 @@ describe.skipIf(!enabled)("integration", async () => {
       });
       expect((await run(2))?.summary).toBe("Character changed owner during the import");
       expect(await db().select().from(schema.mailMessages)).toEqual([]);
+    });
+
+    it("announces new unread mail once per account, without sent or old mail", async () => {
+      const { liveCursorNow, parseLiveCursor } = await import("@/core/live-cursor");
+      const cursor = parseLiveCursor(await liveCursorNow())!;
+      await db().insert(schema.mailLists).values({ characterId: 2, mailingListId: 145, userId: userB, name: "Keystar Ops" });
+      const recent = new Date(Date.now() - 10 * 60_000);
+      const corp = { labels: [4], recipients: [{ id: 100, type: "corporation" as const }] };
+      const row = (characterId: number, mailId: number, extra: Partial<typeof schema.mailMessages.$inferInsert> = {}) => ({
+        characterId, mailId, userId: userB, fromId: 9, subject: `Mail ${mailId}`, sentAt: recent, labels: [1],
+        recipients: [{ id: characterId, type: "character" as const }], ...extra,
+      });
+      await db().insert(schema.mailMessages).values([row(2, 600), row(2, 601, corp)]);
+      await db().insert(schema.mailMessages).values([
+        row(3, 601, corp), // The same corp mail, imported later for Bravo Alt.
+        row(2, 602, { labels: [], recipients: [{ id: 145, type: "mailing_list" }] }),
+        row(2, 603, { isRead: true }),
+        row(2, 604, { sentAt: new Date(Date.now() - 5 * 3600_000) }),
+        row(3, 605, { fromId: 3, labels: [2] }), // Bravo Alt writes to Bravo: the account's own mail.
+        row(2, 605, { fromId: 3 }),
+        row(3, 607, { fromId: 2 }), // From Bravo, whose own mailbox doesn't have it: still the account's own mail.
+        { ...row(1, 606), userId: userA },
+      ]);
+
+      const live = await mail.getLiveMail(userB, cursor);
+      expect(live.mails).toEqual([
+        expect.objectContaining({ mailId: 600, characterId: 2, characterName: "Bravo", fromName: "Outsider", fromCategory: "character", kind: "direct", listName: null }),
+        expect.objectContaining({ mailId: 601, characterId: 2, kind: "corp" }),
+        expect.objectContaining({ mailId: 602, kind: "list", listName: "Keystar Ops" }),
+      ]);
+      expect(parseLiveCursor(live.cursor)!.id).toBe(602);
+      expect((await mail.getLiveMail(userB, parseLiveCursor(live.cursor)!)).mails).toEqual([]);
+      expect((await mail.getLiveMail(userA, cursor)).mails.map((m) => m.mailId)).toEqual([606]);
     });
 
     it("drops the previous owner's mail when a character is transferred", async () => {
@@ -1578,6 +1649,40 @@ describe.skipIf(!enabled)("integration", async () => {
       const [tracker] = await db().select().from(schema.fleetTrackers);
       expect(tracker).toMatchObject({ status: "not_boss", fleetId: 77 });
       expect(await db().select().from(schema.fleets)).toEqual([]);
+    });
+
+    it("switches fleet access off and on in Keystar without an EVE login", async () => {
+      const { disableOptionalScope, enableOptionalScope } = await import("@/core/auth/scope-switch");
+      const { fleetJobs } = await import("@/modules/fleet/jobs");
+      const { FLEET_SCOPE } = await import("@/modules/fleet/logic");
+      const MINING = "esi-industry.read_character_mining.v1";
+      await db().insert(schema.esiTokens).values({ characterId: 1, refreshTokenEnc: "x", scopes: [MINING, FLEET_SCOPE] });
+      const token = async () => (await db().select().from(schema.esiTokens))[0];
+      const fleetJobEnabled = async () => {
+        await scheduler.planJobs(fleetJobs);
+        return (await db().select().from(schema.syncJobs)).some((r) => r.ownerId === 1 && r.enabled);
+      };
+      expect(await fleetJobEnabled()).toBe(true);
+
+      expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
+      expect(await token()).toMatchObject({ scopes: [MINING], disabledScopes: [FLEET_SCOPE] });
+      expect(await fleetJobEnabled()).toBe(false);
+      // Idempotent, and only for opt-in scopes the token holds.
+      expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
+      expect(await disableOptionalScope(1, MINING)).toBe("unknownScope");
+      expect(await disableOptionalScope(2, FLEET_SCOPE)).toBe("notHeld");
+
+      expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
+      expect(await token()).toMatchObject({ scopes: [MINING, FLEET_SCOPE], disabledScopes: [] });
+      expect(await fleetJobEnabled()).toBe(true);
+      expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
+      expect(await enableOptionalScope(2, FLEET_SCOPE)).toBe("notHeld");
+
+      // A revoked token can't be switched back on in Keystar: that needs the EVE login.
+      expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
+      await db().execute(sql`UPDATE esi_tokens SET status = 'invalid' WHERE character_id = 1`);
+      expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("notHeld");
+      expect(await token()).toMatchObject({ scopes: [MINING], disabledScopes: [FLEET_SCOPE] });
     });
   });
 

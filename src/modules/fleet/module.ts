@@ -19,6 +19,8 @@ export const fleetModule: KeystarModule = {
       level: "character",
       optional: true,
       manageHref: "/fleet",
+      managePermission: FLEET_PERMISSIONS.track,
+      label: (t) => t.fleet.module.scopes.readFleetLabel,
       reason: (t) => t.fleet.module.scopes.readFleet,
     },
   ],

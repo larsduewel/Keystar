@@ -40,7 +40,7 @@ export const setup: typeof en = {
     title: "Corporation-Daten",
     intro: (role: (name: string) => ReactNode, page: string) => (
       <>
-        Mond-Observer und die Mitgliederliste der Corporation werden über einen Charakter mit der Rolle{" "}
+        Mondbohrer-Ledger und die Mitgliederliste der Corporation werden über einen Charakter mit der Rolle{" "}
         {role("Accountant")} oder {role("Director")} im Spiel gelesen. Das kannst du auch später unter {page} erledigen.
       </>
     ),

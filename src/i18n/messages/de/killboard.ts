@@ -8,6 +8,7 @@ export const killboard: typeof en = {
   module: {
     navSection: "Kampf",
     nav: { killboard: "Killboard" },
+    alerts: { kills: { label: "Kills und Verluste", hint: "Wenn ein Corp-Mitglied einen Kill hat oder ein Schiff verliert" } },
     permissionGroup: "Killboard",
     permissions: {
       view: {
@@ -138,12 +139,6 @@ export const killboard: typeof en = {
     noPilot: "Kein Pilot",
     open: "Diese Killmail auf zKillboard öffnen",
     dismiss: "Schließen",
-    toggle: {
-      on: "Kill-Alarme an",
-      off: "Kill-Alarme aus",
-      enable: "Benachrichtigen, wenn ein Corp-Mitglied einen Kill oder Verlust hat",
-      disable: "Keine Kill- und Verlust-Benachrichtigungen mehr anzeigen",
-    },
   },
   ships: {
     entity: "Schiff",

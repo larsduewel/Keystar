@@ -1,5 +1,5 @@
 {
-  "id": "5e68b703-7442-44ce-b255-1f62470f78f9",
+  "id": "dbb3b0a1-8e2c-4466-a3b5-d77883469d6c",
   "prevId": "d3892e0e-b418-4031-a0c3-9ed88a15e82a",
   "version": "7",
   "dialect": "postgresql",
@@ -379,6 +379,13 @@
         },
         "scopes": {
           "name": "scopes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "disabled_scopes": {
+          "name": "disabled_scopes",
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
@@ -2613,6 +2620,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "rescan_of": {
+          "name": "rescan_of",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

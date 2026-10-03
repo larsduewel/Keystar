@@ -51,6 +51,21 @@ export const admin: typeof en = {
     },
     enable: "Aktivieren",
     disable: "Deaktivieren",
+    access: {
+      approved: (name: string) => `${name} als Mitglied freigegeben`,
+      disabled: (name: string) => `${name} deaktiviert`,
+      enabled: (name: string) => `${name} wieder aktiviert`,
+      failed: (name: string) => `${name} konnte nicht geändert werden`,
+      errors: {
+        self: "Dein eigenes Konto kannst du hier nicht ändern.",
+        forbidden: "Du darfst keine Benutzer mehr verwalten.",
+        notFound: "Dieses Konto existiert nicht mehr.",
+        higherRole: "Nur eine höhere Rolle kann dieses Konto ändern.",
+        unassignable: "Diese Rolle kannst du nicht vergeben.",
+        changed: "Dieses Konto wartet nicht mehr auf Freigabe. Die Seite zeigt jetzt seine aktuelle Rolle.",
+        unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+      },
+    },
     noAction: {
       self: "Du kannst dein eigenes Konto nicht deaktivieren",
       higher: "Nur eine höhere Rolle kann dieses Konto ändern",
@@ -178,6 +193,19 @@ export const admin: typeof en = {
     disabled: "Deaktiviert",
     errorCount: (count: number) => `Fehler ×${n(count)}`,
     runNow: "Jetzt ausführen",
+    toast: {
+      queued: (job: string) => `${job} eingeplant`,
+      allQueued: "Alle Sync-Jobs eingeplant",
+      queuedDetail: "Startet, sobald ein Worker frei ist, meist innerhalb von Sekunden.",
+      paused: "Synchronisierung pausiert",
+      resumed: "Synchronisierung fortgesetzt",
+      failed: "Die Synchronisierung konnte nicht geändert werden",
+      errors: {
+        forbidden: "Dafür hast du keine Berechtigung mehr.",
+        notFound: "Dieser Job existiert nicht mehr oder ist deaktiviert. Die Seite zeigt jetzt die aktuellen Jobs.",
+        unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+      },
+    },
     sections: {
       corporation: (name: string | null) => (name ? `Corporation · ${name}` : "Corporation"),
       characters: "Charaktere",

@@ -36,4 +36,14 @@ export const shell: typeof en = {
     settings: "Einstellungen",
     audit: "Audit-Log",
   },
+  alerts: {
+    button: "Alarme",
+    menu: "Alarm-Einstellungen",
+    desktop: {
+      label: "Desktop-Benachrichtigungen",
+      hint: "Alarme als System-Benachrichtigung zeigen, solange Keystar im Hintergrund ist",
+      blocked: "Für diese Seite in den Browser-Einstellungen blockiert",
+      unsupported: "In diesem Browser hier nicht verfügbar (HTTPS nötig)",
+    },
+  },
 };

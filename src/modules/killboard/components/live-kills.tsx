@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, BellOff } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useState } from "react";
+import { useLiveFeed } from "@/components/shell/live-feed";
 import { Portrait, ShipRender } from "@/components/ui/eve-image";
 import { SecurityStatus } from "@/components/ui/security";
 import { Toast, ToastViewport } from "@/components/ui/toast";
+import { typeRender } from "@/core/eve/images";
 import { useI18n } from "@/i18n/client";
 import { KILL_COLOR, LOSS_COLOR } from "../colors";
 import { zkillKill } from "../links";
@@ -14,159 +15,50 @@ import type { LiveEvent } from "../queries";
 const POLL_MS = 15_000;
 const TOAST_MS = 30_000;
 const MAX_VISIBLE = 3;
-/** After a tab was hidden this long, start fresh instead of replaying what was missed. */
-const RESUME_GAP_MS = 2 * 60_000;
-const MUTE_KEY = "ks_kill_alerts";
-/** Killmails some tab of this browser already announced (id → when), shared through localStorage. */
-const CLAIMS_KEY = "ks_kill_alerts_shown";
-const CLAIMS_TTL_MS = 6 * 3600_000;
-const CLAIMS_LOCK = "ks-kill-alerts-claims";
 
 /**
- * Claims killmails for this tab and returns the ones it may announce: across
- * tabs only the first claim wins. Read-check-write runs under a Web Lock, so two
- * tabs polling at the same moment can't both take the same killmail. Without
- * storage (blocked) every tab announces on its own.
- */
-async function claimForThisTab(ids: number[]): Promise<number[]> {
-  const claim = () => {
-    let shown: Record<string, number> = {};
-    try {
-      const parsed: unknown = JSON.parse(localStorage.getItem(CLAIMS_KEY) ?? "{}");
-      if (parsed && typeof parsed === "object") shown = parsed as Record<string, number>;
-    } catch {
-      return ids;
-    }
-    const now = Date.now();
-    for (const [id, at] of Object.entries(shown)) if (!(now - at < CLAIMS_TTL_MS)) delete shown[id];
-    const mine = ids.filter((id) => !(String(id) in shown));
-    for (const id of mine) shown[id] = now;
-    try {
-      localStorage.setItem(CLAIMS_KEY, JSON.stringify(shown));
-    } catch {
-      // Storage full or blocked: announce anyway.
-    }
-    return mine;
-  };
-  return typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request(CLAIMS_LOCK, claim) : claim();
-}
-
-/** Per-browser mute switch in localStorage; other tabs follow through the storage event. */
-const muteListeners = new Set<() => void>();
-let mutedFallback = false;
-
-function readMuted(): boolean {
-  try {
-    return localStorage.getItem(MUTE_KEY) === "off";
-  } catch {
-    return mutedFallback;
-  }
-}
-
-function subscribeMuted(listener: () => void) {
-  muteListeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => {
-    muteListeners.delete(listener);
-    window.removeEventListener("storage", listener);
-  };
-}
-
-function writeMuted(muted: boolean) {
-  mutedFallback = muted;
-  try {
-    if (muted) localStorage.setItem(MUTE_KEY, "off");
-    else localStorage.removeItem(MUTE_KEY);
-  } catch {
-    // Storage blocked: the choice lasts for this page only (mutedFallback).
-  }
-  for (const listener of muteListeners) listener();
-}
-
-/**
- * Live kill and loss notifications for the top bar: a mute toggle, plus toasts
- * for killmails the worker picks up from zKillboard's live feed. Each toast
- * stays 30 seconds (paused while hovered) and opens the killmail on zKillboard.
+ * Live kill and loss notifications: toasts for killmails the worker picks up
+ * from zKillboard's live feed, or desktop notifications while the user isn't
+ * looking at Keystar. Each toast stays 30 seconds (paused while hovered) and
+ * opens the killmail on zKillboard. Registered as `killboard.kills` in src/modules/alerts.ts.
  */
 export function LiveKills() {
-  const { t } = useI18n();
+  const { t, f } = useI18n();
   const l = t.killboard.live;
-  const muted = useSyncExternalStore(subscribeMuted, readMuted, () => false);
   const [toasts, setToasts] = useState<LiveEvent[]>([]);
-  const seen = useRef(new Set<number>());
 
-  useEffect(() => {
-    if (muted) return;
-    let cursor: string | null = null;
-    let hiddenAt: number | null = null;
-    let timer: ReturnType<typeof setTimeout>;
-    let cancelled = false;
-
-    const tick = async () => {
-      if (cancelled) return;
-      if (document.visibilityState !== "visible") {
-        hiddenAt ??= Date.now();
-      } else {
-        if (hiddenAt !== null && Date.now() - hiddenAt > RESUME_GAP_MS) cursor = null;
-        hiddenAt = null;
-        try {
-          const res = await fetch(cursor ? `/api/killboard/live?since=${encodeURIComponent(cursor)}` : "/api/killboard/live", {
-            cache: "no-store",
-          });
-          if (res.ok) {
-            const body = (await res.json()) as { events: LiveEvent[]; cursor: string };
-            const unseen = body.events.filter((e) => !seen.current.has(e.killmailId));
-            for (const e of unseen) seen.current.add(e.killmailId);
-            // One browser shows each killmail once, in whichever tab claims it first.
-            const mine = new Set(unseen.length ? await claimForThisTab(unseen.map((e) => e.killmailId)) : []);
-            const fresh = unseen.filter((e) => mine.has(e.killmailId));
-            if (!cancelled && fresh.length) setToasts((list) => [...list, ...fresh]);
-            cursor = body.cursor;
-          }
-        } catch {
-          // Network hiccup: try again on the next tick.
-        }
-      }
-      if (!cancelled) timer = setTimeout(tick, POLL_MS);
-    };
-    timer = setTimeout(tick, 0);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [muted]);
+  useLiveFeed<LiveEvent>({
+    url: "/api/killboard/live",
+    pollMs: POLL_MS,
+    claimsKey: "ks_kill_alerts_shown",
+    idOf: (e) => e.killmailId,
+    onToasts: (events) => setToasts((list) => [...list, ...events]),
+    native: (e) => {
+      const ship = e.shipName ?? t.killboard.fallback.type(e.shipTypeId);
+      const victim = e.victimId ? (e.victimName ?? t.killboard.fallback.character(e.victimId)) : l.noPilot;
+      const place = (e.systemName ?? t.killboard.fallback.system) + (e.regionName ? ` · ${e.regionName}` : "");
+      return {
+        title: `${l.kind[e.kind]} · ${f.isk(e.value)}`,
+        body: [ship, victim + (e.victimTicker ? ` [${e.victimTicker}]` : ""), place].join("\n"),
+        icon: typeRender(e.shipTypeId, 128),
+        tag: `killmail-${e.killmailId}`,
+        onClick: () => window.open(zkillKill(e.killmailId), "_blank", "noopener"),
+      };
+    },
+  });
 
   const dismiss = useCallback((id: number) => setToasts((list) => list.filter((e) => e.killmailId !== id)), []);
 
-  const toggle = () => {
-    const next = !muted;
-    writeMuted(next);
-    if (next) setToasts([]);
-  };
-
-  const Icon = muted ? BellOff : Bell;
   return (
-    <>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-pressed={!muted}
-        title={muted ? l.toggle.enable : l.toggle.disable}
-        className="flex h-8 items-center gap-1.5 rounded-md border border-surface-contrast/[0.08] bg-surface-contrast/[0.03] px-2.5 text-xs text-ink-3 transition hover:text-ink"
-      >
-        <Icon className={muted ? "size-3.5" : "size-3.5 text-accent"} aria-hidden />
-        <span className="sr-only sm:not-sr-only">{muted ? l.toggle.off : l.toggle.on}</span>
-      </button>
-      <ToastViewport label={l.region}>
-        {/* Newest on top; the rest wait until one closes. */}
-        {toasts
-          .slice(0, MAX_VISIBLE)
-          .reverse()
-          .map((e) => (
-            <KillToast key={e.killmailId} event={e} onDismiss={dismiss} />
-          ))}
-      </ToastViewport>
-    </>
+    <ToastViewport label={l.region}>
+      {/* Newest on top; the rest wait until one closes. */}
+      {toasts
+        .slice(0, MAX_VISIBLE)
+        .reverse()
+        .map((e) => (
+          <KillToast key={e.killmailId} event={e} onDismiss={dismiss} />
+        ))}
+    </ToastViewport>
   );
 }
 

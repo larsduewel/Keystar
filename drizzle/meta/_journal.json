@@ -68,8 +68,15 @@
     {
       "idx": 9,
       "version": "7",
-      "when": 1791054225209,
-      "tag": "0009_remove-intel-rescan",
+      "when": 1791062739110,
+      "tag": "0009_esi_disabled_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791067337759,
+      "tag": "0010_remove-intel-rescan",
       "breakpoints": true
     }
   ]

@@ -43,11 +43,67 @@ export const characters: typeof en = {
       "nicht mehr, obwohl der Charakter es vorher hatte: EVE ersetzt bei jedem Login die Scopes eines Charakters. Importierte Daten bleiben erhalten.",
     action: "Wieder einschalten",
   },
+  disabledScopes: {
+    title: (what: string) => `In Keystar abgeschaltet: ${what}`,
+    body: "Keystar nutzt diesen Zugriff nicht mehr, aber der EVE-Token des Charakters enthält ihn noch. Autorisiere den Charakter neu, um ihn endgültig aus dem Token zu entfernen.",
+    pickCharacter: (name: string) => `Bitte achte darauf, dich beim EVE-Login mit ${name} anzumelden.`,
+    action: "Neu autorisieren",
+  },
+  toast: {
+    mainSet: (name: string) => `${name} ist jetzt dein Hauptcharakter`,
+    syncQueued: (name: string) => `Syncs für ${name} eingeplant`,
+    syncQueuedDetail: "Der Worker startet sie innerhalb einer Minute.",
+    removed: (name: string) => `${name} entfernt`,
+    removedDetail: "Der Token wurde gelöscht und bei CCP widerrufen.",
+    failed: (name: string) => `${name} konnte nicht geändert werden`,
+    errors: {
+      notOwned: "Dieser Charakter ist nicht mehr mit deinem Konto verknüpft.",
+      onlyCharacter: "Du kannst deinen einzigen Charakter nicht entfernen.",
+      unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+    },
+  },
+  scopeSwitch: {
+    off: (what: string, name: string) => `${what} für ${name} abgeschaltet`,
+    offDetail: "Keystar nutzt ihn ab sofort nicht mehr. Autorisiere den Charakter unter „Meine Charaktere“ neu, um ihn auch aus dem EVE-Token zu entfernen.",
+    on: (what: string, name: string) => `${what} für ${name} eingeschaltet`,
+    failed: (what: string, name: string) => `${what} für ${name} konnte nicht geändert werden`,
+    errors: {
+      forbidden: "Du darfst diesen Zugriff nicht ändern.",
+      notOwned: "Dieser Charakter ist nicht mehr mit deinem Konto verknüpft.",
+      unknownScope: "Keystar kennt diesen Zugriff nicht.",
+      notHeld: "Der EVE-Token des Charakters enthält ihn nicht mehr oder wurde widerrufen. Schalte ihn über den EVE-Login wieder ein.",
+      active: "Beende zuerst das Flotten-Tracking für diesen Charakter.",
+      unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+    },
+  },
+  sso: {
+    linked: (name: string) => `${name} verknüpft`,
+    linkedDetail: "Die Hintergrund-Syncs starten innerhalb einer Minute.",
+    reauthorized: (name: string) => `${name} neu autorisiert`,
+    corpGranted: (name: string) => `Corporation-Zugriff für ${name} erteilt`,
+    scopesChanged: (name: string) => `Zugriff für ${name} aktualisiert`,
+    added: (what: string) => `Eingeschaltet: ${what}`,
+    removed: (what: string) => `Abgeschaltet: ${what}`,
+    character: "den Charakter",
+    failed: "Der Charakter konnte nicht verknüpft werden",
+    wrongCharacter: (picked: string) => `Du hast dich mit ${picked} angemeldet`,
+    wrongCharacterDetail: (expected: string) =>
+      `Es wurde nichts geändert. Autorisiere erneut und wähle beim EVE-Login ${expected}.`,
+    errors: {
+      denied: "Der EVE-Login wurde abgebrochen.",
+      invalidState: "Der EVE-Login ist abgelaufen oder wurde doppelt geöffnet. Bitte versuche es noch einmal.",
+      signInFirst: "Melde dich an, bevor du einen weiteren Charakter verknüpfst.",
+      linkedElsewhere: "Dieser Charakter ist bereits mit einem anderen Keystar-Konto verknüpft.",
+      disabled: "Dieses Konto wurde von einem Administrator deaktiviert.",
+      wrongCharacter: "Der EVE-Login hat einen anderen Charakter verwendet als den, den du neu autorisieren wolltest. Es wurde nichts geändert.",
+      failed: "EVE hat den Login nicht bestätigt. Bitte versuche es gleich noch einmal.",
+    },
+  },
   corporationAccess: {
     title: "Corporation-Zugriff",
     subtitle: "Für Directors, Accountants und Station Manager",
     intro:
-      "Corporation-Daten wie Mond-Observer stammen aus dem Token eines Mitglieds mit der passenden Rolle im Spiel. Verknüpfe diesen Charakter mit den zusätzlichen Corporation-Scopes:",
+      "Corporation-Daten wie Mondbohrer-Ledger stammen aus dem Token eines Mitglieds mit der passenden Rolle im Spiel. Verknüpfe diesen Charakter mit den zusätzlichen Corporation-Scopes:",
     link: "Mit Corporation-Zugriff verknüpfen",
   },
   privacy: {
@@ -60,6 +116,7 @@ export const characters: typeof en = {
     wallet:
       "Wallet-Zugriff ist optional und gilt pro Charakter (Mining-GuV → Einstellungen). Importierte Wallet-Transaktionen siehst nur du, und sie werden gelöscht, wenn du den Charakter entfernst.",
     mail: "Mail-Zugriff ist optional und gilt pro Charakter (EVE-Mail). Importierte Mails siehst nur du, und sie werden gelöscht, wenn du den Charakter entfernst.",
-    revoke: "Du kannst den Zugriff jederzeit auf der EVE-Online-Website unter „Third-Party Applications“ widerrufen.",
+    revoke:
+      "Optionalen Zugriff kannst du hier in Keystar jederzeit abschalten; eine neue Autorisierung entfernt ihn dann aus dem Token. Um Keystar ganz zu widerrufen, nutze „Third-Party Applications“ auf der EVE-Online-Website.",
   },
 };

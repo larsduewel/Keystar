@@ -13,6 +13,7 @@ import { FolderPanel, MailboxPanel } from "@/modules/social/components/mail-side
 import { parseMailParams } from "@/modules/social/filters";
 import { SOCIAL_PERMISSIONS } from "@/modules/social/module";
 import { getFolderCounts, getLabelMap, getMail, getMailboxes, getMailList, getRecipientNames, getUnreadTotal } from "@/modules/social/queries";
+import { setOptionalScope } from "@/app/(app)/characters/actions";
 import { deleteMailData } from "./actions";
 
 export async function generateMetadata() {
@@ -97,9 +98,11 @@ export default async function MailPage({ searchParams }: PageProps<"/mail">) {
             unreadTotal={unreadTotal}
             params={params}
             t={s}
+            switchText={t.characters.scopeSwitch}
             f={f}
             demo={env().KEYSTAR_DEMO_MODE}
             deleteAction={deleteMailData}
+            switchAction={setOptionalScope}
           />
           {anyMail && <FolderPanel counts={counts} params={params} t={s} />}
         </aside>

@@ -1,8 +1,9 @@
 import { getCurrentUser } from "@/core/auth/dal";
+import { liveCursorNow, parseLiveCursor } from "@/core/live-cursor";
 import { getSetting } from "@/core/settings";
 import { getI18n } from "@/i18n/server";
 import { KILLBOARD_PERMISSIONS } from "@/modules/killboard/module";
-import { getLiveEvents, liveCursorNow, parseLiveCursor } from "@/modules/killboard/queries";
+import { getLiveEvents } from "@/modules/killboard/queries";
 
 /**
  * New kills and losses for the live notifications. Without a valid `since`

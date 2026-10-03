@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { Msg } from "@/i18n/messages";
 import type { PermissionDef } from "@/core/rbac/permissions";
+import type { Settings } from "@/core/settings";
 
 /**
  * The contract every Keystar feature module implements. A module declares
@@ -29,6 +30,10 @@ export interface ScopeRequirement {
   optional?: boolean;
   /** For an optional scope: the page where users turn it on or off per character. */
   manageHref?: string;
+  /** For an optional scope: the permission needed to turn it on or off (checked by `setOptionalScope`). */
+  managePermission?: string;
+  /** For an optional scope: a short name for toasts and notes ("Fleet access"). */
+  label?: Msg;
 }
 
 export interface NavItem {
@@ -55,6 +60,24 @@ export interface NavSection {
   items: NavItem[];
 }
 
+/**
+ * A live alert the module offers (toasts in Keystar, desktop notifications in
+ * the background). The top bar's Alerts menu gets a switch for it; the feed
+ * itself is a client component registered under the same id in
+ * src/modules/alerts.ts. See "Live alerts" in docs/modules.md.
+ */
+export interface AlertDef {
+  /** `<module>.<name>`; also the key of the feed in src/modules/alerts.ts. */
+  id: string;
+  label: Msg;
+  /** One line under the switch: when the alert fires. */
+  hint: Msg;
+  /** Offered to users with any of these permissions (omit = everyone). */
+  anyPermission?: string[];
+  /** Further condition on the app settings, e.g. a home corporation being set. */
+  available?: (settings: Settings) => boolean;
+}
+
 export interface KeystarModule {
   id: string;
   name: string;
@@ -62,4 +85,5 @@ export interface KeystarModule {
   scopes: ScopeRequirement[];
   permissions: PermissionDef[];
   nav: NavSection[];
+  alerts?: AlertDef[];
 }

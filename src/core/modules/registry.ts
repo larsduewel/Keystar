@@ -7,8 +7,10 @@ import { socialModule } from "@/modules/social/module";
 import { tradeModule } from "@/modules/trade/module";
 import { walletModule } from "@/modules/wallet/module";
 import type { PermissionDef } from "@/core/rbac/permissions";
+import type { Settings } from "@/core/settings";
+import type { Messages } from "@/i18n/messages";
 import { coreModule } from "./core-module";
-import type { KeystarModule, NavSection, ScopeRequirement } from "./types";
+import type { AlertDef, KeystarModule, NavSection, ScopeRequirement } from "./types";
 
 /**
  * Every enabled module. To add a feature (skills, assets, wallets …) create
@@ -60,6 +62,16 @@ export function applicationScopes(): string[] {
   return [...new Set(allScopeRequirements().map((s) => s.scope))].sort();
 }
 
+/** The permission needed to switch an opt-in scope on or off (`managePermission`), if it declares one. */
+export function optionalScopePermission(scope: string): string | undefined {
+  return allScopeRequirements().find((s) => s.optional && s.scope === scope)?.managePermission;
+}
+
+/** Short names of the opt-in scopes ("Fleet access"), falling back to the scope id. */
+export function optionalScopeLabels(t: Messages): Record<string, string> {
+  return Object.fromEntries(allScopeRequirements().flatMap((s) => (s.optional ? [[s.scope, s.label?.(t) ?? s.scope]] : [])));
+}
+
 export const LOGIN_INTENTS = ["login", "join", "link", "link-corp"] as const;
 export type LoginIntent = (typeof LOGIN_INTENTS)[number];
 
@@ -85,11 +97,12 @@ export function parseOptionalScopes(value: string | null | undefined): string[] 
  * SSO link that re-authorises a character without losing what it already has:
  * EVE replaces a token's scopes on every login, so corporation and opt-in
  * scopes the character holds are requested again (`add`/`remove` change the
- * opt-in set).
+ * opt-in set). With `characterId`, the callback refuses a login with any other
+ * character, whose token would otherwise get this character's scope set.
  */
 export function reauthorizeHref(
   granted: readonly string[],
-  opts: { add?: readonly string[]; remove?: readonly string[]; returnTo?: string } = {},
+  opts: { add?: readonly string[]; remove?: readonly string[]; returnTo?: string; characterId?: number } = {},
 ): string {
   const member = new Set(characterScopes());
   const corpOnly = corporationScopes().filter((s) => !member.has(s));
@@ -101,6 +114,7 @@ export function reauthorizeHref(
   if (extra.length) params.set("with", extra.join(","));
   if (dropped.length) params.set("drop", dropped.join(","));
   if (opts.returnTo) params.set("returnTo", opts.returnTo);
+  if (opts.characterId) params.set("character", String(opts.characterId));
   return `/auth/login?${params}`;
 }
 
@@ -116,4 +130,11 @@ export function navSections(): NavSection[] {
     }
   }
   return [...byId.values()].sort((a, b) => a.order - b.order);
+}
+
+/** Live alerts a user may switch on: their permissions and the app settings allow them. */
+export function availableAlerts(user: { can: (permission: string) => boolean }, settings: Settings): AlertDef[] {
+  return MODULES.flatMap((m) => m.alerts ?? []).filter(
+    (a) => (!a.anyPermission || a.anyPermission.some((p) => user.can(p))) && (!a.available || a.available(settings)),
+  );
 }

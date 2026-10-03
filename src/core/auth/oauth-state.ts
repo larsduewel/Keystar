@@ -12,6 +12,8 @@ const stateSchema = z.object({
   createdAt: z.number(),
   /** Opt-in scopes the user asked to remove; losing them is expected, not a surprise. */
   optionalRemoved: z.array(z.string()).max(20).default([]),
+  /** Re-authorising one character: a login with any other character is refused (`?character=`). */
+  expectedCharacterId: z.number().int().positive().optional(),
 });
 
 export type OAuthState = z.infer<typeof stateSchema>;

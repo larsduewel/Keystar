@@ -28,6 +28,7 @@ import {
   getSystemBreakdown,
   getTypeBreakdown,
   canViewCorpMining,
+  hasObservers,
 } from "@/modules/mining/queries";
 
 export async function generateMetadata() {
@@ -41,7 +42,7 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
   const m = t.mining.overview;
   const { filters, scope, valuation, user } = ctx;
 
-  const [summary, daily, members, types, systems, options, coverage] = await Promise.all([
+  const [summary, daily, members, types, systems, options, coverage, observersOnRecord] = await Promise.all([
     getMiningSummary(filters, scope, valuation),
     getDailySeries(filters, scope, valuation),
     getMemberBreakdown(filters, scope, valuation),
@@ -49,6 +50,7 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
     getSystemBreakdown(filters, scope, valuation),
     getFilterOptions(scope),
     getCoverage(scope),
+    hasObservers(ctx.homeCorporationId),
   ]);
 
   const { current, previous } = summary;
@@ -91,7 +93,14 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
           }
         />
 
-        <MiningFilterBar filters={filters} options={options} presets={ctx.presets} showView={canSwitchView} />
+        <MiningFilterBar
+          filters={filters}
+          options={options}
+          presets={ctx.presets}
+          showView={canSwitchView}
+          // Without moon drills every source shows the same rows; keep it while a URL still selects one.
+          showSource={observersOnRecord || filters.source !== "all"}
+        />
 
         {!hasAnyData ? (
           <Glass>

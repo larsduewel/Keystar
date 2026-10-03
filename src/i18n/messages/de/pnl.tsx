@@ -259,6 +259,16 @@ export const pnl: typeof en = {
       demo: "Im Demo-Modus nicht verfügbar",
       deleteHistory: "Verlauf löschen",
       deleteHistoryHint: "Die importierten Wallet-Transaktionen dieses Charakters löschen",
+      toast: {
+        deleted: (name: string) => `Wallet-Verlauf von ${name} gelöscht`,
+        failed: (name: string) => `Der Wallet-Verlauf von ${name} konnte nicht gelöscht werden`,
+        errors: {
+          forbidden: "Du hast keinen Zugriff mehr auf die Mining-GuV.",
+          notOwned: "Dieser Charakter ist nicht mehr mit deinem Konto verknüpft.",
+          stillImporting: "Beende zuerst den Wallet-Import für diesen Charakter.",
+          unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+        },
+      },
       notes: {
         enable: () => (
           <>
@@ -268,7 +278,7 @@ export const pnl: typeof en = {
         ),
         autoCount:
           "„Erkannte Käufe automatisch zählen“ ist standardmäßig aus: Als Mining-Kosten erkannte Käufe werden nur vorgeschlagen, bis du sie übernimmst. Schalte es für Charaktere ein, die ausschließlich fürs Mining einkaufen; einzelne Käufe kannst du trotzdem ausschließen.",
-        stop: "Beenden entfernt den Scope wieder über den EVE-Login. Der importierte Verlauf bleibt, bis du ihn löschst.",
+        stop: "Beenden schaltet den Wallet-Import in Keystar sofort ab; autorisiere den Charakter unter „Meine Charaktere“ neu, um den Scope auch aus seinem EVE-Token zu entfernen. Der importierte Verlauf bleibt, bis du ihn löschst.",
       },
     },
     income: {

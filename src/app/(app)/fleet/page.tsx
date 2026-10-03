@@ -1,6 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { KeyRound, Radar } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
+import { ActionForm } from "@/components/ui/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
@@ -16,6 +17,7 @@ import { LiveFleet } from "@/modules/fleet/components/live-fleet";
 import { FLEET_SCOPE } from "@/modules/fleet/logic";
 import { FLEET_PERMISSIONS } from "@/modules/fleet/module";
 import { getFleetMembers, getLiveFleets, getPastFleets, getTrackers } from "@/modules/fleet/queries";
+import { setOptionalScope } from "@/app/(app)/characters/actions";
 import { startFleetTracking, stopFleetTracking } from "./actions";
 
 /** Matches the worker's poll interval (FLEET_POLL_SECONDS in the fleet jobs). */
@@ -41,7 +43,12 @@ export default async function FleetPage() {
     canTrack ? getTrackers(user.characterIds) : [],
     canTrack && user.characterIds.length
       ? getDb()
-          .select({ characterId: esiTokens.characterId, scopes: esiTokens.scopes })
+          .select({
+            characterId: esiTokens.characterId,
+            scopes: esiTokens.scopes,
+            disabledScopes: esiTokens.disabledScopes,
+            status: esiTokens.status,
+          })
           .from(esiTokens)
           .where(inArray(esiTokens.characterId, user.characterIds))
       : [],
@@ -51,7 +58,9 @@ export default async function FleetPage() {
     getFleetMembers(past.map((p) => p.fleetId)),
   ]);
   const trackerOf = new Map(trackers.map((tr) => [tr.characterId, tr]));
-  const scopesOf = new Map(tokens.map((tk) => [tk.characterId, tk.scopes]));
+  const tokenOf = new Map(tokens.map((tk) => [tk.characterId, tk]));
+  const scopeLabel = t.fleet.module.scopes.readFleetLabel;
+  const sw = t.characters.scopeSwitch;
   const polling = trackers.some((tr) => tr.status === "tracking" || tr.status === "not_boss");
 
   return (
@@ -72,8 +81,12 @@ export default async function FleetPage() {
             <ul className="divide-y divide-surface-contrast/5">
               {user.characters.map((c) => {
                 const tracker = trackerOf.get(c.characterId);
-                const granted = scopesOf.get(c.characterId) ?? [];
+                const granted = tokenOf.get(c.characterId)?.scopes ?? [];
                 const hasScope = granted.includes(FLEET_SCOPE);
+                // Switched off in Keystar but still in a valid token: switching back on needs no EVE login.
+                const token = tokenOf.get(c.characterId);
+                const switchedOff = token?.status === "active" && token.disabledScopes.includes(FLEET_SCOPE);
+                const tt = tf.tracking.toast;
                 const active = tracker?.status === "tracking" || tracker?.status === "not_boss";
                 const status = !tracker ? "idle" : tracker.status === "tracking" && !tracker.checkedAt ? "waiting" : tracker.status;
                 const tone =
@@ -82,14 +95,25 @@ export default async function FleetPage() {
                   <li key={c.characterId} className="flex flex-wrap items-center gap-3 py-2.5">
                     <Portrait id={c.characterId} size={28} />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.name}</span>
-                    {!hasScope ? (
+                    {!hasScope && switchedOff ? (
+                      <ActionForm
+                        action={setOptionalScope.bind(null, c.characterId, FLEET_SCOPE, true)}
+                        success={sw.on(scopeLabel, c.name)}
+                        failed={sw.failed(scopeLabel, c.name)}
+                        errors={sw.errors}
+                      >
+                        <Button type="submit" size="sm" variant="primary" title={tf.tracking.enableAgainHint}>
+                          <KeyRound className="size-3.5" aria-hidden /> {tf.tracking.enable}
+                        </Button>
+                      </ActionForm>
+                    ) : !hasScope ? (
                       demo ? (
                         <Button size="sm" variant="ghost" disabled title={tf.tracking.demo}>
                           <KeyRound className="size-3.5" aria-hidden /> {tf.tracking.enable}
                         </Button>
                       ) : (
                         <ButtonLink
-                          href={reauthorizeHref(granted, { add: [FLEET_SCOPE], returnTo: RETURN_TO })}
+                          href={reauthorizeHref(granted, { add: [FLEET_SCOPE], returnTo: RETURN_TO, characterId: c.characterId })}
                           size="sm"
                           variant="primary"
                           title={tf.tracking.enableHint}
@@ -104,28 +128,40 @@ export default async function FleetPage() {
                           <span className="text-xs text-ink-3">{tf.tracking.checked(f.relativeTime(tracker.checkedAt, now))}</span>
                         )}
                         {active ? (
-                          <form action={stopFleetTracking.bind(null, c.characterId)}>
-                            <Button size="sm" variant="ghost">
+                          <ActionForm
+                            action={stopFleetTracking.bind(null, c.characterId)}
+                            success={tt.stopped(c.name)}
+                            failed={tt.failed(c.name)}
+                            errors={tt.errors}
+                          >
+                            <Button type="submit" size="sm" variant="ghost">
                               {tf.tracking.stop}
                             </Button>
-                          </form>
+                          </ActionForm>
                         ) : (
                           <>
-                            <form action={startFleetTracking.bind(null, c.characterId)}>
-                              <Button size="sm" variant="primary">
+                            <ActionForm
+                              action={startFleetTracking.bind(null, c.characterId)}
+                              success={tt.started(c.name)}
+                              successDetail={tt.startedDetail}
+                              failed={tt.failed(c.name)}
+                              errors={tt.errors}
+                            >
+                              <Button type="submit" size="sm" variant="primary">
                                 {tf.tracking.start}
                               </Button>
-                            </form>
-                            {!demo && (
-                              <ButtonLink
-                                href={reauthorizeHref(granted, { remove: [FLEET_SCOPE], returnTo: RETURN_TO })}
-                                size="sm"
-                                variant="ghost"
-                                title={tf.tracking.revokeHint}
-                              >
+                            </ActionForm>
+                            <ActionForm
+                              action={setOptionalScope.bind(null, c.characterId, FLEET_SCOPE, false)}
+                              success={sw.off(scopeLabel, c.name)}
+                              successDetail={sw.offDetail}
+                              failed={sw.failed(scopeLabel, c.name)}
+                              errors={sw.errors}
+                            >
+                              <Button type="submit" size="sm" variant="ghost" title={tf.tracking.revokeHint}>
                                 {tf.tracking.revoke}
-                              </ButtonLink>
-                            )}
+                              </Button>
+                            </ActionForm>
                           </>
                         )}
                       </>

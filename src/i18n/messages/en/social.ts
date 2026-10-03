@@ -8,6 +8,7 @@ export const social = {
   module: {
     navSection: "Social",
     nav: { mail: "EVE Mail" },
+    alerts: { mail: { label: "EVE mail", hint: "When one of your characters with mail access receives mail" } },
     permissionGroup: "Social",
     permissions: {
       mail: {
@@ -17,6 +18,7 @@ export const social = {
     },
     scopes: {
       readMail: "Reads your EVE mail, labels and mailing lists so you can read them in Keystar (opt-in, read-only).",
+      readMailLabel: "Mail import",
     },
     jobs: { mail: "EVE mail" },
   },
@@ -42,6 +44,17 @@ export const social = {
     kept: (value: number) => `${count(value, "mail", "mails")} kept from before`,
     deleteStored: "Delete stored mail",
     deleteStoredHint: "Deletes this character's mail from Keystar. Mail in game is not touched.",
+    stopHint: "Keystar stops importing this character's mail right away, without an EVE login.",
+    toast: {
+      deleted: (name: string) => `Stored mail of ${name} deleted`,
+      failed: (name: string) => `Couldn't delete the mail of ${name}`,
+      errors: {
+        forbidden: "You no longer have access to EVE mail in Keystar.",
+        notOwned: "That character isn't linked to your account any more.",
+        stillImporting: "Stop mail import for this character first.",
+        unknown: "Something went wrong. Reload the page and try again.",
+      },
+    },
     error: (message: string) => `Last import failed: ${message}`,
     noCharacters: "Link a character to read its mail.",
   },
@@ -140,5 +153,19 @@ export const social = {
     folder: { title: "No mail here", body: "Nothing in this folder yet." },
     search: { title: "No matches", body: "No mail matches your search." },
     importing: { title: "Importing mail", body: "The first import is running. Mail shows up here within a few minutes." },
+  },
+  /** Live notifications for new mail (top bar). */
+  live: {
+    api: { unauthorized: "Not signed in", forbidden: "Forbidden" },
+    region: "New mail notifications",
+    title: "New mail",
+    from: (name: string) => `From ${name}`,
+    to: (name: string) => `To ${name}`,
+    unknownSender: "Unknown sender",
+    yourCharacter: "your character",
+    noSubject: "(no subject)",
+    kind: { corp: "Corporation", alliance: "Alliance", list: "Mailing list" } satisfies Record<"corp" | "alliance" | "list", string>,
+    open: "Open this mail",
+    dismiss: "Dismiss",
   },
 };

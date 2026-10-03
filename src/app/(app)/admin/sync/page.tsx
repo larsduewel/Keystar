@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { ChevronRight, Pause, Play, RefreshCw, Server } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { StatusBadge } from "@/components/ui/badge";
+import { ActionForm } from "@/components/ui/action-form";
 import { Button } from "@/components/ui/button";
 import { Portrait } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
@@ -121,19 +122,30 @@ export default async function SyncPage() {
         actions={
           <>
             {canPause && (
-              <form action={setSyncPaused.bind(null, !paused)}>
+              <ActionForm
+                action={setSyncPaused.bind(null, !paused)}
+                success={paused ? ts.toast.resumed : ts.toast.paused}
+                failed={ts.toast.failed}
+                errors={ts.toast.errors}
+              >
                 <Button size="sm" type="submit">
                   {paused ? <Play className="size-4" aria-hidden /> : <Pause className="size-4" aria-hidden />}
                   {paused ? ts.resume : ts.pause}
                 </Button>
-              </form>
+              </ActionForm>
             )}
             {canTrigger && (
-              <form action={triggerAllSyncJobs}>
+              <ActionForm
+                action={triggerAllSyncJobs}
+                success={ts.toast.allQueued}
+                successDetail={ts.toast.queuedDetail}
+                failed={ts.toast.failed}
+                errors={ts.toast.errors}
+              >
                 <Button size="sm" type="submit" variant="primary">
                   <RefreshCw className="size-4" aria-hidden /> {ts.runAll}
                 </Button>
-              </form>
+              </ActionForm>
             )}
           </>
         }
@@ -320,11 +332,17 @@ function JobTable({
               {canTrigger && (
                 <td className="text-right">
                   {r.enabled && (
-                    <form action={triggerSyncJob.bind(null, r.id)}>
-                      <Button size="sm" variant="ghost" type="submit" title={ts.runNow}>
+                    <ActionForm
+                      action={triggerSyncJob.bind(null, r.id)}
+                      success={ts.toast.queued(jobLabel(r.job_key, t))}
+                      successDetail={ts.toast.queuedDetail}
+                      failed={ts.toast.failed}
+                      errors={ts.toast.errors}
+                    >
+                      <Button size="sm" variant="ghost" type="submit" title={ts.runNow} aria-label={ts.runNow}>
                         <RefreshCw className="size-3.5" aria-hidden />
                       </Button>
-                    </form>
+                    </ActionForm>
                   )}
                 </td>
               )}

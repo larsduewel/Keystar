@@ -9,6 +9,7 @@ import { allPermissions } from "@/core/modules/registry";
 import { isRole, type Role } from "@/core/rbac/roles";
 import { getSettings, setSetting, type Settings } from "@/core/settings";
 import { triggerJobs } from "@/core/sync/scheduler";
+import { ok, refused, type ActionResult } from "@/lib/action-result";
 
 export type RoleChangeResult = { ok: true; from: Role } | { ok: false; error: UserAccessErrorCode | "changed" };
 
@@ -52,11 +53,23 @@ export async function updateUserRole(userId: string, role: Role, expected: Role)
   return { ok: true, from };
 }
 
-export async function approveUser(userId: string) {
-  const actor = await assertPermission("users.manage");
-  if (actor.id === userId) throw new Error("You can't approve yourself");
-  const { changed } = await changeUserAccess(actor.id, userId, { role: "member" }, { onlyFromRole: "guest" });
-  if (!changed) return;
+export type UserActionError = UserAccessErrorCode | "changed";
+
+/** Approves a guest; returns a result for the toast (see `ActionForm`). */
+export async function approveUser(userId: string): Promise<ActionResult<UserActionError>> {
+  const actor = await assertPermission("users.manage").catch(() => null);
+  if (!actor) return refused("forbidden");
+  if (actor.id === userId) return refused("self");
+  try {
+    const { changed } = await changeUserAccess(actor.id, userId, { role: "member" }, { onlyFromRole: "guest" });
+    if (!changed) {
+      refresh();
+      return refused("changed");
+    }
+  } catch (err) {
+    if (!(err instanceof UserAccessError)) throw err;
+    return refused(err.code);
+  }
   await audit({
     actorUserId: actor.id,
     actorName: actor.main?.name,
@@ -65,12 +78,19 @@ export async function approveUser(userId: string) {
     targetId: userId,
   });
   revalidatePath("/admin/users");
+  return ok;
 }
 
-export async function setUserDisabled(userId: string, disabled: boolean) {
-  const actor = await assertPermission("users.manage");
-  if (actor.id === userId) throw new Error("You can't disable yourself");
-  await changeUserAccess(actor.id, userId, { isDisabled: disabled });
+export async function setUserDisabled(userId: string, disabled: boolean): Promise<ActionResult<UserActionError>> {
+  const actor = await assertPermission("users.manage").catch(() => null);
+  if (!actor) return refused("forbidden");
+  if (actor.id === userId) return refused("self");
+  try {
+    await changeUserAccess(actor.id, userId, { isDisabled: disabled });
+  } catch (err) {
+    if (!(err instanceof UserAccessError)) throw err;
+    return refused(err.code);
+  }
   await audit({
     actorUserId: actor.id,
     actorName: actor.main?.name,
@@ -79,12 +99,19 @@ export async function setUserDisabled(userId: string, disabled: boolean) {
     targetId: userId,
   });
   revalidatePath("/admin/users");
+  return ok;
 }
 
-export async function triggerSyncJob(jobId: number) {
-  const actor = await assertPermission("sync.trigger");
+export type SyncActionError = "forbidden" | "notFound";
+
+export async function triggerSyncJob(jobId: number): Promise<ActionResult<SyncActionError>> {
+  const actor = await assertPermission("sync.trigger").catch(() => null);
+  if (!actor) return refused("forbidden");
   const [job] = await triggerJobs({ id: jobId });
-  if (!job) throw new Error("Sync job not found or disabled");
+  if (!job) {
+    refresh();
+    return refused("notFound");
+  }
   await audit({
     actorUserId: actor.id,
     actorName: actor.main?.name,
@@ -94,20 +121,25 @@ export async function triggerSyncJob(jobId: number) {
     details: { job: job.jobKey, ownerType: job.ownerType, ownerId: job.ownerId },
   });
   revalidatePath("/admin/sync");
+  return ok;
 }
 
-export async function triggerAllSyncJobs() {
-  const actor = await assertPermission("sync.trigger");
+export async function triggerAllSyncJobs(): Promise<ActionResult<SyncActionError>> {
+  const actor = await assertPermission("sync.trigger").catch(() => null);
+  if (!actor) return refused("forbidden");
   await triggerJobs({});
   await audit({ actorUserId: actor.id, actorName: actor.main?.name, action: "sync.triggered.all" });
   revalidatePath("/admin/sync");
+  return ok;
 }
 
-export async function setSyncPaused(paused: boolean) {
-  const actor = await assertPermission("app.settings.manage");
+export async function setSyncPaused(paused: boolean): Promise<ActionResult<SyncActionError>> {
+  const actor = await assertPermission("app.settings.manage").catch(() => null);
+  if (!actor) return refused("forbidden");
   await setSetting("sync.paused", paused, actor.id);
   await audit({ actorUserId: actor.id, actorName: actor.main?.name, action: paused ? "sync.paused" : "sync.resumed" });
   revalidatePath("/admin/sync");
+  return ok;
 }
 
 export type SettingsSaveResult =

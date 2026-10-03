@@ -28,6 +28,15 @@ export const killboardModule: KeystarModule = {
       defaultMinRole: "director",
     },
   ],
+  alerts: [
+    {
+      id: "killboard.kills",
+      label: (t) => t.killboard.module.alerts.kills.label,
+      hint: (t) => t.killboard.module.alerts.kills.hint,
+      anyPermission: [KILLBOARD_PERMISSIONS.view],
+      available: (settings) => Boolean(settings["corp.homeCorporationId"]),
+    },
+  ],
   nav: [
     {
       id: "combat",

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  allPermissions,
   applicationScopes,
   characterScopes,
   corporationScopes,
   memberScopeRequirements,
+  optionalScopePermission,
   optionalScopes,
   parseOptionalScopes,
   reauthorizeHref,
@@ -81,6 +83,21 @@ describe("optional scopes", () => {
     const off = params(reauthorizeHref([MINING, FLEET_SCOPE, MAIL_SCOPE], { remove: [FLEET_SCOPE] }));
     expect(off.get("with")).toBe(MAIL_SCOPE);
     expect(off.get("drop")).toBe(FLEET_SCOPE);
+  });
+
+  it("names the permission that switches each opt-in scope", () => {
+    const permissions = new Set(allPermissions().map((p) => p.key));
+    for (const scope of optionalScopes()) {
+      const permission = optionalScopePermission(scope);
+      expect(permission, scope).toBeDefined();
+      expect(permissions.has(permission!), scope).toBe(true);
+    }
+    expect(optionalScopePermission(MINING)).toBeUndefined();
+  });
+
+  it("names the character being re-authorised", () => {
+    expect(params(reauthorizeHref([MINING], { characterId: 2120000001 })).get("character")).toBe("2120000001");
+    expect(params(reauthorizeHref([MINING])).get("character")).toBeNull();
   });
 
   it("parses with=/drop= lists down to known opt-in scopes", () => {
