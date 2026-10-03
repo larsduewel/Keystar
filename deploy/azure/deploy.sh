@@ -95,6 +95,7 @@ for i in $(seq 1 60); do
 done
 [[ $ready == true ]] || { echo "Deployment failed health check"; exit 1; }
 printf '%s {\n encode zstd gzip\n reverse_proxy 127.0.0.1:%s\n}\n' "$domain" "$port" >"/etc/caddy/sites/$id.caddy"
+chmod 644 /etc/caddy/sites/*.caddy
 caddy validate --config /etc/caddy/Caddyfile >/dev/null
 systemctl reload caddy
 if [[ $demo == true ]]; then printf %s "$id" >/opt/keystar/active-staging; fi
