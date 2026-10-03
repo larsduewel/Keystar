@@ -58,7 +58,6 @@ export const intelScans = pgTable(
     /** The creator's language: Claude writes the automatic briefing in it. */
     locale: text("locale").$type<Locale>().notNull().default("en"),
     briefingStatus: text("briefing_status").$type<BriefingStatus>().notNull().default("pending"),
-    rescanOf: text("rescan_of"),
   },
   (t) => [
     index("intel_scans_created_idx").on(t.createdAt),

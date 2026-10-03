@@ -17,7 +17,7 @@ describe("zKillboard character endpoints", () => {
       return json(activeStats);
     });
     const res = await zkill.characterStats(90000001);
-    expect(urls).toEqual(["https://zkillboard.com/api/stats/characterID/90000001/"]);
+    expect(urls).toEqual(["https://zkillboard.com/api/stats/characterID/90000001/kills/"]);
     expect(res.kind).toBe("ok");
     expect(res.kind === "ok" && res.stats.dangerRatio).toBe(activeStats.dangerRatio);
   });

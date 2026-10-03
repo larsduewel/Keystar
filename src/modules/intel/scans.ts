@@ -29,15 +29,12 @@ export const BRIEFING_JOB = "intel.briefings";
 export interface StartScanInput {
   text: string;
   systemName?: string;
-  /** Used when no system name is given (rescans). */
-  systemId?: number | null;
   dscan?: DscanEntry[] | null;
   userId: string;
   userName: string | null;
   aiAllowed: boolean;
   /** The creator's language (for the automatic briefing). */
   locale?: Locale;
-  rescanOf?: string | null;
 }
 
 /** Why a paste was refused; the action writes it out in the user's language (t.intel.errors). */
@@ -78,7 +75,7 @@ export async function startScan(input: StartScanInput, deps: { now?: Date; db?: 
     return { ok: false, error: { code: "rateLimited" } };
   }
 
-  let systemId: number | null = input.systemId ?? null;
+  let systemId: number | null = null;
   if (input.systemName?.trim()) {
     const system = await resolveSystem(input.systemName);
     if (!system) return { ok: false, error: { code: "unknownSystem", name: input.systemName.trim() } };
@@ -144,7 +141,6 @@ export async function startScan(input: StartScanInput, deps: { now?: Date; db?: 
       pilotCount: pilots.length,
       aiAllowed: input.aiAllowed,
       locale: input.locale ?? "en",
-      rescanOf: input.rescanOf ?? null,
       // Nothing to wait for when no pilot gets profiled.
       status: profiled.size ? "running" : "ready",
       readyAt: profiled.size ? null : now,
@@ -289,6 +285,8 @@ export interface ScanProgress {
   version: string;
   /** Profiled pilots still waiting for statistics, their newest killmails, or older pages. */
   pending: { stats: number; newest: number; deeper: number };
+  browserStats?: number[];
+  pendingPilots: number[];
 }
 
 export async function scanProgress(scan: ScanRow, db: Db = getDb()): Promise<ScanProgress> {
@@ -298,7 +296,12 @@ export async function scanProgress(scan: ScanRow, db: Db = getDb()): Promise<Sca
     WHERE sp.scan_id = ${scan.id} AND sp.profiled
     GROUP BY q.stage`);
   const by = new Map(rows.map((r) => [Number(r.stage), Number(r.n)]));
+  const pendingRows = await db.execute<{ character_id: number }>(sql`
+    SELECT q.character_id FROM intel_queue q
+    JOIN intel_scan_pilots sp ON sp.character_id = q.character_id
+    WHERE sp.scan_id = ${scan.id} AND sp.profiled`);
   return {
+    pendingPilots: pendingRows.map(r => Number(r.character_id)),
     status: scan.status,
     version: scan.updatedAt.toISOString(),
     pending: { stats: by.get(1) ?? 0, newest: by.get(2) ?? 0, deeper: (by.get(3) ?? 0) + (by.get(4) ?? 0) },

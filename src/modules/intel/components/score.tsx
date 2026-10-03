@@ -1,33 +1,35 @@
 import { Badge } from "@/components/ui/badge";
 import { getI18n } from "@/i18n/server";
 import { cn } from "@/lib/utils";
+import { tierOf } from "../score/composite";
 import { TIER_COLOR } from "../colors";
 import { reasonText } from "../text";
 import type { DimensionScore, PilotScore, PilotTag, Tier } from "../types";
-
-const TIER_TONE: Record<Tier | "unknown", "neutral" | "gold" | "warning" | "critical"> = {
-  low: "neutral",
-  moderate: "gold",
-  high: "warning",
-  extreme: "critical",
-  unknown: "neutral",
-};
 
 /** Tier and score, e.g. "High 62"; quick scores (statistics only) are marked. */
 export async function ScoreBadge({ score }: { score: PilotScore | null }) {
   if (!score) return null;
   const { t, f } = await getI18n();
+  const a = score.assessment;
+  const details = a ? `${t.intel.score.capability}: ${a.capability}/100; ${t.intel.score.relevance}: ${a.relevance ?? t.intel.evidence.unknown}; ${t.intel.score.confidence}: ${t.intel.tiers[a.confidence]}; ${t.intel.score.sample}: ${a.sample}. ${t.intel.score.explanation}` : t.intel.score.explanation;
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1" title={score.quick ? t.intel.score.quick : undefined}>
-      <Badge tone={TIER_TONE[score.tier]}>
-        {t.intel.tiers[score.tier]}
-        {score.tier !== "unknown" && <span className="font-semibold tabular-nums">{f.integer(score.composite)}</span>}
-        {score.quick && score.tier !== "unknown" && <span className="text-ink-3">·</span>}
-      </Badge>
-      {score.tier !== "unknown" && <ScoreBar value={score.composite} tier={score.tier} />}
-    </div>
+    <span tabIndex={0} title={details} aria-label={details} className="flex shrink-0 flex-col items-center rounded-md bg-surface-contrast/5 px-2 py-1">
+      <span className="text-lg leading-none font-bold tabular-nums" style={{ color: TIER_COLOR[score.tier] }}>{score.tier === "unknown" ? "?" : f.number(score.composite / 10, 1)}</span>
+      <span className="mt-0.5 text-3xs font-semibold uppercase text-ink-2">{t.intel.tiers[score.tier]}</span>
+    </span>
   );
 }
+
+export async function AssessmentSummary({ score }: { score: PilotScore | null }) {
+  const { t } = await getI18n();
+  const a = score?.assessment;
+  if (!a) return null;
+  return <div className="space-y-0.5 text-3xs text-ink-3">
+    <div>{t.intel.score.capability}: {t.intel.tiers[tierFrom(a.capability)]} · {t.intel.score.relevance}: {a.relevance === null ? t.intel.evidence.unknown : t.intel.tiers[tierFrom(a.relevance)]}</div>
+    <div>{t.intel.score.confidence}: {t.intel.tiers[a.confidence]}{a.escalation.length > 0 && <> · {a.escalation.map(tag => t.intel.tags[tag]).join(" · ")}</>}</div>
+  </div>;
+}
+const tierFrom = (value: number): Tier => tierOf(value);
 
 export function ScoreBar({ value, tier, className }: { value: number; tier: Tier | "unknown"; className?: string }) {
   return (

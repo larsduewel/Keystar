@@ -3,8 +3,10 @@ import type { LatestEvent, PilotProfile } from "./types";
 /** Never confuse the lost hull with the final-blow attacker's hull. */
 export const eventTargetHull = (event: LatestEvent) => (event.isLoss ? event.shipTypeId : event.otherShipTypeId);
 
+export const newestEvents = (events: LatestEvent[]) => [...events].sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+
 export function latestEvidence(profile: PilotProfile | null) {
-  const events = [...(profile?.recent.latest ?? [])].sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
+  const events = newestEvents(profile?.recent.latest ?? []);
   return { kill: events.find((e) => !e.isLoss) ?? null, loss: events.find((e) => e.isLoss) ?? null };
 }
 
@@ -19,6 +21,7 @@ export interface ObservedGroup {
   time: string;
   systemId: number;
   killmailIds: number[];
+  events: LatestEvent[];
   members: { characterId: number; shipTypeId: number | null; time: string; changed: boolean }[];
 }
 
@@ -36,6 +39,7 @@ export function observedGroups(pilots: { characterId: number; profile: PilotProf
         time: event.time,
         systemId: event.systemId,
         killmailIds: [event.killmailId],
+        events: [event],
         members: [],
       };
       if (!group.members.some((m) => m.characterId === pilot.characterId)) {
@@ -69,6 +73,7 @@ export function observedGroups(pilots: { characterId: number; profile: PilotProf
 /** `into` is newer than `from`, so its hulls stay and a different older hull marks a change. */
 function absorb(into: ObservedGroup, from: ObservedGroup) {
   into.killmailIds.push(...from.killmailIds);
+  into.events = newestEvents([...into.events, ...from.events]);
   for (const member of from.members) {
     const existing = into.members.find((m) => m.characterId === member.characterId);
     if (!existing) into.members.push(member);

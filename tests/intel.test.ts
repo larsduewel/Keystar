@@ -164,6 +164,14 @@ describe("history with us", () => {
     ];
     const fight = summarizeEngagement({ systemId: 1, start: t, end: t, killmailIds: [1, 2] }, killmails, attackers, H, new Set([9, 10]))!;
     expect(fight).toMatchObject({ ourKills: 1, ourLosses: 1, iskKilled: 60e6, iskLost: 300e6, topKillmailId: 1 });
+    expect(fight.battleAffiliations).toEqual(expect.arrayContaining([{ characterId: 1, corporationId: H, allianceId: null }, { characterId: 10, corporationId: 300, allianceId: 400 }]));
+    expect(fight.battleAffiliations?.filter(p => p.characterId === 10)).toHaveLength(1);
+    expect(fight.battle?.ours).toEqual([{ shipTypeId: 587, count: 1, lost: 1, pilotIds: [1] }]);
+    expect(fight.battle?.theirs).toEqual(expect.arrayContaining([
+      { shipTypeId: 22456, count: 1, lost: 1, pilotIds: [10] },
+      { shipTypeId: 29990, count: 1, lost: 0, pilotIds: [9] },
+      { shipTypeId: 11987, count: 1, lost: 0, pilotIds: [11] },
+    ]));
     expect(fight.pilots).toEqual([
       { characterId: 9, role: "attacker", shipTypeIds: [29990] },
       { characterId: 10, role: "both", shipTypeIds: [22456] },

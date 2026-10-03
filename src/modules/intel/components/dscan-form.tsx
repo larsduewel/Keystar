@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, Radar } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
@@ -33,6 +34,7 @@ export function DscanForm({
       <input type="hidden" name="scanId" value={scanId} />
       <textarea
         name="dscan"
+        aria-label={t.intel.dscan.title}
         required
         placeholder={t.intel.dscan.placeholder}
         spellCheck={false}
@@ -62,5 +64,47 @@ function ReadSubmit({ claude }: { claude: boolean }) {
     <Button size="sm" variant="ghost" type="submit" disabled={pending}>
       {pending ? t.intel.buttons.reading : claude ? t.intel.buttons.askClaude : t.intel.buttons.summarize}
     </Button>
+  );
+}
+
+/** Keeps input and matching evidence together without occupying report space. */
+export function DscanDropdown({ supplied, children }: { supplied: boolean; children: React.ReactNode }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        root.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    root.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <div ref={root} className="relative">
+      <Button size="sm" type="button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+        <Radar className="size-4" aria-hidden />
+        {supplied ? t.intel.dscan.manage : t.intel.dscan.add}
+        <ChevronDown className="size-3" aria-hidden />
+      </Button>
+      {open && (
+        <div id={id} className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-[min(30rem,calc(100vw-2rem))] overflow-y-auto rounded-xl bg-space-900 shadow-xl">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }

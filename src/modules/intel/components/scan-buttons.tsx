@@ -1,32 +1,9 @@
 "use client";
 
-import { RefreshCw, Trash2, UserSearch } from "lucide-react";
-import { useActionState } from "react";
+import { Trash2, UserSearch } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
-import type { ScanFormState } from "@/app/(app)/intel/actions";
-
-export function RescanButton({
-  scanId,
-  action,
-}: {
-  scanId: string;
-  action: (state: ScanFormState, formData: FormData) => Promise<ScanFormState>;
-}) {
-  const { t } = useI18n();
-  const [state, formAction, pending] = useActionState(action, { error: null });
-  return (
-    <form action={formAction} className="flex items-center gap-2">
-      <input type="hidden" name="scanId" value={scanId} />
-      {state.error && <span className="text-xs text-critical-text">{state.error}</span>}
-      <Button size="sm" type="submit" disabled={pending}>
-        <RefreshCw className={pending ? "size-3.5 animate-spin" : "size-3.5"} aria-hidden />
-        {pending ? t.intel.buttons.scanning : t.intel.buttons.rescan}
-      </Button>
-    </form>
-  );
-}
 
 function SubmitButton({ children, pendingLabel, variant = "ghost" }: { children: React.ReactNode; pendingLabel: string; variant?: "ghost" | "danger" }) {
   const { pending } = useFormStatus();

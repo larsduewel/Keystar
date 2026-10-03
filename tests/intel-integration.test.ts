@@ -297,7 +297,7 @@ describe.skipIf(!enabled)("intel integration", async () => {
       const [row] = await db().select().from(schema.intelScans);
       expect(row.status).toBe("ready");
 
-      // A rescan within the hour reuses everything: no zKillboard calls.
+      // A new scan within the hour reuses everything: no zKillboard calls.
       source.stats.mockClear();
       source.page.mockClear();
       const again = await scan();

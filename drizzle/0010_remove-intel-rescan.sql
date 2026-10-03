@@ -1,0 +1,1 @@
+ALTER TABLE "intel_scans" DROP COLUMN "rescan_of";

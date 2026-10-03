@@ -232,6 +232,22 @@ export function summarizeEngagement(
   }
   if (!pilots.length) return null;
 
+  const shipRows = { ours: new Map<number, { pilots: Set<string>; lost: number }>(), theirs: new Map<number, { pilots: Set<string>; lost: number }>() };
+  const addShip = (team: "ours" | "theirs", type: number, pilot: string, lost: boolean) => {
+    const entry = shipRows[team].get(type) ?? { pilots: new Set<string>(), lost: 0 };
+    entry.pilots.add(pilot);
+    if (lost) entry.lost++;
+    shipRows[team].set(type, entry);
+  };
+  for (const km of killmails) {
+    addShip(ours(km) ? "ours" : "theirs", km.victimShipTypeId, String(km.victimCharacterId ?? `victim:${km.killmailId}`), true);
+    for (const attacker of attackersBy.get(km.killmailId) ?? []) {
+      if (!attacker.characterId || !attacker.shipTypeId) continue;
+      if (ours(km) && attacker.corporationId !== H) addShip("theirs", attacker.shipTypeId, String(attacker.characterId), false);
+      if (!ours(km) && attacker.corporationId === H) addShip("ours", attacker.shipTypeId, String(attacker.characterId), false);
+    }
+  }
+  const shipsFor = (team: "ours" | "theirs") => [...shipRows[team]].map(([shipTypeId, entry]) => ({ shipTypeId, count: Math.max(entry.pilots.size, entry.lost), lost: entry.lost, pilotIds: [...entry.pilots].map(Number).filter(id => Number.isSafeInteger(id) && id > 0) })).sort((a, b) => b.lost - a.lost || b.count - a.count);
   const times = killmails.map((k) => k.time.getTime());
   return {
     key: `${cluster.systemId}-${Math.min(...times)}`,
@@ -246,6 +262,11 @@ export function summarizeEngagement(
     iskKilled,
     iskLost,
     topKillmailId: top.killmailId,
+    battleAffiliations: [...new Map([
+      ...killmails.filter(k => k.victimCharacterId).map(k => [k.victimCharacterId!, { characterId: k.victimCharacterId!, corporationId: k.victimCorporationId, allianceId: k.victimAllianceId }] as const),
+      ...attackers.filter(a => a.characterId).map(a => [a.characterId!, { characterId: a.characterId!, corporationId: a.corporationId, allianceId: a.allianceId }] as const),
+    ]).values()],
+    battle: { ours: shipsFor("ours"), theirs: shipsFor("theirs") },
   };
 }
 

@@ -289,6 +289,8 @@ export interface Standing {
 }
 
 export interface PilotScore {
+  /** Evidence model v2; optional for previously cached scores. */
+  assessment?: { capability: number; relevance: number | null; confidence: "low" | "moderate" | "high"; sample: number; escalation: TagLabel[] };
   composite: number;
   tier: Tier | "unknown";
   recencyGate: number;
@@ -336,4 +338,6 @@ export interface Engagement {
   iskLost: number;
   /** Most valuable killmail of the fight, for a link. */
   topKillmailId: number;
+  battleAffiliations?: { characterId: number; corporationId: number | null; allianceId: number | null }[];
+  battle?: { ours: { shipTypeId: number; count: number; lost: number; pilotIds?: number[] }[]; theirs: { shipTypeId: number; count: number; lost: number; pilotIds?: number[] }[] };
 }

@@ -71,6 +71,13 @@
       "when": 1791062739110,
       "tag": "0009_esi_disabled_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791067337759,
+      "tag": "0010_remove-intel-rescan",
+      "breakpoints": true
     }
   ]
 }

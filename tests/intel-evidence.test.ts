@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cynoEvidence, eventTargetHull, latestEvidence, observedGroups } from "@/modules/intel/evidence";
+import { cynoEvidence, eventTargetHull, latestEvidence, newestEvents, observedGroups } from "@/modules/intel/evidence";
 import { buildProfile, type DigestRow, type ProfileInput } from "@/modules/intel/score/profile";
 import type { LatestEvent } from "@/modules/intel/types";
 
@@ -36,6 +36,11 @@ const event = (id: number, minutes = 30, over: Partial<LatestEvent> = {}): Lates
 const pilot = (characterId: number, latest: LatestEvent[]) => ({ characterId, profile: profile(latest) });
 
 describe("pilot evidence", () => {
+  it("orders mixed events newest first without mutating stored input", () => {
+    const events = [event(1, 60), event(2, 5, { isLoss: true }), event(3, 20)];
+    expect(newestEvents(events).map(e => e.killmailId)).toEqual([2, 3, 1]);
+    expect(events.map(e => e.killmailId)).toEqual([1, 2, 3]);
+  });
   it("distinguishes the victim hull from the attacker's hull", () => {
     expect(eventTargetHull(event(1))).toBe(200);
     expect(eventTargetHull(event(1, 30, { isLoss: true }))).toBe(100);
@@ -91,6 +96,8 @@ describe("partial observed group reconstruction", () => {
     );
     expect(groups).toHaveLength(1);
     expect(groups[0].killmailIds).toEqual([1, 2]);
+    expect(groups[0].events.map(e => e.killmailId)).toEqual([1, 2]);
+    expect(groups[0].events[0]).toMatchObject({ otherShipTypeId: 200, attackerCount: 7 });
     expect(groups[0].members).toHaveLength(3);
     expect(groups[0].members[0]).toMatchObject({ characterId: 1, shipTypeId: 100, changed: true });
   });

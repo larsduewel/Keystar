@@ -116,7 +116,14 @@ describe("hull and module classification", () => {
 });
 
 describe("threat score", () => {
-  it("gives a pilot who was deadly long ago but is quiet now a low score", () => {
+  it("does not label an empty completed killmail sample as low danger", () => {
+    const profile = buildProfile(input({ stats: emptyStats({ kills: 814 }), coveredSince: new Date(0) }));
+    const score = scorePilot(profile, ctx());
+    expect(score.assessment?.sample).toBe(0);
+    expect(score.tier).toBe("unknown");
+  });
+
+  it("marks a statistics-only pilot without sampled killmails unknown", () => {
     const months = Array.from({ length: 12 }, (_, i) => ({
       year: 2023,
       month: i + 1,
@@ -136,7 +143,7 @@ describe("threat score", () => {
     });
     const score = scorePilot(buildProfile(input({ stats })), ctx());
     expect(score.composite).toBeLessThan(25);
-    expect(score.tier).toBe("low");
+    expect(score.tier).toBe("unknown");
     expect(reasonText(MESSAGES.en, score.dimensions.find((d) => d.key === "activity")!.why)).toContain("last active 2023-12");
   });
 
@@ -179,7 +186,7 @@ describe("threat score", () => {
     expect(without.dimensions.find((d) => d.key === "relevance")!.available).toBe(false);
     const here = scorePilot(profile, ctx({ system: { systemId: 30002813, constellationId: 1, regionId: 2 } }));
     const elsewhere = scorePilot(profile, ctx({ system: { systemId: 30000142, constellationId: 9, regionId: 9 } }));
-    expect(here.dimensions.find((d) => d.key === "relevance")!.score).toBeGreaterThan(40);
+    expect(here.assessment!.relevance).toBeGreaterThan(0);
     expect(here.composite).toBeGreaterThan(elsewhere.composite);
   });
 
@@ -199,7 +206,7 @@ describe("threat score", () => {
   it("marks friendlies and pilots without data", () => {
     const own = { cls: "own", value: null, source: null, via: null } as const;
     expect(scorePilot(null, ctx({ standing: own }))).toMatchObject({ tier: "unknown", excluded: "own" });
-    expect([0, 24, 25, 49, 50, 74, 75, 100].map(tierOf)).toEqual(["low", "low", "moderate", "moderate", "high", "high", "extreme", "extreme"]);
+    expect([0, 49, 50, 79, 80, 100].map(tierOf)).toEqual(["low", "low", "moderate", "moderate", "high", "high"]);
   });
 
   it("adds history with us when they fought us", () => {
@@ -210,5 +217,37 @@ describe("threat score", () => {
     expect(dim.available).toBe(true);
     expect(reasonText(MESSAGES.en, dim.why, now)).toContain("On 3 of our losses");
     expect(scorePilot(profile, ctx()).dimensions.find((d) => d.key === "history")!.available).toBe(false);
+  });
+});
+
+describe("evidence threat model", () => {
+  it("discounts mass-fleet participation compared with small fights", () => {
+    const small = buildProfile(input({ digest: Array.from({length: 15}, () => row(1, {attackerCount: 3})), coveredSince: new Date(now.getTime() - 30 * DAY_MS) }));
+    const fleet = buildProfile(input({ digest: Array.from({length: 15}, () => row(1, {attackerCount: 474})), coveredSince: new Date(now.getTime() - 30 * DAY_MS) }));
+    expect(scorePilot(small, ctx()).assessment!.confidence).toBe("high");
+    expect(scorePilot(small, ctx()).assessment!.capability).toBeGreaterThan(scorePilot(fleet, ctx()).assessment!.capability);
+  });
+  it("does not penalize young characters, NPC corporations or corporation changes", () => {
+    const profile = buildProfile(input({digest: [row(1), row(2)]}));
+    const original = scorePilot(profile, ctx()).composite;
+    profile.character = {...profile.character, ageDays: 1, npcCorp: true, corpHops365: 20, securityStatus: -10};
+    expect(scorePilot(profile, ctx()).composite).toBe(original);
+  });
+  it("keeps missing local context unknown and confidence separate from score", () => {
+    const profile = buildProfile(input({stats: normalizeStats(activeRaw)}));
+    const score = scorePilot(profile, ctx());
+    expect(score.assessment).toMatchObject({relevance: null, confidence: "low", sample: 0});
+    expect(score.composite).toBe(score.assessment!.capability);
+  });
+  it("ages local evidence faster and keeps escalation independent", () => {
+    const profile = buildProfile(input({digest: [row(0), row(1), row(2)], coveredSince: new Date(now.getTime() - 30 * DAY_MS)}));
+    const context = ctx({system: {systemId: 30002813, constellationId: 1, regionId: 2}});
+    const initial = scorePilot(profile, context);
+    const later = scorePilot(profile, {...context, now: new Date(now.getTime() + 14 * DAY_MS)});
+    expect(later.assessment!.relevance).toBeLessThan(initial.assessment!.relevance!);
+    profile.fits.covertCyno = {count: 1, lastAt: now.toISOString()};
+    const cyno = scorePilot(profile, context);
+    expect(cyno.composite).toBe(initial.composite);
+    expect(cyno.assessment!.escalation).toContain("covertCyno");
   });
 });

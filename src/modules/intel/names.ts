@@ -63,7 +63,12 @@ export function scanEntityIds(histories: (PilotHistory | null)[], engagements: E
   const corporationIds = new Set<number>();
   for (const h of histories) for (const s of h?.ships ?? []) typeIds.add(s.shipTypeId);
   for (const e of engagements) {
+    for (const p of e.battleAffiliations ?? []) {
+      if (p.corporationId) corporationIds.add(p.corporationId);
+      if (p.allianceId) entityIds.add(p.allianceId);
+    }
     for (const b of e.brought) typeIds.add(b.shipTypeId);
+    for (const ship of [...(e.battle?.ours ?? []), ...(e.battle?.theirs ?? [])]) { typeIds.add(ship.shipTypeId); for (const id of ship.pilotIds ?? []) entityIds.add(id); }
     for (const p of e.pilots) p.shipTypeIds.forEach((t) => typeIds.add(t));
     for (const o of e.others) {
       if (o.corporationId) corporationIds.add(o.corporationId);

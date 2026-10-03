@@ -84,14 +84,6 @@ export async function readDscan(formData: FormData): Promise<void> {
   refresh();
 }
 
-/** Scans the same pilots (and system) again with fresh data. */
-export async function rescan(_prev: ScanFormState, formData: FormData): Promise<ScanFormState> {
-  await assertPermission(INTEL_PERMISSIONS.use);
-  const scan = await getScan(scanIdFrom(formData));
-  if (!scan) return { error: (await getI18n()).t.intel.errors.scanGone };
-  return start({ text: scan.names.join("\n"), systemId: scan.systemId, dscan: scan.dscan, rescanOf: scan.id });
-}
-
 /** Profiles the pilots of a scan that were skipped (friendlies, very large lists). */
 export async function profileScanPilots(formData: FormData): Promise<void> {
   await assertPermission(INTEL_PERMISSIONS.use);

@@ -7,10 +7,10 @@ import { MOON_RARITY } from "@/modules/mining/class-colors";
 const RAMP = MOON_RARITY.map((m) => m.color);
 
 export const TIER_COLOR = {
-  low: RAMP[1],
-  moderate: RAMP[2],
-  high: RAMP[3],
-  extreme: RAMP[4],
+  low: "var(--color-good-text)",
+  moderate: "#f97316",
+  high: "var(--color-critical-text)",
+  extreme: "var(--color-critical-text)",
   unknown: "var(--series-other)",
 } as const;
 

@@ -13,7 +13,7 @@ import type {
   TagLabel,
   Tier,
 } from "../types";
-import { clamp, DAY_MS, saturate } from "./decay";
+import { clamp, DAY_MS, saturate, weightAt } from "./decay";
 
 /**
  * Turns a profile into explained scores. Every dimension is 0–100 with a
@@ -23,14 +23,14 @@ import { clamp, DAY_MS, saturate } from "./decay";
  */
 
 export const DIMENSION_WEIGHTS: Record<DimensionKey, number> = {
-  activity: 0.2,
-  lethality: 0.2,
-  style: 0.1,
-  specialty: 0.15,
-  relevance: 0.15,
-  history: 0.1,
-  timezone: 0.05,
-  character: 0.05,
+  activity: 0.315,
+  lethality: 0.21,
+  style: 0.175,
+  specialty: 0,
+  relevance: 0.21,
+  history: 0.09,
+  timezone: 0,
+  character: 0,
 };
 
 const TAG_SEVERITY: Record<TagKey, number> = {
@@ -45,8 +45,8 @@ const TAG_SEVERITY: Record<TagKey, number> = {
   fc: 10,
   solo: 10,
   blob: 0,
-  newchar: 5,
-  npcalt: 5,
+  newchar: 0,
+  npcalt: 0,
   activenow: 0,
 };
 
@@ -66,9 +66,8 @@ export interface ScoreContext {
 }
 
 export function tierOf(composite: number): Tier {
-  if (composite >= 75) return "extreme";
-  if (composite >= 50) return "high";
-  if (composite >= 25) return "moderate";
+  if (composite >= 80) return "high";
+  if (composite >= 50) return "moderate";
   return "low";
 }
 
@@ -202,12 +201,17 @@ export function scorePilot(profile: PilotProfile | null, ctx: ScoreContext): Pil
   }
   const deep = profile.depth === "deep";
   const recentEvidence: Evidence = deep || profile.recent.kills7d > 0 ? "recent" : "lifetime";
-  const d = profile.decayed;
+  const ageWeight = weightAt(profile.builtAt, ctx.now, 14);
+  const raw = profile.decayed;
+  const d = { ...raw, kills: raw.kills * ageWeight, losses: raw.losses * ageWeight, iskDestroyed: raw.iskDestroyed * ageWeight, finalBlows: raw.finalBlows * ageWeight, gang: {solo: raw.gang.solo * ageWeight, small: raw.gang.small * ageWeight, fleet: raw.gang.fleet * ageWeight, blob: raw.gang.blob * ageWeight} };
   const r = profile.recent;
   const dims: DimensionScore[] = [];
 
   // Activity
-  const activity = saturate(d.kills, 6);
+  const gang = d.gang;
+  const gangCount = gang.solo + gang.small + gang.fleet + gang.blob;
+  const contribution = gangCount ? (gang.solo + 0.8 * gang.small + 0.25 * gang.fleet + 0.05 * gang.blob) / gangCount : 0.5;
+  const activity = saturate(d.kills * contribution, 6);
   const lastActiveMonth = profile.lifetime.lastActiveMonth;
   const activityWhy: Reason = deep
     ? r.kills30d
@@ -222,7 +226,7 @@ export function scorePilot(profile: PilotProfile | null, ctx: ScoreContext): Pil
   const kd = d.kills + d.losses > 0 ? (d.kills / (d.kills + d.losses)) * Math.min(1, d.kills / 4) : 0;
   const isk = clamp(((Math.log10(d.iskDestroyed + 1) - 7) / 3.5) * 100) / 100;
   const fb = d.kills > 0 ? d.finalBlows / d.kills : 0;
-  const lethality = deep ? 100 * (0.45 * kd + 0.35 * isk + 0.2 * fb) : 100 * ((0.45 * kd + 0.35 * isk) / 0.8);
+  const lethality = deep ? 100 * (0.7 * kd + 0.1 * isk + 0.2 * fb) : 100 * ((0.7 * kd + 0.1 * isk) / 0.8);
   dims.push(
     dimension(
       "lethality",
@@ -240,7 +244,7 @@ export function scorePilot(profile: PilotProfile | null, ctx: ScoreContext): Pil
   // Style
   const g = d.gang;
   const gangTotal = g.solo + g.small + g.fleet + g.blob;
-  const styleRaw = gangTotal ? (100 * (g.solo + 0.8 * g.small + 0.45 * g.fleet + 0.2 * g.blob)) / gangTotal : 0;
+  const styleRaw = gangTotal ? (100 * (g.solo + 0.8 * g.small + 0.25 * g.fleet + 0.05 * g.blob)) / gangTotal : 0;
   const style = styleRaw * Math.min(1, gangTotal / 2);
   const dominant = gangTotal
     ? (
@@ -280,21 +284,15 @@ export function scorePilot(profile: PilotProfile | null, ctx: ScoreContext): Pil
     let x = 0;
     let here = 0;
     let region = 0;
-    for (const s of profile.systems) {
-      const info = ctx.systemsInfo.get(s.systemId);
-      if (s.systemId === ctx.system.systemId) {
-        x += s.weight;
-        here += s.count30d;
-      } else if (info?.constellationId && info.constellationId === ctx.system.constellationId) {
-        x += 0.6 * s.weight;
-        region += s.count30d;
-      } else if (info?.regionId && info.regionId === ctx.system.regionId) {
-        x += 0.3 * s.weight;
-        region += s.count30d;
-      }
+    for (const event of profile.recent.latest) {
+      const w = weightAt(event.time, ctx.now, 3);
+      const info = ctx.systemsInfo.get(event.systemId);
+      if (event.systemId === ctx.system.systemId) { x += w; here++; }
+      else if (info?.constellationId && info.constellationId === ctx.system.constellationId) { x += 0.6 * w; region++; }
+      else if (info?.regionId && info.regionId === ctx.system.regionId) { x += 0.3 * w; region++; }
     }
     const why: Reason = here || region ? { key: "relevance", here, nearby: region } : x > 0 ? { key: "relevanceBefore" } : { key: "relevanceNone" };
-    dims.push(dimension("relevance", saturate(x, 3), why, x > 0 ? (deep ? "recent" : "lifetime") : "none"));
+    dims.push(dimension("relevance", saturate(x, 3), why, x > 0 ? "recent" : "none", deep && profile.recent.latest.length > 0));
   } else {
     dims.push(dimension("relevance", 0, { key: "relevanceNoSystem" }, "none", false));
   }
@@ -331,36 +329,24 @@ export function scorePilot(profile: PilotProfile | null, ctx: ScoreContext): Pil
     tags.push({ key: "activenow", label: "activenow", evidence: "recent", why: { key: "activeNow", share: round2(share) } });
   }
 
-  // Character
-  const c = profile.character;
-  let character = 0;
-  const young = c.ageDays !== null && c.ageDays < 180;
-  if (c.ageDays !== null && c.ageDays < 30) character += 35;
-  else if (young) character += 15;
-  if (c.corpHops365) character += Math.min(30, 6 * c.corpHops365);
-  if (c.npcCorp) character += 15;
-  const outlaw = c.securityStatus !== null && c.securityStatus < -5;
-  if (outlaw) character += 20;
-  dims.push(
-    dimension(
-      "character",
-      character,
-      character
-        ? { key: "character", ageDays: young ? c.ageDays : null, corpHops: c.corpHops365, npcCorp: c.npcCorp, securityStatus: outlaw ? c.securityStatus : null }
-        : { key: "characterNormal" },
-      character ? "recent" : "none",
-    ),
-  );
-
-  // Composite
-  const available = dims.filter((x) => x.available);
-  const weightSum = available.reduce((s, x) => s + x.weight, 0);
-  const average = weightSum ? available.reduce((s, x) => s + x.weight * x.score, 0) / weightSum : 0;
-  const recencyGate = 0.35 + 0.65 * Math.min(1, activity / 50);
-  const composite = Math.round(clamp(average * recencyGate));
+  // Capability and local relevance are separate. Missing context never means safe.
+  const mean = (weights: Partial<Record<DimensionKey, number>>) => {
+    const parts = dims.filter(d => d.available && (weights[d.key] ?? 0) > 0);
+    const sum = parts.reduce((s, d) => s + weights[d.key]!, 0);
+    return sum ? parts.reduce((s, d) => s + d.score * weights[d.key]!, 0) / sum : null;
+  };
+  const capability = Math.round(mean({ activity: 0.45, lethality: 0.3, style: 0.25 }) ?? 0);
+  const relevance = mean({ relevance: 0.7, history: 0.3 });
+  const sample = deep ? profile.recent.kills30d + profile.recent.losses30d : 0;
+  const fresh = sample > 0 && profile.recent.latest.some(e => ctx.now.getTime() - Date.parse(e.time) <= 30 * DAY_MS);
+  const covered = profile.recent.coveredSince ? (ctx.now.getTime() - Date.parse(profile.recent.coveredSince)) / DAY_MS : 0;
+  const confidence = deep && sample >= 12 && fresh && covered >= 14 ? "high" : deep && sample >= 3 && fresh ? "moderate" : "low";
+  const composite = Math.round(clamp(relevance === null ? capability : 0.7 * capability + 0.3 * relevance));
+  const recencyGate = 1;
   return {
+    assessment: { capability, relevance: relevance === null ? null : Math.round(relevance), confidence, sample, escalation: tags.filter(t => ["cyno", "capital", "blops"].includes(t.key)).map(t => t.label) },
     composite,
-    tier: tierOf(composite),
+    tier: sample === 0 ? "unknown" : tierOf(composite),
     recencyGate: Math.round(recencyGate * 1000) / 1000,
     dimensions: dims,
     tags,

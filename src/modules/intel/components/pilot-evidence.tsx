@@ -48,33 +48,32 @@ export async function CynoEvidence({ profile }: { profile: PilotProfile | null }
 export async function PilotEvidence({
   profile,
   names,
-  associates,
 }: {
   profile: PilotProfile | null;
   names: DisplayNames;
-  associates: number;
 }) {
-  const { t } = await getI18n();
+  const { t, f } = await getI18n();
   const e = t.intel.evidence;
   const latest = latestEvidence(profile);
   return (
-    <div className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
-      <div>
-        <span className="eve-label mb-1 block text-2xs text-ink-3">{e.lastKill}</span>
-        <EventEvidence event={latest.kill} names={names} />
-      </div>
-      <div>
-        <span className="eve-label mb-1 block text-2xs text-ink-3">{e.lastLoss}</span>
-        <EventEvidence event={latest.loss} names={names} />
-      </div>
-      <div>
-        <span className="eve-label mb-1 block text-2xs text-ink-3">{e.cyno}</span>
-        <CynoEvidence profile={profile} />
-      </div>
-      <div>
-        <span className="eve-label mb-1 block text-2xs text-ink-3">{e.association}</span>
-        <span className="text-ink-2">{profile ? e.associates(associates) : e.unknown}</span>
-      </div>
+    <div className="grid w-full grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+      {[{ label: e.tileKill, event: latest.kill }, { label: e.tileLoss, event: latest.loss }].map(({ label, event }) => {
+        const hull = event ? eventTargetHull(event) : null;
+        return (
+          <div key={label} className="contents">
+            <span className="text-ink-3">{label}</span>
+            <span className="min-w-0 text-ink">
+              <span className="flex items-baseline gap-1.5">
+                <span className="truncate">{event ? (hull ? (names.types.get(hull)?.name ?? e.unknown) : e.unknown) : e.noEvent}</span>
+                {event && <span className="shrink-0 whitespace-nowrap text-3xs text-ink-3">· {f.relativeTime(event.time)}</span>}
+              </span>
+              {event && <span className="mt-0.5 block text-3xs text-ink-3">{names.systems.get(event.systemId)?.name ?? e.unknown} · {e.attackers(event.attackerCount)}</span>}
+            </span>
+          </div>
+        );
+      })}
+      <span className="text-ink-3">{e.tileCyno}</span>
+      <span className={cynoEvidence(profile).length ? "text-warning" : "text-ink-3"}>{cynoEvidence(profile).length ? cynoEvidence(profile).map(fit => <span key={fit.kind} className="block">{e.cynoKinds[fit.kind]} · {f.relativeTime(fit.lastAt)}</span>) : profile?.depth === "deep" ? e.tileNoCyno : e.unknown}</span>
     </div>
   );
 }

@@ -1,3 +1,6 @@
+import { and, eq, lt, or, isNull } from "drizzle-orm";
+import { getDb, intelPilots, intelQueue, intelScanPilots } from "@/core/db";
+import { STATS_TTL_MS } from "@/modules/intel/constants";
 import { getCurrentUser } from "@/core/auth/dal";
 import { getI18n } from "@/i18n/server";
 import { SHARE_ID_PATTERN } from "@/lib/share-id";
@@ -14,5 +17,13 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/intel/scans
   if (!SHARE_ID_PATTERN.test(id)) return Response.json({ error: errors.notFound }, { status: 404 });
   const scan = await getScan(id);
   if (!scan) return Response.json({ error: errors.notFound }, { status: 404 });
-  return Response.json(await scanProgress(scan), { headers: { "Cache-Control": "no-store" } });
+  const progress = await scanProgress(scan);
+  if (scan.createdBy === user.id) {
+    const rows = await getDb().select({ id: intelPilots.characterId }).from(intelPilots)
+      .innerJoin(intelScanPilots, eq(intelScanPilots.characterId, intelPilots.characterId))
+      .innerJoin(intelQueue, eq(intelQueue.characterId, intelPilots.characterId))
+      .where(and(eq(intelScanPilots.scanId, id), eq(intelScanPilots.profiled, true), eq(intelQueue.stage, 1), or(isNull(intelPilots.statsAt), lt(intelPilots.statsAt, new Date(Date.now() - STATS_TTL_MS)))));
+    progress.browserStats = rows.map(r => r.id);
+  }
+  return Response.json(progress, { headers: { "Cache-Control": "no-store" } });
 }

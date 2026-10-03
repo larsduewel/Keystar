@@ -131,7 +131,7 @@ export class ZkillClient {
    * never seen with `{"error": "Invalid type or id"}`, which means no history.
    */
   async characterStats(characterId: number): Promise<{ kind: "ok"; stats: Record<string, unknown> } | { kind: "none" }> {
-    const body = await this.getJson(`/api/stats/characterID/${characterId}/`);
+    const body = await this.getJson(`/api/stats/characterID/${characterId}/kills/`);
     if (!body || typeof body !== "object" || Array.isArray(body)) return { kind: "none" };
     if (typeof (body as { error?: unknown }).error === "string") return { kind: "none" };
     return { kind: "ok", stats: body as Record<string, unknown> };

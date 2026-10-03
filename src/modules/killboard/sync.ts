@@ -17,6 +17,7 @@ let client: ZkillClient | undefined;
 
 export function getZkill(): ZkillClient {
   client ??= new ZkillClient({
+    minIntervalMs: 200,
     userAgent: `Keystar/${KEYSTAR_VERSION} (${env().ESI_CONTACT}; +${env().SOURCE_URL})`,
   });
   return client;
