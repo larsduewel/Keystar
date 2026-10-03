@@ -109,7 +109,7 @@ export async function getMemberAuditStats(
   };
 }
 
-/** One page of the audit: unregistered members first, then by name. */
+/** One page of the audit: registered characters first, then by name, ignoring case. */
 export async function getMemberAuditPage(
   home: number,
   requiredScopes: readonly string[],
@@ -120,7 +120,7 @@ export async function getMemberAuditPage(
     SELECT a.id::text AS id, a.name, a.in_roster, a.registered, a.main_name, a.status, a.scopes
     FROM audit a CROSS JOIN known k
     WHERE ${matchWhere(params)}
-    ORDER BY a.registered, a.name NULLS LAST, a.id
+    ORDER BY a.registered DESC, lower(a.name) NULLS LAST, a.name, a.id
     LIMIT ${MEMBER_PAGE_SIZE} OFFSET ${(params.page - 1) * MEMBER_PAGE_SIZE}`);
   return rows.map((r) => ({
     id: String(r.id),

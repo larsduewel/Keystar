@@ -97,9 +97,9 @@ IP. Caddy can only obtain a certificate once DNS resolves to the server — chec
    ```
 
    Keystar only ever asks members for the scopes its enabled modules need; corporation scopes are requested only when
-   a director links a character with "corporation access", and the wallet and mail scopes only when a pilot enables wallet
-   import for a character in the mining P&L or mail for a character on the EVE Mail page. (The login page also shows this exact list while SSO is not configured
-   yet.)
+   a director links a character with "corporation access", and the wallet, mail and fleet scopes only when a pilot enables
+   wallet import for a character in the mining P&L, mail for a character on the EVE Mail page or fleet access for a
+   character on the Live fleet page. (The login page also shows this exact list while SSO is not configured yet.)
 5. Save and keep the **Client ID** and **Secret Key** for the next step.
 
 When future modules (skills, assets) are added, add their scopes to the application as well.

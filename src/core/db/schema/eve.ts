@@ -108,6 +108,15 @@ export const typeValues = pgTable(
   (t) => [primaryKey({ columns: [t.typeId, t.source] })],
 );
 
+/**
+ * Types someone priced on demand (appraisal, field estimator). The hourly price
+ * job keeps them fresh until nobody has asked for them in PRICE_INTEREST_DAYS.
+ */
+export const priceInterest = pgTable("price_interest", {
+  typeId: integer("type_id").primaryKey(),
+  lastRequestedAt: timestamp("last_requested_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Daily snapshot of type_values, used for "value at time of mining". */
 export const typeValueHistory = pgTable(
   "type_value_history",

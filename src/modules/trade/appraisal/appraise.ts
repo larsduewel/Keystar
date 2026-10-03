@@ -1,7 +1,7 @@
 import { and, inArray, sql } from "drizzle-orm";
 import { appraisals, eveTypes, getDb, typeValues } from "@/core/db";
 import { EsiError, getEsi } from "@/core/esi";
-import { syncPrices } from "@/core/eve/prices";
+import { notePriceInterest, PRICE_MAX_AGE_MS, syncPrices } from "@/core/eve/prices";
 import { ensureTypes } from "@/core/eve/resolver";
 import { createLogger, errorMessage } from "@/core/logger";
 import { shareId } from "@/lib/share-id";
@@ -42,8 +42,6 @@ const log = createLogger("appraisal");
 export const MAX_INPUT_CHARS = 200_000;
 /** ESI /universe/ids rejects the whole batch if any name is longer; no item name is. */
 const MAX_NAME_LENGTH = 100;
-/** Prices older than this are refreshed before appraising. */
-const PRICE_MAX_AGE_MS = 2 * 3600 * 1000;
 
 /**
  * Lower-cased item name → type id: local static data first, then ESI /universe/ids.
@@ -106,6 +104,7 @@ export async function jitaPrices(typeIds: number[]): Promise<Map<number, { buy: 
       .select()
       .from(typeValues)
       .where(and(inArray(typeValues.typeId, typeIds), inArray(typeValues.source, ["jita_buy", "jita_sell"])));
+  await notePriceInterest(db, typeIds);
   let rows = typeIds.length ? await load() : [];
   // A type is fresh only when both sides were valued recently. A recent row with a
   // fallback basis (e.g. the ESI average) counts: it records that Jita had no
@@ -119,11 +118,12 @@ export async function jitaPrices(typeIds: number[]): Promise<Map<number, { buy: 
   const [buyFresh, sellFresh] = [recent("jita_buy"), recent("jita_sell")];
   const stale = typeIds.filter((id) => !buyFresh.has(id) || !sellFresh.has(id));
   if (stale.length) {
-    await syncPrices(db, getEsi(), stale).catch((err: unknown) => {
+    const { failed } = await syncPrices(db, getEsi(), stale).catch((err: unknown) => {
       if (!(err instanceof EsiError)) throw err;
       log.warn("Could not price items", { types: stale.length, error: errorMessage(err) });
       throw new AppraisalUnavailableError(err);
     });
+    if (failed.length) throw new AppraisalUnavailableError(`${failed.length} items could not be priced`);
     rows = await load();
   }
   const out = new Map<number, { buy: number | null; sell: number | null }>();

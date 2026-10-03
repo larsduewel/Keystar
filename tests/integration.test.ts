@@ -35,8 +35,8 @@ describe.skipIf(!enabled)("integration", async () => {
 
   beforeEach(async () => {
     await db().execute(sql`TRUNCATE users, characters, esi_tokens, sessions, eve_types, eve_groups, eve_systems,
-      eve_entities, type_values, type_value_history, mining_character_ledger, mining_observer_ledger, mining_observers,
-      sync_jobs, app_settings, killmails, killmail_attackers, killboard_reports, appraisals, esi_cache,
+      eve_entities, type_values, type_value_history, market_prices, price_interest, mining_character_ledger,
+      mining_observer_ledger, mining_observers, sync_jobs, app_settings, killmails, killmail_attackers, killboard_reports, appraisals, esi_cache,
       fleets, fleet_members, fleet_trackers, eve_constellations, intel_scans, intel_scan_pilots, intel_pilots,
       intel_pilot_killmails, intel_queue, intel_contacts, intel_ai_notes, wallet_transactions, mining_activity,
       mining_activity_coverage, mining_pnl_settings, mining_pnl_characters, mining_pnl_price_rules,
@@ -543,6 +543,9 @@ describe.skipIf(!enabled)("integration", async () => {
         const orderCalls = fetchSpy.mock.calls.map(([u]) => String(u instanceof Request ? u.url : u)).filter((u) => u.includes("/orders"));
         expect(orderCalls.some((u) => u.includes("type_id=587"))).toBe(true);
         expect(orderCalls.some((u) => u.includes("type_id=34"))).toBe(false);
+        // Both stay in the hourly price job for a while.
+        const interest = await db().select().from(schema.priceInterest);
+        expect(interest.map((r) => r.typeId).sort()).toEqual([34, 587]);
 
         const id = await saveAppraisal(result, { input: "x", pricePercent: 90, userId: userA, userName: "Alpha" });
         const [row] = await db().select().from(schema.appraisals);
@@ -642,6 +645,125 @@ describe.skipIf(!enabled)("integration", async () => {
         getSpy.mockRestore();
         vi.doUnmock("@/core/auth/dal");
       }
+    });
+  });
+
+  describe("field estimator pricing", () => {
+    it("prices a stale value again before using it", async () => {
+      vi.doMock("@/core/auth/dal", () => ({ assertPermission: async () => ({ id: userA }) }));
+      const { priceSurveyTypes } = await import("@/modules/mining/estimator/actions");
+      const { getEsi } = await import("@/core/esi");
+      await db().execute(sql`UPDATE type_values SET updated_at = now() - interval '3 hours' WHERE type_id = 1230`);
+      const reply = <T,>(data: T) => ({ data, status: 200, expiresAt: null, pages: 1, fromCache: false, notModified: false, lastModified: null });
+      const getSpy = vi.spyOn(getEsi(), "get").mockImplementation(async (path: string) =>
+        reply(path.includes("/orders") ? [{ is_buy_order: true, location_id: 60003760, price: 12 }] : []),
+      ) as unknown as { mockRestore: () => void };
+      try {
+        const result = await priceSurveyTypes(["Veldspar"]);
+        expect(result).toMatchObject({ esiUnavailable: false, prices: { veldspar: { unitPrice: 12 } } });
+        expect((await db().select().from(schema.priceInterest)).map((r) => r.typeId)).toEqual([1230]);
+      } finally {
+        getSpy.mockRestore();
+        vi.doUnmock("@/core/auth/dal");
+      }
+    });
+
+    it("keeps the ores it priced when ESI rate-limits the rest", async () => {
+      vi.doMock("@/core/auth/dal", () => ({ assertPermission: async () => ({ id: userA }) }));
+      const { priceSurveyTypes } = await import("@/modules/mining/estimator/actions");
+      const { getEsi } = await import("@/core/esi");
+      const { EsiRateLimitedError } = await import("@/core/esi/client");
+      await db().insert(schema.eveTypes).values({ typeId: 1228, name: "Scordite", groupId: 462, volume: 0.15, portionSize: 100 });
+      await db().execute(sql`UPDATE type_values SET updated_at = now() - interval '3 hours' WHERE type_id = 1230`);
+      const reply = <T,>(data: T) => ({ data, status: 200, expiresAt: null, pages: 1, fromCache: false, notModified: false, lastModified: null });
+      const getSpy = vi.spyOn(getEsi(), "get").mockImplementation(async (path: string, opts?: { query?: Record<string, unknown> }) => {
+        if (!path.includes("/orders")) return reply([]);
+        if (opts?.query?.type_id === 1228) throw new EsiRateLimitedError(path, 420, new Date(Date.now() + 60_000));
+        return reply([{ is_buy_order: true, location_id: 60003760, price: 12 }]);
+      }) as unknown as { mockRestore: () => void };
+      try {
+        const result = await priceSurveyTypes(["Veldspar", "Scordite"]);
+        expect(result.esiUnavailable).toBe(true);
+        expect(Object.keys(result.prices)).toEqual(["veldspar"]);
+        expect(result.prices.veldspar.unitPrice).toBe(12);
+      } finally {
+        getSpy.mockRestore();
+        vi.doUnmock("@/core/auth/dal");
+      }
+    });
+  });
+
+  describe("market price job", async () => {
+    const { marketPricesJob } = await import("@/core/sync/core-jobs");
+    const { miningPriceInterest } = await import("@/modules/mining/jobs");
+    const { EsiRateLimitedError } = await import("@/core/esi/client");
+    const job = marketPricesJob([miningPriceInterest]);
+
+    /** ESI that answers order requests per type id: a Jita buy price, or an HTTP status to fail with. */
+    const fakeEsi = (orders: Record<number, number | { status: number }>, requested: number[] = []) =>
+      new EsiClient({
+        baseUrl: "https://esi.test",
+        userAgent: "t",
+        compatibilityDate: "2026-08-18",
+        maxRetries: 0,
+        sleep: async () => {},
+        fetchImpl: (async (url: string) => {
+          const u = new URL(String(url));
+          if (u.pathname.endsWith("/markets/prices")) return Response.json([]);
+          const typeId = Number(u.searchParams.get("type_id"));
+          requested.push(typeId);
+          const answer = orders[typeId];
+          if (typeof answer === "object") {
+            return Response.json({ error: "nope" }, { status: answer.status, headers: { "retry-after": "60" } });
+          }
+          const body = answer ? [{ is_buy_order: true, location_id: 60003760, price: answer }] : [];
+          return Response.json(body, { headers: { "x-pages": "1" } });
+        }) as typeof fetch,
+      });
+    const run = (esi: InstanceType<typeof EsiClient>) =>
+      job.run({ jobId: 1, ownerType: "global", ownerId: 0, characterId: null, esi, db: db(), log: undefined as never, meta: {} });
+    const jitaBuy = async () =>
+      Object.fromEntries(
+        (await db().select().from(schema.typeValues))
+          .filter((r) => r.source === "jita_buy")
+          .map((r) => [r.typeId, r.unitPrice]),
+      );
+
+    it("keeps what it priced when one type fails, and reports the failure", async () => {
+      // Zeolites prices fine; Veldspar's orders fail with a server error.
+      const result = await run(fakeEsi({ 45490: 700, 1230: { status: 503 } }));
+      expect(result?.summary).toBe("Priced 1 types (1 incl. compressed), 1 failed");
+      // Veldspar keeps its old value rather than falling back to "no Jita orders".
+      expect(await jitaBuy()).toEqual({ 1230: 10, 45490: 700 });
+    });
+
+    it("prices ledger ores and recently requested types only", async () => {
+      await db().insert(schema.eveTypes).values([
+        { typeId: 34, name: "Tritanium", groupId: 18, volume: 0.01, portionSize: 1 },
+        { typeId: 35, name: "Pyerite", groupId: 18, volume: 0.01, portionSize: 1 },
+        { typeId: 587, name: "Rifter", groupId: 25, volume: 27289, portionSize: 1 },
+      ]);
+      // Rifter was valued once but nobody asks for it any more.
+      await db().insert(schema.typeValues).values({ typeId: 587, source: "jita_buy", unitPrice: 400_000, basis: "direct" });
+      await db().insert(schema.priceInterest).values([
+        { typeId: 34, lastRequestedAt: new Date() },
+        { typeId: 35, lastRequestedAt: new Date(Date.now() - 20 * 24 * 3600 * 1000) },
+      ]);
+      const requested: number[] = [];
+      await run(fakeEsi({ 34: 4, 35: 8, 1230: 11, 45490: 700 }, requested));
+      expect(requested.sort((a, b) => a - b)).toEqual([34, 1230, 45490]);
+      expect((await db().select().from(schema.priceInterest)).map((r) => r.typeId)).toEqual([34]);
+      expect(await jitaBuy()).toMatchObject({ 34: 4, 587: 400_000, 1230: 11, 45490: 700 });
+    });
+
+    it("writes what it has and fails the run when ESI rate-limits it", async () => {
+      await expect(run(fakeEsi({ 45490: 700, 1230: { status: 420 } }))).rejects.toBeInstanceOf(EsiRateLimitedError);
+      expect(await jitaBuy()).toEqual({ 1230: 10, 45490: 700 });
+    });
+
+    it("fails the run when no type could be priced", async () => {
+      await expect(run(fakeEsi({ 45490: { status: 503 }, 1230: { status: 503 } }))).rejects.toBeInstanceOf(EsiError);
+      expect(await jitaBuy()).toEqual({ 1230: 10, 45490: 600 });
     });
   });
 
@@ -1486,14 +1608,25 @@ describe.skipIf(!enabled)("integration", async () => {
       });
     });
 
-    it("lists unregistered members first, then by name", async () => {
-      expect(await ids()).toEqual(["9", "10", "1", "2", "3"]);
+    it("lists registered characters first, then by name", async () => {
+      expect(await ids()).toEqual(["1", "2", "3", "9", "10"]);
       const [bravo] = await audit.getMemberAuditPage(100, required, params({ q: "Bravo", filter: "registered" }));
       expect(bravo).toMatchObject({ name: "Bravo", inRoster: true, registered: true, mainName: "Bravo", scopes: ["scope.a"] });
     });
 
+    it("sorts names without regard to case", async () => {
+      await db().insert(schema.corporationMembers).values([11, 12, 13].map((characterId) => ({ corporationId: 100, characterId })));
+      await db().insert(schema.eveEntities).values([
+        { id: 11, name: "bravo", category: "character" },
+        { id: 12, name: "alpha", category: "character" },
+        { id: 13, name: "ALPHA", category: "character" },
+      ]);
+      // Byte order would put "ALPHA" and "Outsider" before every lowercase name.
+      expect(await ids({ filter: "unregistered" })).toEqual(["13", "12", "11", "9", "10"]);
+    });
+
     it("filters like the stat tiles count", async () => {
-      expect(await ids({ filter: "roster" })).toEqual(["9", "10", "1", "2"]);
+      expect(await ids({ filter: "roster" })).toEqual(["1", "2", "9", "10"]);
       expect(await ids({ filter: "registered" })).toEqual(["1", "2"]);
       expect(await ids({ filter: "unregistered" })).toEqual(["9", "10"]);
       expect(await ids({ filter: "esi" })).toEqual(["2", "3"]);

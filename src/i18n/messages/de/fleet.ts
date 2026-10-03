@@ -56,7 +56,11 @@ export const fleet: typeof en = {
       stopped: "Kein Tracking",
     },
     checked: (when: string) => `geprüft ${when}`,
-    missingScope: "Flottenzugriff nicht erteilt. Autorisiere den Charakter unter Meine Charaktere neu.",
+    enable: "Flottenzugriff aktivieren",
+    enableHint: "Öffnet den EVE-Login, um diesem Charakter Flottenzugriff zu geben. Nur der Charakter, der Flottenboss ist, braucht ihn.",
+    revoke: "Zugriff entziehen",
+    revokeHint: "Öffnet den EVE-Login, um diesem Charakter den Flottenzugriff zu entziehen.",
+    demo: "In der Demo nicht verfügbar",
     noCharacters: "Verknüpfe einen Charakter, um Flotten zu teilen.",
   },
   live: {

@@ -11,7 +11,17 @@ export const fleetModule: KeystarModule = {
   id: "fleet",
   name: "Fleet",
   description: "Live fleet composition shared by fleet bosses through ESI, and a history of past fleets.",
-  scopes: [{ scope: FLEET_SCOPE, level: "character", reason: (t) => t.fleet.module.scopes.readFleet }],
+  // Only the fleet boss's token can read members and wings, so the scope is
+  // opt-in per character (enabled on the fleet page) rather than asked of everyone.
+  scopes: [
+    {
+      scope: FLEET_SCOPE,
+      level: "character",
+      optional: true,
+      manageHref: "/fleet",
+      reason: (t) => t.fleet.module.scopes.readFleet,
+    },
+  ],
   permissions: [
     {
       key: FLEET_PERMISSIONS.view,

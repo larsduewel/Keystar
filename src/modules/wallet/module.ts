@@ -23,6 +23,7 @@ export const walletModule: KeystarModule = {
       scope: WALLET_SCOPE,
       level: "character",
       optional: true,
+      manageHref: "/mining/pnl/settings",
       reason: (t) => t.wallet.module.scopes.characterWallet,
     },
     {

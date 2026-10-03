@@ -27,6 +27,8 @@ export interface ScopeRequirement {
    * when a user enables it for a character (`/auth/login?with=<scope>`).
    */
   optional?: boolean;
+  /** For an optional scope: the page where users turn it on or off per character. */
+  manageHref?: string;
 }
 
 export interface NavItem {

@@ -9,6 +9,7 @@ import {
   reauthorizeHref,
   scopesForIntent,
 } from "@/core/modules/registry";
+import { FLEET_SCOPE } from "@/modules/fleet/logic";
 import { MAIL_SCOPE } from "@/modules/social/module";
 import { WALLET_SCOPE } from "@/modules/wallet/module";
 
@@ -21,9 +22,9 @@ function params(href: string) {
 
 describe("optional scopes", () => {
   it("keeps opt-in scopes out of the member and corporation sets", () => {
-    expect(optionalScopes()).toEqual([MAIL_SCOPE, WALLET_SCOPE]);
-    expect(characterScopes()).toContain(MINING);
-    for (const scope of [WALLET_SCOPE, MAIL_SCOPE]) {
+    expect(optionalScopes()).toEqual([FLEET_SCOPE, MAIL_SCOPE, WALLET_SCOPE]);
+    expect(characterScopes()).toEqual([MINING]);
+    for (const scope of [WALLET_SCOPE, MAIL_SCOPE, FLEET_SCOPE]) {
       expect(characterScopes()).not.toContain(scope);
       expect(corporationScopes()).not.toContain(scope);
       expect(memberScopeRequirements().some((s) => s.scope === scope)).toBe(false);
@@ -31,7 +32,7 @@ describe("optional scopes", () => {
   });
 
   it("lists every scope for the EVE developer application", () => {
-    expect(applicationScopes()).toEqual(expect.arrayContaining([MINING, CORP_MINING, WALLET_SCOPE]));
+    expect(applicationScopes()).toEqual(expect.arrayContaining([MINING, CORP_MINING, WALLET_SCOPE, MAIL_SCOPE, FLEET_SCOPE]));
   });
 
   it("adds known opt-in scopes only when linking", () => {
@@ -70,6 +71,16 @@ describe("optional scopes", () => {
     const mailOff = params(reauthorizeHref([MINING, WALLET_SCOPE, MAIL_SCOPE], { remove: [MAIL_SCOPE] }));
     expect(mailOff.get("with")).toBe(WALLET_SCOPE);
     expect(mailOff.get("drop")).toBe(MAIL_SCOPE);
+  });
+
+  it("turns fleet access on and off like the other opt-in scopes", () => {
+    const on = params(reauthorizeHref([MINING], { add: [FLEET_SCOPE], returnTo: "/fleet" }));
+    expect(on.get("intent")).toBe("link");
+    expect(on.get("with")).toBe(FLEET_SCOPE);
+    expect(scopesForIntent("link", [FLEET_SCOPE])).toEqual([FLEET_SCOPE, MINING]);
+    const off = params(reauthorizeHref([MINING, FLEET_SCOPE, MAIL_SCOPE], { remove: [FLEET_SCOPE] }));
+    expect(off.get("with")).toBe(MAIL_SCOPE);
+    expect(off.get("drop")).toBe(FLEET_SCOPE);
   });
 
   it("parses with=/drop= lists down to known opt-in scopes", () => {

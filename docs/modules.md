@@ -64,10 +64,12 @@ Register it in `src/core/modules/registry.ts` (`MODULES`). That alone:
 Remember to enable new scopes on the EVE developer application, and tell members to re-authorise (My Characters
 shows "missing scopes" automatically).
 
-Sensitive scopes that only some users want can be **optional**: `{ scope, level: "character", optional: true, reason }`.
-They are left out of the member and corporation scope sets and never reported as missing. Let users enable them per
-character with `reauthorizeHref(grantedScopes, { add: [scope] })` (and `{ remove: [scope] }` to stop); jobs that
-require the scope are only planned for characters that granted it. See the wallet module for an example.
+Sensitive scopes, or scopes that only some users need, can be **optional**:
+`{ scope, level: "character", optional: true, manageHref: "/your-page", reason }`. They are left out of the member and
+corporation scope sets and never reported as missing. Let users enable them per character on the `manageHref` page
+(My Characters links there) with `reauthorizeHref(grantedScopes, { add: [scope] })` (and `{ remove: [scope] }` to
+stop); jobs that require the scope are only planned for characters that granted it. See the wallet, mail and fleet
+modules for examples.
 
 ## 2. Schema — `src/modules/<name>/schema.ts`
 

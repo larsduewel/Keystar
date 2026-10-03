@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { assertPermission } from "@/core/auth/dal";
 import { eveTypes, getDb, typeValues } from "@/core/db";
 import { EsiError, getEsi } from "@/core/esi";
-import { syncPrices } from "@/core/eve/prices";
+import { notePriceInterest, PRICE_MAX_AGE_MS, syncPrices } from "@/core/eve/prices";
 import { ensureTypes } from "@/core/eve/resolver";
 import { createLogger, errorMessage } from "@/core/logger";
 import { getSetting } from "@/core/settings";
@@ -34,8 +34,9 @@ export interface SurveyPricing {
 
 /**
  * Values the ore types from a pasted survey scan with Keystar's configured
- * price source. Unknown names are resolved through ESI; types that have never
- * been priced are priced live (and then kept fresh like any other type).
+ * price source. Unknown names are resolved through ESI; types without a recent
+ * value are priced live, and the hourly price job keeps them fresh while they
+ * keep being asked for.
  */
 export async function priceSurveyTypes(names: string[]): Promise<SurveyPricing> {
   await assertPermission(MINING_PERMISSIONS.viewOwn, MINING_PERMISSIONS.viewCorp);
@@ -85,23 +86,26 @@ export async function priceSurveyTypes(names: string[]): Promise<SurveyPricing> 
           .where(and(eq(typeValues.source, source), inArray(typeValues.typeId, typeIds)))
       : Promise.resolve([]);
 
+  await notePriceInterest(db, typeIds);
   let values = await loadValues();
-  const unpriced = typeIds.filter((id) => !values.some((v) => v.typeId === id));
-  let pricingFailed = false;
+  const fresh = (v: (typeof values)[number]) => Date.now() - v.updatedAt.getTime() < PRICE_MAX_AGE_MS;
+  const unpriced = typeIds.filter((id) => !values.some((v) => v.typeId === id && fresh(v)));
+  let failed = new Set<number>();
   if (unpriced.length) {
-    await syncPrices(db, getEsi(), unpriced).catch((err: unknown) => {
+    const result = await syncPrices(db, getEsi(), unpriced).catch((err: unknown) => {
       if (!(err instanceof EsiError)) throw err;
       log.warn("Could not price ore types", { types: unpriced.length, error: errorMessage(err) });
-      pricingFailed = true;
+      return null;
     });
-    if (pricingFailed) esiUnavailable = true;
-    else values = await loadValues();
+    failed = new Set(result?.failed ?? unpriced);
+    if (failed.size) esiUnavailable = true;
+    values = await loadValues();
   }
 
   const prices: Record<string, SurveyPrice> = {};
   for (const t of types) {
+    if (failed.has(t.typeId)) continue;
     const v = values.find((x) => x.typeId === t.typeId);
-    if (!v && pricingFailed) continue;
     prices[t.name.toLowerCase()] = { typeId: t.typeId, name: t.name, unitPrice: v?.unitPrice ?? null, basis: v?.basis ?? null };
   }
   return { prices, esiUnavailable };

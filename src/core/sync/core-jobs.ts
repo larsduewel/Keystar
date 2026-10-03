@@ -8,7 +8,7 @@ import {
 } from "@/core/db";
 import { purgeExpiredSessions } from "@/core/auth/session";
 import { fetchAffiliations } from "@/core/eve/affiliation";
-import { syncPrices } from "@/core/eve/prices";
+import { recentPriceInterest, syncPrices } from "@/core/eve/prices";
 import { ensureNames, refreshCorporations } from "@/core/eve/resolver";
 import { setSetting } from "@/core/settings";
 import { trackedCorporations } from "./scheduler";
@@ -119,10 +119,12 @@ export function marketPricesJob(providers: PriceInterestProvider[]): JobDefiniti
     async run({ esi, db }) {
       const ids = new Set<number>();
       for (const provider of providers) for (const id of await provider(db)) ids.add(id);
-      // Anything valued before (e.g. by the ore field estimator) stays fresh too.
-      const valued = await db.execute<{ type_id: number }>(sql`SELECT DISTINCT type_id FROM type_values`);
-      for (const r of valued) ids.add(Number(r.type_id));
-      return { summary: await syncPrices(db, esi, [...ids]) };
+      // Types appraised or estimated recently stay fresh too; older ones are priced again on demand.
+      for (const id of await recentPriceInterest(db)) ids.add(id);
+      const result = await syncPrices(db, esi, [...ids]);
+      // What was priced is written; failing the run makes the scheduler wait for the limit to lift.
+      if (result.rateLimited) throw result.rateLimited;
+      return { summary: result.summary };
     },
   };
 }

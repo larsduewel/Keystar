@@ -56,7 +56,11 @@ export const fleet = {
       stopped: "Not tracking",
     } as Record<string, string>,
     checked: (when: string) => `checked ${when}`,
-    missingScope: "Fleet access not granted. Re-authorise this character under My Characters.",
+    enable: "Enable fleet access",
+    enableHint: "Opens the EVE login to add fleet access to this character. Only the character that holds fleet boss needs it.",
+    revoke: "Revoke access",
+    revokeHint: "Opens the EVE login to remove fleet access from this character.",
+    demo: "Not available in the demo",
     noCharacters: "Link a character to share fleets.",
   },
   live: {

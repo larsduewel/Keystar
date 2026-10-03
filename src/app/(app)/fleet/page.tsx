@@ -1,13 +1,15 @@
 import { inArray } from "drizzle-orm";
-import { Radar } from "lucide-react";
+import { KeyRound, Radar } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
 import { StatusBadge } from "@/components/ui/badge";
 import { requirePermission } from "@/core/auth/dal";
 import { esiTokens, getDb } from "@/core/db";
+import { env } from "@/core/env";
+import { reauthorizeHref } from "@/core/modules/registry";
 import { getI18n } from "@/i18n/server";
 import { AutoRefresh } from "@/modules/fleet/components/auto-refresh";
 import { LiveFleet } from "@/modules/fleet/components/live-fleet";
@@ -18,6 +20,7 @@ import { startFleetTracking, stopFleetTracking } from "./actions";
 
 /** Matches the worker's poll interval (FLEET_POLL_SECONDS in the fleet jobs). */
 const REFRESH_SECONDS = 15;
+const RETURN_TO = "/fleet";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -30,6 +33,7 @@ export default async function FleetPage() {
   const tf = t.fleet;
   const now = new Date();
   const canTrack = user.can(FLEET_PERMISSIONS.track);
+  const demo = env().KEYSTAR_DEMO_MODE;
 
   const [live, past, trackers, tokens] = await Promise.all([
     getLiveFleets(now),
@@ -68,7 +72,8 @@ export default async function FleetPage() {
             <ul className="divide-y divide-white/5">
               {user.characters.map((c) => {
                 const tracker = trackerOf.get(c.characterId);
-                const hasScope = scopesOf.get(c.characterId)?.includes(FLEET_SCOPE) ?? false;
+                const granted = scopesOf.get(c.characterId) ?? [];
+                const hasScope = granted.includes(FLEET_SCOPE);
                 const active = tracker?.status === "tracking" || tracker?.status === "not_boss";
                 const status = !tracker ? "idle" : tracker.status === "tracking" && !tracker.checkedAt ? "waiting" : tracker.status;
                 const tone =
@@ -78,7 +83,20 @@ export default async function FleetPage() {
                     <Portrait id={c.characterId} size={28} />
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">{c.name}</span>
                     {!hasScope ? (
-                      <span className="text-xs text-warning">{tf.tracking.missingScope}</span>
+                      demo ? (
+                        <Button size="sm" variant="ghost" disabled title={tf.tracking.demo}>
+                          <KeyRound className="size-3.5" aria-hidden /> {tf.tracking.enable}
+                        </Button>
+                      ) : (
+                        <ButtonLink
+                          href={reauthorizeHref(granted, { add: [FLEET_SCOPE], returnTo: RETURN_TO })}
+                          size="sm"
+                          variant="primary"
+                          title={tf.tracking.enableHint}
+                        >
+                          <KeyRound className="size-3.5" aria-hidden /> {tf.tracking.enable}
+                        </ButtonLink>
+                      )
                     ) : (
                       <>
                         <StatusBadge status={tone} label={tf.tracking.status[status]} />
@@ -92,11 +110,23 @@ export default async function FleetPage() {
                             </Button>
                           </form>
                         ) : (
-                          <form action={startFleetTracking.bind(null, c.characterId)}>
-                            <Button size="sm" variant="primary">
-                              {tf.tracking.start}
-                            </Button>
-                          </form>
+                          <>
+                            <form action={startFleetTracking.bind(null, c.characterId)}>
+                              <Button size="sm" variant="primary">
+                                {tf.tracking.start}
+                              </Button>
+                            </form>
+                            {!demo && (
+                              <ButtonLink
+                                href={reauthorizeHref(granted, { remove: [FLEET_SCOPE], returnTo: RETURN_TO })}
+                                size="sm"
+                                variant="ghost"
+                                title={tf.tracking.revokeHint}
+                              >
+                                {tf.tracking.revoke}
+                              </ButtonLink>
+                            )}
+                          </>
                         )}
                       </>
                     )}

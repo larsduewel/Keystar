@@ -38,6 +38,7 @@ import { characterScopes, corporationScopes } from "@/core/modules/registry";
 import type { Role } from "@/core/rbac/roles";
 import { setSetting } from "@/core/settings";
 import { mulberry32 } from "@/lib/random";
+import { FLEET_SCOPE } from "@/modules/fleet/logic";
 import { generateSituationReport } from "@/modules/killboard/report/generate";
 import { runMigrations } from "@/scripts/migrate";
 import staticData from "./demo-data/eve-static.json";
@@ -188,7 +189,7 @@ async function main() {
   console.log("Clearing existing data…");
   await db.execute(sql`TRUNCATE users, characters, esi_tokens, sessions, audit_log, app_settings, character_corp_roles,
     corporation_members, eve_entities, eve_corporations, eve_groups, eve_types, eve_systems, market_prices, type_values,
-    type_value_history, esi_cache, sync_jobs, worker_heartbeats, mining_character_ledger, mining_observers,
+    type_value_history, price_interest, esi_cache, sync_jobs, worker_heartbeats, mining_character_ledger, mining_observers,
     mining_observer_ledger, killmails, killmail_attackers, killboard_reports, fleets, fleet_members, fleet_trackers,
     eve_constellations, intel_scans, intel_scan_pilots, intel_pilots, intel_pilot_killmails, intel_queue, intel_contacts,
     intel_ai_notes, wallet_transactions, mining_activity, mining_activity_coverage, mining_pnl_settings,
@@ -249,7 +250,8 @@ async function main() {
       if (ci === 0) await db.update(users).set({ mainCharacterId: characterId }).where(sql`${users.id} = ${user.id}`);
 
       const isLeadership = u.role === "admin" || u.role === "director";
-      let scopes = isLeadership && ci === 0 ? corpScopes : memberScopes;
+      // Leadership mains also run fleets, so they have the opt-in fleet scope.
+      let scopes = isLeadership && ci === 0 ? [...corpScopes, FLEET_SCOPE] : memberScopes;
       let status: "active" | "invalid" = "active";
       let lastError: string | null = null;
       if (index === 5) scopes = scopes.filter((s) => !s.includes("mining")); // a member missing the mining scope

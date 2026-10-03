@@ -23,6 +23,7 @@ export const socialModule: KeystarModule = {
       scope: MAIL_SCOPE,
       level: "character",
       optional: true,
+      manageHref: "/mail",
       reason: (t) => t.social.module.scopes.readMail,
     },
   ],

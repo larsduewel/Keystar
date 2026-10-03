@@ -54,6 +54,7 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
     ? parseOptionalScopes(String(params.scopes ?? "")).filter((s) => !lostGranted.includes(s))
     : [];
   const reasons = new Map(allScopeRequirements().map((s) => [s.scope, s.reason(t)]));
+  const manageHrefs = new Map(allScopeRequirements().flatMap((s) => (s.manageHref ? [[s.scope, s.manageHref] as const] : [])));
 
   return (
     <div className="space-y-6">
@@ -188,14 +189,22 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
                       <>
                         <div className="eve-label mt-3 mb-2 text-2xs text-ink-3">{m.card.optional}</div>
                         <ul className="space-y-1 text-xs">
-                          {optional.map((s) => (
-                            <li key={s} className="flex items-center justify-between gap-2" title={reasons.get(s)}>
-                              <code className="truncate text-ink-2">{s}</code>
-                              <Link href="/mining/pnl/settings" className="shrink-0">
-                                {granted.includes(s) ? <Badge tone="good">{m.card.optionalOn}</Badge> : <Badge>{m.card.optionalOff}</Badge>}
-                              </Link>
-                            </li>
-                          ))}
+                          {optional.map((s) => {
+                            const badge = granted.includes(s) ? <Badge tone="good">{m.card.optionalOn}</Badge> : <Badge>{m.card.optionalOff}</Badge>;
+                            const href = manageHrefs.get(s);
+                            return (
+                              <li key={s} className="flex items-center justify-between gap-2" title={reasons.get(s)}>
+                                <code className="truncate text-ink-2">{s}</code>
+                                {href ? (
+                                  <Link href={href} className="shrink-0">
+                                    {badge}
+                                  </Link>
+                                ) : (
+                                  badge
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </>
                     )}

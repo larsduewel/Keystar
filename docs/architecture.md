@@ -228,6 +228,10 @@ character (enabled from the mail page). The page only ever shows the signed-in a
   includes all of their characters. Until a home corporation is set, everyone sees only their own characters.
 - Values come from `type_values` (current) or `type_value_history` (price on the day mined). Raw ore without its own
   market falls back to its compressed variant (by portion size), then the ESI average and adjusted prices.
+- `core.market-prices` prices the types the `PriceInterestProvider`s return (every ore in the ledgers) plus the types
+  in `price_interest`: anything appraised or valued in the field estimator in the last 14 days. A type whose Jita
+  orders can't be fetched keeps its previous values and counts as failed in the job summary; the rest are still
+  written. On a rate limit the run stops fetching, writes what it has and retries when the limit lifts.
 
 ESI keeps 30 days of ledger history; Keystar keeps everything it has synced.
 
@@ -363,6 +367,7 @@ saved under an unguessable id like an appraisal. Only the normalised names are s
   ("x 10", "10x", "10 Name", "Name 10"). Ambiguous lines yield several candidates in order of preference.
 - Names resolve against `eve_types`, then ESI `POST /universe/ids` (case-insensitive exact matches); new types are
   stored through the resolver. Prices are the Jita 4-4 `type_values`; types without a value, or older than two
-  hours, are priced live with the same code as the hourly price job, which then keeps them fresh.
+  hours, are priced live with the same code as the hourly price job, which then keeps them fresh for 14 days after
+  the last appraisal that asked for them. An appraisal is refused if any of them can't be priced.
 - An appraisal is a snapshot (items, unit prices, totals, unrecognised lines, input) in `appraisals`, opened by an
   unguessable id. "Appraise again" creates a new snapshot at current prices.
