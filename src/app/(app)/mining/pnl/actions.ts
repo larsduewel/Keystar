@@ -24,6 +24,7 @@ import { parsePnlFilters } from "@/modules/mining/pnl/filters";
 import { getPurchases } from "@/modules/mining/pnl/queries";
 import { pnlScope } from "@/modules/mining/pnl/scope";
 import { SPREAD_DAYS } from "@/modules/mining/pnl/spread";
+import { ok, refused, type ActionResult } from "@/lib/action-result";
 import { WALLET_SCOPE } from "@/modules/wallet/module";
 
 /**
@@ -268,14 +269,18 @@ export async function deleteManualEntry(entryId: number) {
   revalidate();
 }
 
+export type DeleteWalletError = "forbidden" | "notOwned" | "stillImporting";
+
 /** Deletes a character's imported wallet history (only once wallet access has been removed). */
-export async function deleteWalletData(characterId: number) {
-  const user = await pnlUser();
-  const id = ownCharacter(user, characterId);
+export async function deleteWalletData(characterId: number): Promise<ActionResult<DeleteWalletError>> {
+  const user = await pnlUser().catch(() => null);
+  if (!user) return refused("forbidden");
+  if (!user.characterIds.includes(characterId)) return refused("notOwned");
   const db = getDb();
-  const [token] = await db.select({ scopes: esiTokens.scopes }).from(esiTokens).where(eq(esiTokens.characterId, id));
-  if (token?.scopes.includes(WALLET_SCOPE)) throw new Error("Stop wallet import for this character first");
-  await db.delete(walletTransactions).where(and(eq(walletTransactions.characterId, id), eq(walletTransactions.userId, user.id)));
-  await db.delete(miningPnlTxOverrides).where(and(eq(miningPnlTxOverrides.characterId, id), eq(miningPnlTxOverrides.userId, user.id)));
+  const [token] = await db.select({ scopes: esiTokens.scopes }).from(esiTokens).where(eq(esiTokens.characterId, characterId));
+  if (token?.scopes.includes(WALLET_SCOPE)) return refused("stillImporting");
+  await db.delete(walletTransactions).where(and(eq(walletTransactions.characterId, characterId), eq(walletTransactions.userId, user.id)));
+  await db.delete(miningPnlTxOverrides).where(and(eq(miningPnlTxOverrides.characterId, characterId), eq(miningPnlTxOverrides.userId, user.id)));
   revalidate();
+  return ok;
 }

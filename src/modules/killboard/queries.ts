@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/core/db";
+import { CURSOR_FORMAT, formatLiveCursor, type LiveCursor } from "@/core/live-cursor";
 import { addDays, utcDayBounds } from "@/lib/dates";
 import { spanOf, type DateRange, type KillboardWindows } from "./filters";
 
@@ -390,31 +391,8 @@ export async function getDailyActivity(corp: number, r: DateRange): Promise<Dail
 /** How old a killmail may be and still be announced live (older ones arrive through backfills). */
 const LIVE_MAX_AGE_HOURS = 3;
 const LIVE_LIMIT = 10;
-/** Postgres timestamps keep microseconds; the cursor carries all of them so `>` never repeats a row. */
-const CURSOR_FORMAT = `YYYY-MM-DD"T"HH24:MI:SS.US"Z"`;
-const CURSOR_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z)_(\d{1,15})$/;
 
-/**
- * Position in the live stream: `first_seen_at` plus the killmail id, since one
- * insert stores many killmails with the same timestamp. Written `<ISO time>_<id>`.
- */
-export interface LiveCursor {
-  at: string;
-  id: number;
-}
-
-export const formatLiveCursor = (c: LiveCursor) => `${c.at}_${c.id}`;
-
-/** A cursor from the browser, or null unless it is well formed and names a real instant. */
-export function parseLiveCursor(value: string | null | undefined): LiveCursor | null {
-  const m = value ? CURSOR_PATTERN.exec(value) : null;
-  if (!m) return null;
-  const [, at, id] = m;
-  const parsed = new Date(at!);
-  // Out-of-range parts (month 13, 30 February, …) either fail to parse or roll over.
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 19) !== at!.slice(0, 19)) return null;
-  return { at: at!, id: Number(id) };
-}
+export { formatLiveCursor, liveCursorNow, parseLiveCursor, type LiveCursor } from "@/core/live-cursor";
 
 export interface LiveEvent {
   killmailId: number;
@@ -445,12 +423,6 @@ export interface LiveEvent {
   regionName: string | null;
   value: number;
   solo: boolean;
-}
-
-/** Database time as a live cursor: announce what arrives after this. */
-export async function liveCursorNow(): Promise<string> {
-  const [row] = await getDb().execute<{ now: string }>(sql`SELECT to_char(now() AT TIME ZONE 'UTC', ${CURSOR_FORMAT}) AS now`);
-  return formatLiveCursor({ at: String(row?.now), id: 0 });
 }
 
 /** Kills and losses stored after the cursor (oldest first), with everything a notification shows. */

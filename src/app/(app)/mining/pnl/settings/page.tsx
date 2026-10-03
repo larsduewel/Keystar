@@ -1,6 +1,7 @@
 import { Activity, KeyRound, Plus, Trash2, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { StatusBadge } from "@/components/ui/badge";
+import { ActionForm } from "@/components/ui/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
@@ -21,6 +22,7 @@ import {
   setAutoInclude,
   setIncomeRate,
 } from "../actions";
+import { setOptionalScope } from "@/app/(app)/characters/actions";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -54,6 +56,8 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
     ...rules.map((r) => [r.typeId, r.typeName ?? String(r.typeId)] as const),
   ]);
   const price = (value: number) => f.unitPrice(value).replace(" ISK", "");
+  const sw = t.characters.scopeSwitch;
+  const walletLabel = t.wallet.module.scopes.characterWalletLabel;
 
   return (
     <div className="space-y-6">
@@ -67,8 +71,7 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
       <Panel title={m.wallet.title} subtitle={m.wallet.subtitle}>
         <div className="space-y-3">
           {wallet.map((w) => {
-            const enable = reauthorizeHref(w.grantedScopes, { add: [WALLET_SCOPE], returnTo: RETURN_TO });
-            const stop = reauthorizeHref(w.grantedScopes, { remove: [WALLET_SCOPE], returnTo: RETURN_TO });
+            const enable = reauthorizeHref(w.grantedScopes, { add: [WALLET_SCOPE], returnTo: RETURN_TO, characterId: w.characterId });
             const tracksMining = w.grantedScopes.includes(MINING_SCOPE);
             return (
               <Glass key={w.characterId} className="flex flex-wrap items-center gap-4 rounded-2xl px-4 py-3">
@@ -115,25 +118,45 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
                       <SwitchButton on={w.autoInclude} label={m.wallet.autoCount} />
                     </form>
                   )}
-                  {demo ? (
+                  {w.granted || w.switchedOff ? (
+                    // In Keystar only: the token keeps the scope until the character is re-authorised.
+                    <ActionForm
+                      action={setOptionalScope.bind(null, w.characterId, WALLET_SCOPE, !w.granted)}
+                      success={w.granted ? sw.off(walletLabel, w.name) : sw.on(walletLabel, w.name)}
+                      successDetail={w.granted ? sw.offDetail : undefined}
+                      failed={sw.failed(walletLabel, w.name)}
+                      errors={sw.errors}
+                    >
+                      {w.granted ? (
+                        <Button type="submit" size="sm" variant="ghost">
+                          {m.wallet.stop}
+                        </Button>
+                      ) : (
+                        <Button type="submit" size="sm" variant="primary">
+                          <Wallet className="size-3.5" aria-hidden /> {m.wallet.enable}
+                        </Button>
+                      )}
+                    </ActionForm>
+                  ) : demo ? (
                     <Button size="sm" disabled title={m.wallet.demo}>
-                      <KeyRound className="size-3.5" aria-hidden /> {w.granted ? m.wallet.stop : m.wallet.enable}
+                      <KeyRound className="size-3.5" aria-hidden /> {m.wallet.enable}
                     </Button>
-                  ) : w.granted ? (
-                    <ButtonLink href={stop} size="sm" variant="ghost">
-                      {m.wallet.stop}
-                    </ButtonLink>
                   ) : (
                     <ButtonLink href={enable} size="sm" variant="primary">
                       <Wallet className="size-3.5" aria-hidden /> {m.wallet.enable}
                     </ButtonLink>
                   )}
                   {!w.granted && w.transactions > 0 && (
-                    <form action={deleteWalletData.bind(null, w.characterId)}>
-                      <SubmitButton variant="danger" title={m.wallet.deleteHistoryHint}>
+                    <ActionForm
+                      action={deleteWalletData.bind(null, w.characterId)}
+                      success={m.wallet.toast.deleted(w.name)}
+                      failed={m.wallet.toast.failed(w.name)}
+                      errors={m.wallet.toast.errors}
+                    >
+                      <Button type="submit" size="sm" variant="danger" title={m.wallet.deleteHistoryHint}>
                         <Trash2 className="size-3.5" aria-hidden /> {m.wallet.deleteHistory}
-                      </SubmitButton>
-                    </form>
+                      </Button>
+                    </ActionForm>
                   )}
                 </div>
               </Glass>

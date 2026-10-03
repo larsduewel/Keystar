@@ -11,7 +11,7 @@ export const mining: typeof en = {
     nav: {
       overview: "Mining-Übersicht",
       ledger: "Mining-Ledger",
-      observers: "Mond-Observer",
+      observers: "Mondbohrer",
       estimator: "Feldschätzer",
       pnl: "Mining-GuV",
     },
@@ -20,7 +20,7 @@ export const mining: typeof en = {
       viewOwn: { label: "Eigenes Mining ansehen", description: "Das Mining-Ledger der eigenen Charaktere sehen." },
       viewCorp: {
         label: "Mining der Corporation ansehen",
-        description: "Das Mining aller Mitglieder und der Raffinerie-Observer sehen.",
+        description: "Das Mining aller Mitglieder und an den Mondbohrern der Corporation sehen.",
       },
       export: { label: "Mining-Daten exportieren", description: "Ledger als CSV herunterladen." },
       pnl: {
@@ -30,12 +30,12 @@ export const mining: typeof en = {
     },
     scopes: {
       characterMining: "Liest dein persönliches Mining-Ledger (Erz, Eis, Gas und Mond-Mining der letzten 30 Tage).",
-      corporationMining: "Liest die Mond-Mining-Observer der Raffinerien deiner Corporation.",
-      structures: "Benennt Raffinerien in der Observer-Ansicht.",
+      corporationMining: "Liest die Mondbohrer-Ledger der Raffinerien deiner Corporation.",
+      structures: "Benennt Raffinerien auf der Seite Mondbohrer.",
     },
     jobs: {
       characterLedger: "Persönliches Mining-Ledger",
-      observers: "Mond-Mining-Observer",
+      observers: "Mondbohrer-Ledger",
       structures: "Raffinerie-Namen",
     },
   },
@@ -48,9 +48,9 @@ export const mining: typeof en = {
   },
 
   sources: {
-    all: { label: "Kombiniert", hint: "Mitglieder-Ledger plus Observer-Einträge, die dort noch nicht enthalten sind" },
+    all: { label: "Kombiniert", hint: "Mitglieder-Ledger plus Mondbohrer-Einträge, die dort noch nicht enthalten sind" },
     personal: { label: "Mitglieder-Ledger", hint: "Persönliche Ledger registrierter Charaktere (sämtliches Mining)" },
-    observer: { label: "Raffinerien", hint: "Mond-Mining, erfasst von den Raffinerien der Corporation (alle Piloten)" },
+    observer: { label: "Mondbohrer", hint: "Mond-Mining, erfasst von den Mondbohrern der Corporation (alle Piloten)" },
   },
 
   metrics: {
@@ -155,7 +155,7 @@ export const mining: typeof en = {
     empty: {
       title: "Noch keine Mining-Daten",
       action: "Charaktere verwalten",
-      body: "Verknüpfe deine Charaktere mit dem Mining-Ledger-Scope. Der Worker synchronisiert persönliche Ledger alle 15 Minuten und Raffinerie-Observer stündlich; ESI hält die letzten 30 Tage vor, Keystar behält ab dann alles.",
+      body: "Verknüpfe deine Charaktere mit dem Mining-Ledger-Scope. Der Worker synchronisiert persönliche Ledger alle 15 Minuten und Mondbohrer stündlich; ESI hält die letzten 30 Tage vor, Keystar behält ab dann alles.",
     },
     // Short on purpose: it follows "ggü." in narrow stat tiles.
     priorPeriod: (days: number) => (days === 1 ? "Vortag" : "Vorperiode"),
@@ -194,14 +194,14 @@ export const mining: typeof en = {
       invalidTokens: "Widerrufene oder abgelaufene Tokens",
       unregistered: "Nicht registrierte Corp-Mitglieder",
       lastLedgerSync: "Letzter Sync der persönlichen Ledger",
-      lastObserverSync: "Letzter Sync der Raffinerie-Observer",
+      lastObserverSync: "Letzter Sync der Mondbohrer",
       notConfigured: "nicht eingerichtet",
       unpriced: (rows: number) =>
         rows === 1
           ? "1 Ledger-Zeile hat noch keinen Preis und zählt als 0 ISK."
           : `${n(rows)} Ledger-Zeilen haben noch keinen Preis und zählen als 0 ISK.`,
       note: (valuation: string) =>
-        `ESI-Ledger sind Tagessummen pro Erz und System. „Kombiniert“ zählt Raffinerie-Einträge nur, wenn sie nicht schon im persönlichen Ledger eines Mitglieds stehen. ISK-Bewertung: ${valuation}.`,
+        `ESI-Ledger sind Tagessummen pro Erz und System. „Kombiniert“ zählt Mondbohrer-Einträge nur, wenn sie nicht schon im persönlichen Ledger eines Mitglieds stehen. ISK-Bewertung: ${valuation}.`,
     },
   },
 
@@ -219,7 +219,7 @@ export const mining: typeof en = {
     unknownSystem: "Unbekannt",
     sourceBadge: {
       personal: "Persönlich",
-      observer: "Raffinerie",
+      observer: "Mondbohrer",
     },
     dayMeta: (entries: number, characters: number) =>
       `${plural(entries, "Eintrag", "Einträge")} · ${plural(characters, "Charakter", "Charaktere")}`,
@@ -232,20 +232,20 @@ export const mining: typeof en = {
   },
 
   observers: {
-    metaTitle: "Mond-Observer",
+    metaTitle: "Mondbohrer",
     description:
-      "Mond-Mining, erfasst von den Raffinerien der Corporation – auch von Piloten, die sich nie bei Keystar registriert haben.",
+      "Mond-Mining, erfasst von den Mondbohrern der Corporation – auch von Piloten, die sich nie bei Keystar registriert haben.",
     noHomeCorp: {
       title: "Keine Heimat-Corporation festgelegt",
-      body: "Raffinerie-Observer gehören zur Heimat-Corporation. Ein Admin kann sie unter Administration → Einstellungen festlegen.",
+      body: "Mondbohrer werden für die Heimat-Corporation erfasst. Ein Admin kann sie unter Administration → Einstellungen festlegen.",
     },
     noObservers: {
-      title: "Noch keine Raffinerie-Observer",
+      title: "Noch keine Mondbohrer",
       body: (strong: (text: string) => ReactNode) => (
         <>
           Ein Direktor oder Accountant muss einen Charakter mit Corporation-Scopes verknüpfen (Meine Charaktere → „Mit
-          Corporation-Zugriff verknüpfen“). Der Charakter braucht die Ingame-Rolle {strong("Accountant")}, um Observer zu
-          lesen, und {strong("Station Manager")} für die Raffinerie-Namen.
+          Corporation-Zugriff verknüpfen“). Der Charakter braucht die Ingame-Rolle {strong("Accountant")}, um die Mondbohrer-Ledger
+          zu lesen, und {strong("Station Manager")} für die Raffinerie-Namen.
         </>
       ),
     },

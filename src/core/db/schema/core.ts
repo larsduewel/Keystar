@@ -59,7 +59,13 @@ export const esiTokens = pgTable("esi_tokens", {
   refreshTokenEnc: text("refresh_token_enc").notNull(),
   accessTokenEnc: text("access_token_enc"),
   accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+  /** Scopes Keystar uses: the token's scopes minus `disabledScopes`. */
   scopes: text("scopes").array().notNull().default(sql`'{}'::text[]`),
+  /**
+   * Opt-in scopes the token still holds but the user switched off in Keystar
+   * (EVE can't drop a single scope without a new login). Cleared by the next SSO consent.
+   */
+  disabledScopes: text("disabled_scopes").array().notNull().default(sql`'{}'::text[]`),
   status: text("status").$type<TokenStatus>().notNull().default("active"),
   lastError: text("last_error"),
   lastRefreshedAt: timestamp("last_refreshed_at", { withTimezone: true }),

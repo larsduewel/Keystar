@@ -16,6 +16,18 @@ export class TokenInvalidError extends Error {
 const inflight = new Map<number, Promise<string>>();
 
 /**
+ * Scopes to store after a refresh: what the new token holds, minus opt-in
+ * scopes switched off in Keystar (they stay off; see core/auth/scope-switch.ts).
+ * Switched-off scopes the token no longer holds are forgotten.
+ */
+export function refreshedScopes(tokenScopes: readonly string[], disabled: readonly string[]) {
+  return {
+    scopes: tokenScopes.filter((s) => !disabled.includes(s)),
+    disabledScopes: disabled.filter((s) => tokenScopes.includes(s)),
+  };
+}
+
+/**
  * Returns a valid ESI access token for a character, refreshing it through SSO
  * when it expires within a minute. Refreshes are serialised per character
  * in-process and guarded by a row lock across processes.
@@ -54,7 +66,7 @@ async function loadOrRefresh(characterId: number, forceRefresh: boolean): Promis
           accessTokenEnc: encryptToken(res.access_token),
           accessTokenExpiresAt: new Date(Date.now() + res.expires_in * 1000),
           refreshTokenEnc: encryptToken(res.refresh_token),
-          scopes: verified.scopes,
+          ...refreshedScopes(verified.scopes, row.disabledScopes),
           lastRefreshedAt: new Date(),
           lastError: null,
           updatedAt: new Date(),

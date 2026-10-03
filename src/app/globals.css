@@ -137,6 +137,9 @@
 html {
   background: var(--color-space-950);
   color: var(--color-ink);
+  /* Reserve the scrollbar's space on every page so centred content doesn't
+     jump sideways between pages that scroll and pages that don't. */
+  scrollbar-gutter: stable;
 }
 
 body {

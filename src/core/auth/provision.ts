@@ -26,8 +26,13 @@ import type { TokenResponse, VerifiedCharacter } from "./sso";
 
 export type SsoIntent = "login" | "join" | "link" | "link-corp";
 
+export type ProvisionErrorCode = "signInFirst" | "linkedElsewhere" | "disabled";
+
 export class ProvisionError extends Error {
-  constructor(message: string) {
+  constructor(
+    readonly code: ProvisionErrorCode,
+    message: string,
+  ) {
     super(message);
     this.name = "ProvisionError";
   }
@@ -80,8 +85,12 @@ export interface ProvisionResult {
   characterId: number;
   createdUser: boolean;
   role: Role;
+  /** The character wasn't on this account before (a new link or a first sign-in). */
+  newCharacter: boolean;
   /** Opt-in scopes the character held before this login but EVE didn't grant again. */
   lostOptionalScopes: string[];
+  /** Opt-in scopes this login granted that the character didn't use before. */
+  addedOptionalScopes: string[];
 }
 
 /**
@@ -97,7 +106,7 @@ export async function provisionFromSso(params: {
 }): Promise<ProvisionResult> {
   const { verified, tokens, intent, currentUserId } = params;
   const linking = intent === "link" || intent === "link-corp";
-  if (linking && !currentUserId) throw new ProvisionError("Sign in before linking another character.");
+  if (linking && !currentUserId) throw new ProvisionError("signInFirst", "Sign in before linking another character.");
 
   const pub = await getEsi().get<{ corporation_id: number; alliance_id?: number }>(`/characters/${verified.characterId}`);
   const corporationId = pub.data.corporation_id;
@@ -154,7 +163,7 @@ export async function provisionFromSso(params: {
 
     if (linking) {
       if (owned && owned.userId !== currentUserId) {
-        throw new ProvisionError(`${verified.name} is already linked to another Keystar account.`);
+        throw new ProvisionError("linkedElsewhere", `${verified.name} is already linked to another Keystar account.`);
       }
       userId = currentUserId!;
       const [u] = await tx.select().from(users).where(eq(users.id, userId));
@@ -162,7 +171,7 @@ export async function provisionFromSso(params: {
     } else if (owned) {
       userId = owned.userId;
       const [u] = await tx.select().from(users).where(eq(users.id, userId));
-      if (u.isDisabled) throw new ProvisionError("This account has been disabled by an administrator.");
+      if (u.isDisabled) throw new ProvisionError("disabled", "This account has been disabled by an administrator.");
       role = reconcileRole(u.role, policy);
       if (role !== u.role) {
         await audit({
@@ -204,17 +213,21 @@ export async function provisionFromSso(params: {
       });
 
     let lostOptionalScopes: string[] = [];
+    let addedOptionalScopes: string[] = [];
     if (verified.scopes.length > 0) {
       // EVE replaces a token's scopes on every login: note opt-in scopes this login dropped.
       const [previous] = owned
         ? await tx.select({ scopes: esiTokens.scopes }).from(esiTokens).where(eq(esiTokens.characterId, verified.characterId))
         : [];
       lostOptionalScopes = optionalScopes().filter((s) => previous?.scopes.includes(s) && !verified.scopes.includes(s));
+      addedOptionalScopes = optionalScopes().filter((s) => verified.scopes.includes(s) && !previous?.scopes.includes(s));
       const tokenValues = {
         refreshTokenEnc: encryptToken(tokens.refresh_token),
         accessTokenEnc: encryptToken(tokens.access_token),
         accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
         scopes: verified.scopes,
+        // A fresh EVE consent replaces in-app switches: the token now holds exactly what was asked for.
+        disabledScopes: [],
         status: "active" as const,
         lastError: null,
         lastRefreshedAt: new Date(),
@@ -236,7 +249,15 @@ export async function provisionFromSso(params: {
       })
       .where(eq(users.id, userId));
 
-    return { userId, characterId: verified.characterId, createdUser, role, lostOptionalScopes };
+    return {
+      userId,
+      characterId: verified.characterId,
+      createdUser,
+      role,
+      newCharacter: owned?.userId !== userId,
+      lostOptionalScopes,
+      addedOptionalScopes,
+    };
   });
 
   // The first admin's corporation becomes the home corporation if none is configured.

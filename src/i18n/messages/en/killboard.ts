@@ -12,6 +12,7 @@ export const killboard = {
   module: {
     navSection: "Combat",
     nav: { killboard: "Combat Report" },
+    alerts: { kills: { label: "Kills and losses", hint: "When a corporation member gets a kill or loses a ship" } },
     permissionGroup: "Killboard",
     permissions: {
       view: {
@@ -149,12 +150,6 @@ export const killboard = {
     noPilot: "No pilot",
     open: "Open this killmail on zKillboard",
     dismiss: "Dismiss",
-    toggle: {
-      on: "Kill alerts on",
-      off: "Kill alerts off",
-      enable: "Show a notification when a corporation member gets a kill or loss",
-      disable: "Stop showing kill and loss notifications",
-    },
   },
   ships: {
     entity: "Ship",

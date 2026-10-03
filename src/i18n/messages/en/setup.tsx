@@ -38,7 +38,7 @@ export const setup = {
     /** `role` renders an in-game role name, `page` is the My Characters page name. */
     intro: (role: (name: string) => ReactNode, page: string) => (
       <>
-        Moon-mining observers and the corporation roster are read through one character with the in-game{" "}
+        Moon-drill ledgers and the corporation roster are read through one character with the in-game{" "}
         {role("Accountant")} or {role("Director")} role. You can also do this later from {page}.
       </>
     ),

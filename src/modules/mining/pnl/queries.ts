@@ -460,6 +460,8 @@ export interface WalletCharacterStatus {
   name: string;
   /** The character's token currently carries the wallet scope. */
   granted: boolean;
+  /** Switched off in Keystar while the token still holds the scope: can be switched back on without an EVE login. */
+  switchedOff: boolean;
   grantedScopes: string[];
   tokenStatus: "active" | "invalid" | null;
   autoInclude: boolean;
@@ -478,7 +480,7 @@ export interface WalletCharacterStatus {
 /** Wallet import and activity tracking state of each of the account's characters. */
 export async function getWalletStatus(userId: string): Promise<WalletCharacterStatus[]> {
   const rows = await getDb().execute<Record<string, unknown>>(sql`
-    SELECT c.character_id, c.name, t.scopes, t.status AS token_status,
+    SELECT c.character_id, c.name, t.scopes, t.disabled_scopes, t.status AS token_status,
            COALESCE(pc.auto_include_expenses, false) AS auto_include,
            j.enabled AS job_enabled, j.last_success_at, j.last_status, j.last_error,
            w.n AS transactions, w.first_at, w.last_at,
@@ -502,6 +504,9 @@ export async function getWalletStatus(userId: string): Promise<WalletCharacterSt
       characterId: num(r.character_id),
       name: String(r.name),
       granted: scopes.includes(WALLET_SCOPE),
+      // A revoked token can't be switched back on in Keystar; it needs the EVE login.
+      switchedOff:
+        r.token_status === "active" && Array.isArray(r.disabled_scopes) && (r.disabled_scopes as string[]).includes(WALLET_SCOPE),
       grantedScopes: scopes,
       tokenStatus: r.token_status === "active" || r.token_status === "invalid" ? r.token_status : null,
       autoInclude: Boolean(r.auto_include),

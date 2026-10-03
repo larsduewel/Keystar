@@ -3,6 +3,7 @@ import { ArrowRight, Ban, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge, RoleBadge, StatusBadge } from "@/components/ui/badge";
+import { ActionForm } from "@/components/ui/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Portrait } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
@@ -131,11 +132,16 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
                     {tu.registered(f.relativeTime(u.created_at))}
                   </div>
                 </div>
-                <form action={approveUser.bind(null, u.id)}>
+                <ActionForm
+                  action={approveUser.bind(null, u.id)}
+                  success={tu.access.approved(u.main_name ?? tu.unknown)}
+                  failed={tu.access.failed(u.main_name ?? tu.unknown)}
+                  errors={tu.access.errors}
+                >
                   <Button size="sm" variant="primary" type="submit">
                     <UserCheck className="size-3.5" aria-hidden /> {tu.approve}
                   </Button>
-                </form>
+                </ActionForm>
               </li>
             ))}
           </ul>
@@ -261,11 +267,16 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
                     {showActions && (
                       <td className="text-right">
                         {canChange ? (
-                          <form action={setUserDisabled.bind(null, u.id, !u.is_disabled)}>
+                          <ActionForm
+                            action={setUserDisabled.bind(null, u.id, !u.is_disabled)}
+                            success={(u.is_disabled ? tu.access.enabled : tu.access.disabled)(u.main_name ?? tu.unknown)}
+                            failed={tu.access.failed(u.main_name ?? tu.unknown)}
+                            errors={tu.access.errors}
+                          >
                             <Button size="sm" variant={u.is_disabled ? "glass" : "danger"} type="submit">
                               <Ban className="size-3.5" aria-hidden /> {u.is_disabled ? tu.enable : tu.disable}
                             </Button>
-                          </form>
+                          </ActionForm>
                         ) : (
                           <span
                             className="text-ink-3"

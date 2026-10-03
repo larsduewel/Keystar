@@ -6,21 +6,21 @@ import type { MiningMetric, MiningSource } from "@/modules/mining/filters";
 const n = FORMATTERS.en.integer;
 const plural = (count: number, one: string, many: string) => `${n(count)} ${count === 1 ? one : many}`;
 
-/** Mining module: overview, ledger, moon observers, field estimator. */
+/** Mining module: overview, ledger, moon drills, field estimator. */
 export const mining = {
   module: {
     navSection: "Industry",
     nav: {
       overview: "Mining Overview",
       ledger: "Mining Ledger",
-      observers: "Moon Observers",
+      observers: "Moon Drills",
       estimator: "Field Estimator",
       pnl: "Mining P&L",
     },
     permissionGroup: "Mining",
     permissions: {
       viewOwn: { label: "View own mining", description: "See the mining ledger of your own characters." },
-      viewCorp: { label: "View corporation mining", description: "See mining of all members and refinery observers." },
+      viewCorp: { label: "View corporation mining", description: "See mining of all members and at corporation moon drills." },
       export: { label: "Export mining data", description: "Download ledgers as CSV." },
       pnl: {
         label: "Mining P&L",
@@ -29,12 +29,12 @@ export const mining = {
     },
     scopes: {
       characterMining: "Reads your personal mining ledger (all ore, ice, gas and moon mining, last 30 days).",
-      corporationMining: "Reads moon-mining observers of corporation refineries.",
-      structures: "Names refineries in the observer view.",
+      corporationMining: "Reads the moon-drill ledgers of corporation refineries.",
+      structures: "Names refineries on the Moon Drills page.",
     },
     jobs: {
       characterLedger: "Personal mining ledger",
-      observers: "Moon mining observers",
+      observers: "Moon-drill ledgers",
       structures: "Refinery names",
     },
   },
@@ -49,9 +49,9 @@ export const mining = {
 
   /** Data source switch (filter bar). */
   sources: {
-    all: { label: "Combined", hint: "Member ledgers plus observer entries not already covered by them" },
+    all: { label: "Combined", hint: "Member ledgers plus moon-drill entries not already covered by them" },
     personal: { label: "Member ledgers", hint: "Personal ledgers of registered characters (all mining)" },
-    observer: { label: "Refineries", hint: "Moon mining recorded by corporation refineries (anyone)" },
+    observer: { label: "Moon drills", hint: "Moon mining recorded by the corporation's moon drills (anyone)" },
   } satisfies Record<MiningSource, { label: string; hint: string }>,
 
   /** Measure switch (filter bar). */
@@ -160,7 +160,7 @@ export const mining = {
     empty: {
       title: "No mining data yet",
       action: "Manage characters",
-      body: "Link your characters with the mining ledger scope. The worker syncs personal ledgers every 15 minutes and refinery observers hourly; ESI keeps the last 30 days, Keystar keeps everything from then on.",
+      body: "Link your characters with the mining ledger scope. The worker syncs personal ledgers every 15 minutes and moon drills hourly; ESI keeps the last 30 days, Keystar keeps everything from then on.",
     },
     /** Comparison period for the stat tiles ("vs prior 30d"). */
     priorPeriod: (days: number) => `prior ${n(days)}d`,
@@ -199,12 +199,12 @@ export const mining = {
       invalidTokens: "Revoked or expired tokens",
       unregistered: "Corp members not registered",
       lastLedgerSync: "Last personal ledger sync",
-      lastObserverSync: "Last refinery observer sync",
+      lastObserverSync: "Last moon-drill sync",
       notConfigured: "not configured",
       unpriced: (rows: number) =>
         `${plural(rows, "ledger row has", "ledger rows have")} no price yet and count as 0 ISK.`,
       note: (valuation: string) =>
-        `ESI ledgers are daily totals per ore and system. “Combined” counts refinery entries only when they are not already in a member's personal ledger. ISK values use ${valuation}.`,
+        `ESI ledgers are daily totals per ore and system. “Combined” counts moon-drill entries only when they are not already in a member's personal ledger. ISK values use ${valuation}.`,
     },
   },
 
@@ -222,7 +222,7 @@ export const mining = {
     unknownSystem: "Unknown",
     sourceBadge: {
       personal: "Personal",
-      observer: "Refinery",
+      observer: "Moon drill",
     } satisfies Record<Exclude<MiningSource, "all">, string>,
     dayMeta: (entries: number, characters: number) =>
       `${plural(entries, "entry", "entries")} · ${plural(characters, "character", "characters")}`,
@@ -235,18 +235,18 @@ export const mining = {
   },
 
   observers: {
-    metaTitle: "Moon observers",
-    description: "Moon mining recorded by corporation refineries — including pilots who never registered with Keystar.",
+    metaTitle: "Moon drills",
+    description: "Moon mining recorded by the corporation's moon drills — including pilots who never registered with Keystar.",
     noHomeCorp: {
       title: "No home corporation set",
-      body: "Refinery observers belong to the home corporation. An admin can set it under Admin → Settings.",
+      body: "Moon drills are tracked for the home corporation. An admin can set it under Admin → Settings.",
     },
     noObservers: {
-      title: "No refinery observers yet",
+      title: "No moon drills yet",
       body: (strong: (text: string) => ReactNode) => (
         <>
           A director or accountant needs to link a character with corporation scopes (My Characters → “Link with
-          corporation access”). The character needs the in-game {strong("Accountant")} role to read observers and{" "}
+          corporation access”). The character needs the in-game {strong("Accountant")} role to read moon-drill ledgers and{" "}
           {strong("Station Manager")} for refinery names.
         </>
       ),

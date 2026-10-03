@@ -567,6 +567,14 @@ export interface ObserverSummary {
   topMiners: { characterId: number; name: string; value: number; quantity: number; foreign: boolean }[];
 }
 
+/** Whether the home corporation has any moon-drill structures (ESI observers) on record. */
+export async function hasObservers(homeCorporationId: number | null): Promise<boolean> {
+  if (homeCorporationId === null) return false;
+  const rows = await getDb().execute<Record<string, unknown>>(sql`
+    SELECT EXISTS (SELECT 1 FROM mining_observers WHERE corporation_id = ${homeCorporationId}) AS present`);
+  return rows[0]?.present === true;
+}
+
 /** Per-refinery totals for the date range (corporation scope only). */
 export async function getObserverSummaries(f: MiningFilters, val: Valuation, homeCorporationId: number | null) {
   if (homeCorporationId === null) return [];

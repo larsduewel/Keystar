@@ -9,6 +9,7 @@ export const wallet: typeof en = {
     scopes: {
       characterWallet:
         "Liest Marktkäufe und -verkäufe, damit die Mining-GuV Mining-Kosten und Verkaufspreise berücksichtigen kann (optional).",
+      characterWalletLabel: "Wallet-Import",
       corporationWallets:
         "Liest Kontostände, Journal und Markttransaktionen der Corporation-Wallets für die Finanzseiten (braucht Accountant oder Junior Accountant).",
       divisions: "Liest die Namen der Wallet-Divisionen der Corporation (braucht Director).",

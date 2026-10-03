@@ -1,0 +1,1 @@
+ALTER TABLE "esi_tokens" ADD COLUMN "disabled_scopes" text[] DEFAULT '{}'::text[] NOT NULL;

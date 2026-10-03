@@ -24,7 +24,9 @@ export const socialModule: KeystarModule = {
       level: "character",
       optional: true,
       manageHref: "/mail",
+      managePermission: SOCIAL_PERMISSIONS.mail,
       reason: (t) => t.social.module.scopes.readMail,
+      label: (t) => t.social.module.scopes.readMailLabel,
     },
   ],
   permissions: [
@@ -34,6 +36,14 @@ export const socialModule: KeystarModule = {
       description: (t) => t.social.module.permissions.mail.description,
       group: (t) => t.social.module.permissionGroup,
       defaultMinRole: "member",
+    },
+  ],
+  alerts: [
+    {
+      id: "social.mail",
+      label: (t) => t.social.module.alerts.mail.label,
+      hint: (t) => t.social.module.alerts.mail.hint,
+      anyPermission: [SOCIAL_PERMISSIONS.mail],
     },
   ],
   nav: [

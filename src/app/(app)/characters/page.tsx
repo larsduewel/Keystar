@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Building2, Crown, KeyRound, Link2, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge, StatusBadge } from "@/components/ui/badge";
+import { ActionForm } from "@/components/ui/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CorpLogo, Portrait } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
@@ -12,6 +13,7 @@ import {
   allScopeRequirements,
   characterScopes,
   corporationScopes,
+  optionalScopeLabels,
   optionalScopes,
   parseOptionalScopes,
   reauthorizeHref,
@@ -54,6 +56,8 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
     ? parseOptionalScopes(String(params.scopes ?? "")).filter((s) => !lostGranted.includes(s))
     : [];
   const reasons = new Map(allScopeRequirements().map((s) => [s.scope, s.reason(t)]));
+  const scopeLabels = optionalScopeLabels(t);
+  const tc = m.toast;
   const manageHrefs = new Map(allScopeRequirements().flatMap((s) => (s.manageHref ? [[s.scope, s.manageHref] as const] : [])));
 
   return (
@@ -84,7 +88,7 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
               {m.lostScope.after}
             </p>
           </div>
-          <ButtonLink href={reauthorizeHref(lostGranted, { add: lostScopes })} size="sm" variant="primary">
+          <ButtonLink href={reauthorizeHref(lostGranted, { add: lostScopes, characterId: lostChar.characterId })} size="sm" variant="primary">
             <KeyRound className="size-3.5" aria-hidden /> {m.lostScope.action}
           </ButtonLink>
         </Glass>
@@ -101,6 +105,7 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
             const corp = corps.find((x) => x.corporationId === c.corporationId);
             const charJobs = jobs.filter((j) => j.ownerType === "character" && j.ownerId === c.characterId && j.enabled);
             const isMain = user.main?.characterId === c.characterId;
+            const switchedOff = token?.status === "active" ? token.disabledScopes : [];
 
             return (
               <Glass key={c.characterId} className="px-5 py-5">
@@ -143,33 +148,66 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {(!token || token.status === "invalid" || missing.length > 0) && (
-                      <ButtonLink href={reauthorizeHref(granted)} size="sm" variant="primary">
+                      <ButtonLink href={reauthorizeHref(granted, { characterId: c.characterId })} size="sm" variant="primary">
                         <KeyRound className="size-3.5" aria-hidden /> {m.card.reauthorise}
                       </ButtonLink>
                     )}
                     {token?.status === "active" && (
-                      <form action={syncCharacterNow.bind(null, c.characterId)}>
+                      <ActionForm
+                        action={syncCharacterNow.bind(null, c.characterId)}
+                        success={tc.syncQueued(c.name)}
+                        successDetail={tc.syncQueuedDetail}
+                        failed={tc.failed(c.name)}
+                        errors={tc.errors}
+                      >
                         <Button size="sm" type="submit" title={m.card.syncNowHint}>
                           <RefreshCw className="size-3.5" aria-hidden /> {m.card.syncNow}
                         </Button>
-                      </form>
+                      </ActionForm>
                     )}
                     {!isMain && (
-                      <form action={setMainCharacter.bind(null, c.characterId)}>
+                      <ActionForm
+                        action={setMainCharacter.bind(null, c.characterId)}
+                        success={tc.mainSet(c.name)}
+                        failed={tc.failed(c.name)}
+                        errors={tc.errors}
+                      >
                         <Button size="sm" type="submit" variant="ghost">
                           <Crown className="size-3.5" aria-hidden /> {m.card.makeMain}
                         </Button>
-                      </form>
+                      </ActionForm>
                     )}
                     {user.characters.length > 1 && (
-                      <form action={removeCharacter.bind(null, c.characterId)}>
+                      <ActionForm
+                        action={removeCharacter.bind(null, c.characterId)}
+                        success={tc.removed(c.name)}
+                        successDetail={tc.removedDetail}
+                        failed={tc.failed(c.name)}
+                        errors={tc.errors}
+                      >
                         <Button size="sm" type="submit" variant="danger" title={m.card.removeHint}>
                           <Trash2 className="size-3.5" aria-hidden /> {m.card.remove}
                         </Button>
-                      </form>
+                      </ActionForm>
                     )}
                   </div>
                 </div>
+
+                {switchedOff.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-warning/25 glass-inset px-4 py-3">
+                    <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
+                    <div className="min-w-0 flex-1 text-xs text-ink-2">
+                      <p className="font-semibold text-ink">
+                        {m.disabledScopes.title(switchedOff.map((s) => scopeLabels[s] ?? s).join(", "))}
+                      </p>
+                      <p className="mt-0.5">{m.disabledScopes.body}</p>
+                      <p className="mt-0.5 font-medium text-ink">{m.disabledScopes.pickCharacter(c.name)}</p>
+                    </div>
+                    <ButtonLink href={reauthorizeHref(granted, { characterId: c.characterId })} size="sm">
+                      <KeyRound className="size-3.5" aria-hidden /> {m.disabledScopes.action}
+                    </ButtonLink>
+                  </div>
+                )}
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-2xl glass-inset px-4 py-3">

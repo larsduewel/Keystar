@@ -21,6 +21,7 @@ import {
   getFilterOptions,
   getLedgerDayTotals,
   getLedgerRows,
+  hasObservers,
 } from "@/modules/mining/queries";
 
 export async function generateMetadata() {
@@ -38,10 +39,11 @@ export default async function LedgerPage({ searchParams }: PageProps<"/mining/le
   const { filters, scope, valuation, user } = ctx;
   const offset = (filters.page - 1) * PAGE_SIZE;
   // The day totals also give the row count, so the rows query can skip its own COUNT.
-  const [{ rows }, dayTotals, options] = await Promise.all([
+  const [{ rows }, dayTotals, options, observersOnRecord] = await Promise.all([
     getLedgerRows(filters, scope, valuation, { limit: PAGE_SIZE, offset, count: false }),
     getLedgerDayTotals(filters, scope, valuation),
     getFilterOptions(scope),
+    hasObservers(ctx.homeCorporationId),
   ]);
   const total = dayTotals.reduce((sum, d) => sum + d.entries, 0);
   const days = groupLedgerByDay(rows, dayTotals);
@@ -77,6 +79,8 @@ export default async function LedgerPage({ searchParams }: PageProps<"/mining/le
           presets={ctx.presets}
           showMetric={false}
           showView={canViewCorpMining(user, ctx.homeCorporationId)}
+          // Without moon drills every source shows the same rows; keep it while a URL still selects one.
+          showSource={observersOnRecord || filters.source !== "all"}
         />
 
         <PendingFrame>

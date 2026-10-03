@@ -57,6 +57,22 @@ export const admin = {
     },
     enable: "Enable",
     disable: "Disable",
+    /** Toasts after approving, disabling or enabling an account. */
+    access: {
+      approved: (name: string) => `${name} approved as member`,
+      disabled: (name: string) => `${name} disabled`,
+      enabled: (name: string) => `${name} enabled again`,
+      failed: (name: string) => `Couldn't change ${name}`,
+      errors: {
+        self: "You can't change your own account here.",
+        forbidden: "You no longer have permission to manage users.",
+        notFound: "This account no longer exists.",
+        higherRole: "Only a higher role can change this account.",
+        unassignable: "You can't assign that role.",
+        changed: "This account is no longer awaiting approval. The page now shows its current role.",
+        unknown: "Something went wrong. Reload the page and try again.",
+      },
+    },
     /** Why a row has no actions. */
     noAction: {
       self: "You can't disable your own account",
@@ -189,6 +205,20 @@ export const admin = {
     disabled: "Disabled",
     errorCount: (count: number) => `Error ×${n(count)}`,
     runNow: "Run now",
+    /** Toasts for the run and pause buttons. */
+    toast: {
+      queued: (job: string) => `${job} queued`,
+      allQueued: "All sync jobs queued",
+      queuedDetail: "Starts as soon as a worker is free, usually within seconds.",
+      paused: "Syncing paused",
+      resumed: "Syncing resumed",
+      failed: "Couldn't change syncing",
+      errors: {
+        forbidden: "You no longer have permission for this.",
+        notFound: "This job no longer exists or is disabled. The page now shows the current jobs.",
+        unknown: "Something went wrong. Reload the page and try again.",
+      },
+    },
     sections: {
       corporation: (name: string | null) => (name ? `Corporation · ${name}` : "Corporation"),
       characters: "Characters",
