@@ -27,6 +27,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - **Revoking optional access stays in Keystar.** "Revoke access" on the Live fleet page, "Stop wallet import" and
   "Stop" for EVE mail now switch the access off right away instead of opening the EVE login. Turning it back on works
   the same way while the character's EVE token still includes it. My Characters notes which access is only switched
@@ -67,6 +69,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - **Main character listed first.** The Characters page, the dashboard's character panel, fleet tracking, the mail
   character list and the P&L wallet status show your main character at the top, followed by the others
   alphabetically.
@@ -106,6 +110,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
   says why it was refused and keeps what you entered.
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - **Dropdowns match the theme.** In Chrome, Edge and Safari 27+, the open list of every dropdown is a glass panel
   in the current theme with an accent check mark, instead of the system's list. Other browsers keep their native
@@ -149,6 +155,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - **Fleet access is opt-in per character.** Members are no longer asked for `esi-fleets.read_fleet.v1` when they join
   or link a character: only the fleet boss's character can read a fleet's members, so pilots who run fleets turn it on
   for that character with "Enable fleet access" on the Live fleet page (and can revoke it there). Characters that already
@@ -163,6 +171,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 ## [0.7.0] - 2026-10-03
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - **Member audit** handles large corporations: search by character, account (main) or character ID as you type, click a
   stat tile (In-game roster, Registered, Not registered, Missing or revoked ESI) to show only those characters, and page
@@ -201,6 +211,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 ## [0.6.0] - 2026-10-03
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - Each section has its own colour: Industry amber, Combat crimson, Trade teal (Overview, Account and Administration
   keep the cyan accent). It shows in the page heading label, the sidebar marker and a faint glow at the top of the page.
@@ -245,6 +257,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - The situation report on the killboard starts collapsed; click its header to read it.
 
 ## [0.4.0] - 2026-10-03
@@ -274,6 +288,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
   asked for them. The first is wallet read access.
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - "Re-authorise" on My Characters keeps the character's corporation and optional scopes instead of requesting only
   the member scopes. When another EVE login drops an opt-in scope anyway, My Characters says so and offers to turn
@@ -352,6 +368,8 @@ corporation scopes.
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - Cards that looked clickable now are, or are gone. On the dashboard, the KPI tiles open the page behind the
   number: the killboard tiles open the killboard on the same 30 days (ISK destroyed jumps to the ISK breakdown, ISK
   efficiency to pilot efficiency), and the mining tile opens Mining. The info row links to the corporation on
@@ -393,12 +411,16 @@ corporation scopes.
 
 ### Changed
 
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
+
 - Module manifests and sync jobs name their texts with dictionary selectors instead of English strings (see
   docs/modules.md). Item, system and pilot names, CSV exports and stored situation reports remain in English.
 
 ## [0.1.2] - 2026-10-02
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - Larger small text across the app for readability at 100% zoom on large monitors: section titles (e.g. "Top
   pilots") go from 11px to 13px, field labels and table headers from 9–11px to 12px, badges and chips to 11px, and
@@ -420,6 +442,8 @@ corporation scopes.
   without building on the server. The version is shown in the sidebar and in `/api/health`.
 
 ### Changed
+
+- Run CI for every branch push and merge-queue event, and CodeQL for pull requests targeting any branch; document the Azure production and per-branch staging deployment plan.
 
 - The dashboard leads with combat: kills, ISK destroyed and efficiency for 30 days, a kills-over-time chart, the
   latest kills and losses and the MVP. Mining is down to one tile.
