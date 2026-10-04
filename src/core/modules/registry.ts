@@ -1,3 +1,4 @@
+import { mapModule } from "@/modules/map/module";
 import { fleetModule } from "@/modules/fleet/module";
 import { intelModule } from "@/modules/intel/module";
 import { killboardModule } from "@/modules/killboard/module";
@@ -18,6 +19,7 @@ import type { AlertDef, KeystarModule, NavSection, ScopeRequirement } from "./ty
  */
 export const MODULES: KeystarModule[] = [
   coreModule,
+  mapModule,
   miningModule,
   killboardModule,
   fleetModule,

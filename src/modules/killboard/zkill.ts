@@ -41,6 +41,7 @@ export interface ZkillKillmail {
     faction_id?: number;
     ship_type_id: number;
     damage_taken: number;
+    position?: { x: number; y: number; z: number };
     items?: ZkillItem[];
   };
   attackers: ZkillAttacker[];

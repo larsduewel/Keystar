@@ -1,3 +1,4 @@
+import { map } from "./map";
 import { admin } from "./admin";
 import { auth } from "./auth";
 import { characters } from "./characters";
@@ -21,6 +22,7 @@ import { wallet } from "./wallet";
  * `Messages` type every other language must match exactly.
  */
 export const en = {
+  map,
   common,
   shell,
   auth,

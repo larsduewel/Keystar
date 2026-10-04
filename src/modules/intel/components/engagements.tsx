@@ -1,3 +1,4 @@
+import { SystemMapLink } from "./system-map-link";
 import { ExternalLink } from "lucide-react";
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
 import { SecurityStatus } from "@/components/ui/security";
@@ -32,7 +33,7 @@ export async function EngagementList({
             style={{ borderLeftColor: won ? KILL_COLOR : LOSS_COLOR }}
           >
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="font-medium text-ink">{system?.name ?? g.system(e.systemId)}</span>
+              <SystemMapLink id={e.systemId} className="font-medium text-ink">{system?.name ?? g.system(e.systemId)}</SystemMapLink>
               {system && <SecurityStatus value={system.securityStatus} />}
               <span className="text-ink-3" title={f.dateTime(e.start)}>
                 {f.relativeTime(e.start)}

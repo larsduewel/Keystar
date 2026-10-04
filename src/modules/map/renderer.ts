@@ -1,0 +1,134 @@
+import type { MapSystem } from "./model";
+import type { MapOverlay } from "./travel";
+import { securityClass } from "./model";
+
+type Hit = { system: MapSystem; x: number; y: number };
+type Options = {
+ overlay?: () => MapOverlay;
+ camera: () => { yaw: number; pitch: number; zoom: number; panX?: number; panY?: number };
+ dragging: () => boolean; selected: number | null; query: string; labels: boolean;
+ distanceUnit?: string;
+ format: (value: number) => string; onHits: (hits: Hit[]) => void;
+};
+
+/** One frame per repaint; geometry, text and theme measurements are cached outside the hot path. */
+export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[], options: Options) {
+ const ctx = canvas.getContext("2d");
+ if (!ctx) return { schedule() {}, destroy() {} };
+ const min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
+ for (const s of systems) for (let i=0;i<3;i++) { min[i]=Math.min(min[i],s[i+3] as number); max[i]=Math.max(max[i],s[i+3] as number); }
+ const focus = systems.find(s => s[0]===options.selected);
+ const center = focus ? focus.slice(3) as number[] : min.map((v,i)=>(v+max[i])/2);
+ const range = Math.max(...max.map((v,i)=>v-min[i]),1);
+ let lastOverlay: MapOverlay | undefined;
+ let route = new Set<number>(), inRange = new Set<number>();
+ let routeKey = "", beamStarted = 0;
+ const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+ const query = options.query.trim().toLowerCase();
+ ctx.font="11px Inter, sans-serif";
+ const points = systems.map(s => {
+  const label = `${s[1]} · ${options.format(s[2])}`;
+  return {system:s,x:s[3]-center[0],y:s[4]-center[1],z:s[5]-center[2],
+   label,width:ctx.measureText(label).width,match:!query || s[1].toLowerCase().includes(query),
+   rangeLabel:label,rangeWidth:0,group:securityClass(s[2]),hit:{system:s,x:0,y:0}};
+ });
+ let width=0,height=0, frame=0, destroyed=false;
+ let ink="", colors: Record<string,string>={};
+ function theme() {
+  const style=getComputedStyle(canvas); ink=style.color;
+  colors={high:style.getPropertyValue("--series-ice").trim(),low:style.getPropertyValue("--series-gas").trim(),null:style.getPropertyValue("--series-ore").trim(), red:style.getPropertyValue("--color-critical-text").trim(),green:style.getPropertyValue("--color-good-text").trim(),unknown:style.getPropertyValue("--color-ink-3").trim(),range:style.getPropertyValue("--color-accent").trim()};
+ }
+ function resize() {
+  width=canvas.clientWidth; height=canvas.clientHeight;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+  ctx!.setTransform(dpr,0,0,dpr,0,0);ctx!.font="11px Inter, sans-serif";
+  schedule();
+ }
+ function draw(now: number) {
+  frame=0;if(destroyed || !ctx)return;
+  const overlay = options.overlay?.();
+  if(overlay !== lastOverlay) {
+   const nextRouteKey = (overlay?.route ?? []).join(",");
+   if (nextRouteKey !== routeKey) { routeKey = nextRouteKey; beamStarted = now; }
+   lastOverlay=overlay; route=new Set(overlay?.route ?? []);inRange=new Set(overlay?.inRange ?? []);
+   const origin=points.find(p=>p.system[0]===overlay?.originId);
+   if(origin&&overlay?.range)for(const p of points)if(inRange.has(p.system[0])||p.system[0]===overlay.originId){p.rangeLabel=`${p.label} · ${options.format(Math.hypot(p.x-origin.x,p.y-origin.y,p.z-origin.z))} ${options.distanceUnit ?? "LY"}`;p.rangeWidth=ctx.measureText(p.rangeLabel).width;}
+  }
+  const c=options.camera(), sy=Math.sin(c.yaw),cy=Math.cos(c.yaw),sp=Math.sin(c.pitch),cp=Math.cos(c.pitch);
+  const scale=Math.min(width,height)*.8/range*c.zoom;
+  ctx.clearRect(0,0,width,height);
+  const hits: Hit[]=[];
+  // Batch stars into just six paths instead of issuing thousands of individual fills.
+  const paths: Record<string,Path2D>={};
+  const onScreen: typeof points=[];
+  for(const p of points) {
+   const x=width/2+(c.panX??0)+(p.x*cy-p.z*sy)*scale;
+   const y=height/2+(c.panY??0)-(p.y*cp-(p.x*sy+p.z*cy)*sp)*scale;
+   p.hit.x=x;p.hit.y=y;
+   if(x<0||y<0||x>width||y>height)continue;
+   hits.push(p.hit);onScreen.push(p);
+   const group=route.has(p.system[0]) ? overlay?.risks[p.system[0]] ?? "unknown" : inRange.has(p.system[0]) ? "range" : p.group;
+   const match=p.match && (!overlay?.range || inRange.has(p.system[0]) || p.system[0]===overlay.originId);
+   const key=`${group}:${route.has(p.system[0]) || match}`;const path=paths[key]??(paths[key]=new Path2D());
+   const size=route.has(p.system[0])||inRange.has(p.system[0])?5:3;
+   path.rect(x-size/2,y-size/2,size,size);
+  }
+  for(const [key,path] of Object.entries(paths)) {
+   const [group,match]=key.split(":");ctx.fillStyle=colors[group]||ink;ctx.globalAlpha=match==="true"?.85:.35;ctx.fill(path);
+  }
+  options.onHits(hits);ctx.globalAlpha=1;
+  if(overlay?.route.length) {
+   const path=new Path2D();let previous=false;
+   for(const id of overlay.route) {const p=points.find(p=>p.system[0]===id);if(!p){previous=false;continue;}if(previous)path.lineTo(p.hit.x,p.hit.y);else path.moveTo(p.hit.x,p.hit.y);previous=true;}
+   ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1.5;ctx.stroke(path);
+   const hops = overlay.route.length - 1;
+   const duration = Math.min(hops * 750, 6000);
+   const elapsed = now - beamStarted;
+   if (!reducedMotion && hops > 0) {
+    const progress = (elapsed % duration) / duration * hops;
+    const index = Math.floor(progress), fraction = progress - index;
+    const from = points.find(p => p.system[0] === overlay.route[index]);
+    const to = points.find(p => p.system[0] === overlay.route[index + 1]);
+    if (from && to) {
+     const x = from.hit.x + (to.hit.x - from.hit.x) * fraction;
+     const y = from.hit.y + (to.hit.y - from.hit.y) * fraction;
+     const tail = Math.max(0, fraction - .18);
+     ctx.save();ctx.shadowColor=colors.range||ink;ctx.shadowBlur=10;
+     ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.beginPath();
+     ctx.moveTo(from.hit.x+(to.hit.x-from.hit.x)*tail,from.hit.y+(to.hit.y-from.hit.y)*tail);
+     ctx.lineTo(x,y);ctx.stroke();
+     ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+    schedule();
+   }
+  }
+  if(overlay?.range) {
+   const origin=points.find(p=>p.system[0]===overlay?.originId);
+   if(origin){ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(origin.hit.x,origin.hit.y,overlay.range*scale,0,Math.PI*2);ctx.stroke();}
+  }
+  if(focus) {
+   ctx.strokeStyle=ink;ctx.beginPath();ctx.arc(width/2+(c.panX??0),height/2+(c.panY??0),7,0,Math.PI*2);ctx.stroke();
+  }
+  // Detailed labels return immediately after interaction; moving frames only draw stars.
+  if(options.dragging())return;
+  ctx.fillStyle=ink;
+  const occupied=new Set<string>();let count=0;
+  for(const p of onScreen) {
+   const active=p.system[0]===options.selected;
+   if(!active && !route.has(p.system[0]) && (!options.labels||!p.match||count>=100 || (overlay?.range && !inRange.has(p.system[0]))))continue;
+   const x=p.hit.x+7,y=p.hit.y-5;
+   const label=overlay?.range?p.rangeLabel:p.label, labelWidth=overlay?.range?p.rangeWidth:p.width;
+   const cells:string[]=[];
+   for(let col=Math.floor(x/32);col<=Math.floor((x+labelWidth+4)/32);col++)
+    for(let row=Math.floor((y-12)/16);row<=Math.floor((y+4)/16);row++)cells.push(`${col}:${row}`);
+   if(!active && cells.some(cell=>occupied.has(cell)))continue;
+   ctx.fillText(label,x,y);cells.forEach(cell=>occupied.add(cell));count++;
+  }
+ }
+ function schedule() {if(!frame&&!destroyed)frame=requestAnimationFrame(draw);}
+ theme();resize();
+ const observer=new ResizeObserver(resize);observer.observe(canvas);
+ const mutation=new MutationObserver(()=>{theme();schedule();});mutation.observe(document.documentElement,{attributes:true,attributeFilter:["class","data-theme"]});
+ return { schedule, destroy() {destroyed=true;cancelAnimationFrame(frame);observer.disconnect();mutation.disconnect();} };
+}
