@@ -21,7 +21,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
  const focus = systems.find(s => s[0]===options.selected);
  const regionSystems = options.regionId ? systems.filter(s=>s[6]===options.regionId) : [];
  const center = focus ? focus.slice(3,6) as number[] : regionSystems.length ? [3,4,5].map(axis=>regionSystems.reduce((sum,s)=>sum+(s[axis] as number),0)/regionSystems.length) : min.map((v,i)=>(v+max[i])/2);
- const range = Math.max(...max.map((v,i)=>v-min[i]),1);
+ const range = !focus && regionSystems.length ? Math.max(1, ...regionSystems.map(s=>2*Math.hypot(s[3]-center[0],s[4]-center[1],s[5]-center[2]))) : Math.max(...max.map((v,i)=>v-min[i]),1);
  let lastOverlay: MapOverlay | undefined;
  let route = new Set<number>(), inRange = new Set<number>();
  let routeKey = "", beamStarted = 0;

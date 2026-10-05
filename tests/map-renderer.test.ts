@@ -50,7 +50,7 @@ it("keeps jump destinations bright across region boundaries and prioritizes regi
  ctx.fill.mockImplementation((path:Path)=>{batches.push({alpha:ctx.globalAlpha,rects:path.rects});});
  const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
  const systems:MapSystem[]=[[1,"Origin",.8,0,0,0,100],[2,"Destination",.8,3,0,0,101],[3,"Background",.8,-3,0,0,101]];
- const renderer=createMapRenderer(canvas,systems,{overlay:()=>({...EMPTY_OVERLAY,inRange:[2]}),camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:null,query:"",labels:true,regions:[[100,"One"],[101,"Two"]],regionId:100,regionLabels:true,format:String,onHits:vi.fn()});
+ const renderer=createMapRenderer(canvas,systems,{overlay:()=>({...EMPTY_OVERLAY,inRange:[2]}),camera:()=>({yaw:0,pitch:0,zoom:.15}),dragging:()=>false,selected:null,query:"",labels:true,regions:[[100,"One"],[101,"Two"]],regionId:100,regionLabels:true,format:String,onHits:vi.fn()});
  callback(0);
  expect(batches.find(b=>b.rects.some(r=>r[0]>700))?.alpha).toBe(.85);
  expect(batches.find(b=>b.rects.some(r=>r[0]<300))?.alpha).toBe(.35);
@@ -58,4 +58,21 @@ it("keeps jump destinations bright across region boundaries and prioritizes regi
  expect(ctx.fillText.mock.calls.some(call=>String(call[0]).includes("Origin"))).toBe(false);
  const measured=ctx.measureText.mock.calls.length;renderer.schedule();callback(16);
  expect(ctx.measureText.mock.calls.length).toBe(measured);renderer.destroy();
+});
+
+it("fits a selected region independently of distant systems in all space", () => {
+ let callback: FrameRequestCallback = () => {};
+ vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{callback=cb;return 1;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"green"}));
+ vi.stubGlobal("ResizeObserver",class {observe(){} disconnect(){}});vi.stubGlobal("MutationObserver",class {observe(){} disconnect(){}});
+ vi.stubGlobal("Path2D",class {rect(){}moveTo(){}lineTo(){}});
+ const ctx={measureText:()=>({width:60}),setTransform(){},clearRect(){},fill(){},fillText(){},beginPath(){},arc(){},stroke(){}};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ let hits:{system:MapSystem;x:number;y:number}[]=[];
+ const renderer=createMapRenderer(canvas,[[1,"A",.8,-6,0,0,100],[2,"B",.8,6,0,0,100],[3,"Far",.8,1459,0,0,101]],{camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:null,query:"",labels:false,regionId:100,format:String,onHits:rows=>{hits=rows;}});
+ callback(0);
+ const a=hits.find(h=>h.system[0]===1)!, b=hits.find(h=>h.system[0]===2)!;
+ expect(b.x-a.x).toBeCloseTo(560);expect(a.x).toBeGreaterThan(0);expect(b.x).toBeLessThan(1000);
+ renderer.destroy();
 });
