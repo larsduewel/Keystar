@@ -1,6 +1,6 @@
 {
   "name": "keystar",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "description": "Keystar — a self-hosted EVE Online corporation dashboard built on ESI",
   "license": "AGPL-3.0-or-later",

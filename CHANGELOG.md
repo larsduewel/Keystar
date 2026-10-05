@@ -6,6 +6,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-05
+
 ### Fork updates
 
 - **Route light particles.** Animate a glowing core with separate fading sparks and a departure pulse between route systems, while keeping the route guide faint. Respect reduced-motion settings. ([PR #11](https://github.com/larsduewel/Keystar/pull/11))
