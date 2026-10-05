@@ -12,7 +12,7 @@ function SystemSearch({label,systems,value,onPick}:{label:string;systems:MapSyst
  const matches=useMemo(()=>matchingSystems(systems,text,8),[systems,text]);
  return <div className="relative min-w-0"><label className="mb-1 block text-xs text-ink-3">{label}</label>
  <input aria-label={label} value={open?text:value?.[1]??text} autoComplete="off" onFocus={()=>{setText(value?.[1]??text);setOpen(true);}} onBlur={()=>setOpen(false)} onChange={e=>{setText(e.target.value);onPick(null);setOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setOpen(false);if(e.key==="Enter"){e.preventDefault();const exact=matches[0];if(exact){onPick(exact);setText(exact[1]);setOpen(false);}}}} className="glass-inset w-full rounded-md px-3 py-2 text-xs text-ink"/>
- {open && matches.length>0 && <div className="glass absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-y-auto p-1">{matches.map(s=><button key={s[0]} onMouseDown={e=>e.preventDefault()} onClick={()=>{onPick(s);setText(s[1]);setOpen(false);}} className="flex w-full justify-between rounded px-2 py-2 text-left text-xs text-ink-2 hover:bg-surface-contrast/5"><span>{s[1]}</span><span>{f.number(s[2],1)}</span></button>)}</div>}
+ {open && matches.length>0 && <div className="glass absolute inset-x-0 top-full z-30 mt-1 max-h-[min(16rem,30vh)] overflow-y-auto overscroll-contain p-1">{matches.map(s=><button key={s[0]} onMouseDown={e=>e.preventDefault()} onClick={()=>{onPick(s);setText(s[1]);setOpen(false);}} className="flex w-full justify-between rounded px-2 py-2 text-left text-xs text-ink-2 hover:bg-surface-contrast/5"><span>{s[1]}</span><span>{f.number(s[2],1)}</span></button>)}</div>}
  </div>;
 }
 
@@ -57,7 +57,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
   {dataError && <button className="text-xs text-warning" onClick={()=>setAttempt(v=>v+1)}>{m.dataError} · {m.retryData}</button>}
   {routeError && <p className="text-xs text-warning">{m.noRoute}</p>}
   {checking && <p role="status" className="mb-2 text-xs text-ink-3">{m.checking} {Object.keys(checks).length+failed.length}/{route.length}</p>}
-  {route.length>0 && <ol className="glass-inset max-h-64 space-y-1 overflow-y-auto rounded-lg p-2">{route.map((id,index)=>{
+  {route.length>0 && <ol className="glass-inset max-h-[min(16rem,30vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg p-2 [scrollbar-gutter:stable]">{route.map((id,index)=>{
    const check=checks[id],risk=routeRisk(check,route),kills=check?routeGateKills(check,route):[];
    return <li key={id} className={`rounded-md p-2 text-xs ${risk==="red"?"bg-critical/10":risk==="green"?"bg-good/10":"bg-surface-contrast/5"}`}>
     <div className="flex flex-wrap justify-between gap-2"><button onClick={()=>{const s=byId.get(id);if(s)onFocus(s);}} className="font-medium text-ink">{index+1}. {byId.get(id)?.[1]??id}</button><span className={risk==="red"?"text-critical-text":risk==="green"?"text-good-text":"text-ink-3"}>{risk==="red"?m.nearGate:risk==="green"?m.clear:failed.includes(id)?m.checkFailed:check?m.unknown:m.notChecked}</span></div>
@@ -75,7 +75,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
   </div>
   <button className={`${button} my-3`} disabled={!rules||!source||!!originBlocked} onClick={()=>{if(source)onFocus(source);setShowRange(v=>!v);}}>{showRange?m.hideRange:m.showRange}</button>
   {originBlocked && <p className="text-xs text-warning">{m.originRestricted}</p>}
-  {showRange&&!originBlocked && <><h3 className="eve-label mb-2 text-2xs text-ink-3">{m.inRange} · {rangeSystems.length}</h3><div className="glass-inset flex max-h-60 flex-wrap gap-1 overflow-y-auto rounded-lg p-2">{rangeSystems.length===0&&<p className="text-xs text-ink-3">{m.noneInRange}</p>}{rangeSystems.map(s=><button key={s[0]} title={`${s[1]} · ${f.number(distanceLy(source!,s),2)} ${m.lightYears} · ${m.security}: ${f.number(s[2],1)}${restricted(s)?` · ${m.restricted}`:""}`} onClick={()=>onFocus(s)} className={`glass-chip rounded px-2 py-1 text-xs ${restricted(s)?"text-warning":"text-accent"}`}>{s[1]} <span className="text-ink-3">{f.number(distanceLy(source!,s),1)}</span>{restricted(s)&&" *"}</button>)}</div></>}
+  {showRange&&!originBlocked && <><h3 className="eve-label mb-2 text-2xs text-ink-3">{m.inRange} · {rangeSystems.length}</h3><div className="glass-inset flex max-h-[min(15rem,30vh)] flex-wrap gap-1 overflow-y-auto overscroll-contain rounded-lg p-2 [scrollbar-gutter:stable]">{rangeSystems.length===0&&<p className="text-xs text-ink-3">{m.noneInRange}</p>}{rangeSystems.map(s=><button key={s[0]} title={`${s[1]} · ${f.number(distanceLy(source!,s),2)} ${m.lightYears} · ${m.security}: ${f.number(s[2],1)}${restricted(s)?` · ${m.restricted}`:""}`} onClick={()=>onFocus(s)} className={`glass-chip rounded px-2 py-1 text-xs ${restricted(s)?"text-warning":"text-accent"}`}>{s[1]} <span className="text-ink-3">{f.number(distanceLy(source!,s),1)}</span>{restricted(s)&&" *"}</button>)}</div></>}
  </Panel>
  </div>;
 }
