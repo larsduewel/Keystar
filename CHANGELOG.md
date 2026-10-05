@@ -6,6 +6,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+- **Route light particles.** Animate a glowing core with separate fading sparks and a departure pulse between route systems, while keeping the route guide faint. Respect reduced-motion settings.
+
 - **Map planning beside the map.** Stack Travel Check and Jump Range to the left on desktop, with a single-column layout on smaller screens. Enter selects the best matching system in map and planning searches, prioritizing exact names, then prefixes and substring matches.
 
 - **Azure hosting and automated checks.** Check every pull request and branch push for code quality, tests and container builds. Deploy main to production and other branches to separate staging URLs, with one active preview at a time, using password-free Azure authentication.
