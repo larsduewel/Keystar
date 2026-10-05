@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { matchingSystems } from "../src/modules/map/search";
-import type { MapSystem } from "../src/modules/map/model";
+import { systemSpace, type MapSystem } from "../src/modules/map/model";
 const system = (id: number, name: string): MapSystem => [id, name, 0, 0, 0, 0];
 const systems = [system(1, "New Jita"), system(2, "Jita Prime"), system(3, "Jita"), system(31000001, "J123456")];
 describe("map system search", () => {
+  it("selects the space filter that contains the chosen system", () => {
+    expect(systemSpace(30000142)).toBe("known");
+    expect(systemSpace(31000000)).toBe("wormholes");
+    expect(systemSpace(31999999)).toBe("wormholes");
+    const special = matchingSystems([system(32000001, "AD001")], "AD0")[0];
+    expect(systemSpace(special[0])).toBe("all");
+  });
   it("ranks exact, prefix and substring matches consistently", () => {
     expect(matchingSystems(systems, " JITA ").map(s => s[1])).toEqual(["Jita", "Jita Prime", "New Jita"]);
     expect(matchingSystems(systems, "prime")[0]?.[1]).toBe("Jita Prime");

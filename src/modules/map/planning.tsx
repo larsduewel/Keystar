@@ -51,7 +51,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
  },[route,checkVersion]);
  const button="glass-chip rounded-md px-3 py-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40";
  return <div className="grid min-w-0 gap-3">
- <Panel title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
+ <Panel className="relative z-20" title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2"><SystemSearch label={m.start} systems={systems} value={start} onPick={setStart}/><SystemSearch label={m.end} systems={systems} value={end} onPick={setEnd}/></div>
   <div className="my-3 flex flex-wrap items-center gap-2"><button className={button} disabled={!start||!end||!gates.length} onClick={()=>{if(!start||!end)return;const path=shortestRoute(graph,start[0],end[0]);setRouteError(!path);setChecking(!!path);setChecks({});setFailed([]);setRoute(path??[]);if(path)onFocus(start);}}>{m.plan}</button>{route.length>0 && <><span className="text-xs text-ink-2">{route.length-1} {m.jumps}</span><button className={button} disabled={checking} onClick={()=>{setChecking(true);setChecks({});setFailed([]);setCheckVersion(v=>v+1);}}>{m.refreshCheck}</button></>}</div>
   {dataError && <button className="text-xs text-warning" onClick={()=>setAttempt(v=>v+1)}>{m.dataError} · {m.retryData}</button>}

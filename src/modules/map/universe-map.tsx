@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/client";
-import { type MapSystem } from "./model";
+import { systemSpace, type MapSystem } from "./model";
 import { matchingSystems } from "./search";
 import { createMapRenderer } from "./renderer";
 import { MapPlanning } from "./planning";
@@ -44,7 +44,7 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
  const drag = useRef<{x: number; y: number; moved: boolean; pan: boolean} | null>(null);
  useEffect(() => {
   const controller = new AbortController();
-  fetch("/data/map-systems.json", { signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then((rows:MapSystem[]) => {setSystems(rows);const target=rows.find(s=>s[0]===initialSystemId);if(target){setSelected(target);setSpace(target[0]>=31000000?"wormholes":"known");camera.current={yaw:0,pitch:.6,zoom:5,panX:0,panY:0};}}).catch(e => { if (e.name !== "AbortError") setError(true); });
+  fetch("/data/map-systems.json", { signal: controller.signal }).then(r => { if (!r.ok) throw new Error(); return r.json(); }).then((rows:MapSystem[]) => {setSystems(rows);const target=rows.find(s=>s[0]===initialSystemId);if(target){setSelected(target);setSpace(systemSpace(target[0]));camera.current={yaw:0,pitch:.6,zoom:5,panX:0,panY:0};}}).catch(e => { if (e.name !== "AbortError") setError(true); });
   return () => controller.abort();
  }, [attempt, initialSystemId]);
  const visible = useMemo(() => systems.filter(s => space === "all" || (space === "wormholes" ? s[0] >= 31000000 && s[0] < 32000000 : s[0] < 31000000)), [systems, space]);
@@ -73,7 +73,7 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
   return () => { cancelAnimationFrame(rotationFrame.current); rotationFrame.current = 0; };
  }, [selected]);
  const button = "glass-chip rounded-md px-3 py-1.5 text-xs text-ink-2 hover:text-ink transition-colors";
- const choose = (s: MapSystem) => { stopRotation(); setSpace(s[0]>=31000000?"wormholes":"known"); setSelected(s); setCamera(c => ({...c,zoom:Math.max(c.zoom,5),panX:0,panY:0})); };
+ const choose = (s: MapSystem) => { stopRotation(); setSpace(systemSpace(s[0])); setSelected(s); setCamera(c => ({...c,zoom:Math.max(c.zoom,5),panX:0,panY:0})); };
  return <div className="grid items-start gap-3 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]"><MapPlanning initialOriginId={initialSystemId} systems={systems} selected={selected} onFocus={choose} onOverlay={setOverlay}/><Panel title={m.universe} subtitle={m.controls} actions={<span className="text-xs font-semibold tabular-nums text-ink-2">{f.integer(visible.length)} {m.systems}</span>} bodyClassName="px-3 pb-3">
   <div className="mb-3 flex flex-wrap items-center gap-2">
    <input aria-label={m.search} placeholder={m.search} value={query} list="map-system-search" onChange={e => {setQuery(e.target.value);const match=systems.find(s=>s[1].toLowerCase()===e.target.value.trim().toLowerCase());if(match)choose(match);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();const match=matchingSystems(systems,query,1)[0];if(match){setQuery(match[1]);choose(match);}}}} className="glass-inset min-w-48 rounded-md px-3 py-2 text-xs text-ink"/>
