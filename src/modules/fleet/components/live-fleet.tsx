@@ -1,11 +1,11 @@
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/glass";
-import { SecurityStatus } from "@/components/ui/security";
 import { StatTile } from "@/components/ui/stat-tile";
 import { getI18n } from "@/i18n/server";
 import { countBy, layoutFleet, stripMarkup } from "../logic";
 import type { FleetMemberRow, FleetSummary } from "../queries";
+import { FleetTree } from "./fleet-tree";
 
 const minutesBetween = (from: Date, to: Date) => Math.max(0, (to.getTime() - from.getTime()) / 60_000);
 
@@ -79,18 +79,7 @@ export async function LiveFleet({ fleet, members, now }: { fleet: FleetSummary; 
         </Panel>
 
         <Panel title={tl.structure.title} className="xl:col-span-8">
-          <div className="space-y-4">
-            {layout.command.length > 0 && <MemberGroup title={tl.structure.command} members={layout.command} />}
-            {layout.wings.map((w) => (
-              <div key={w.id} className="space-y-2">
-                <h3 className="eve-label text-xs text-ink-2">{w.name || t.fleet.fallback.wing(w.id)}</h3>
-                {w.commanders.length > 0 && <MemberGroup title={tl.structure.commander} members={w.commanders} />}
-                {w.squads.map((s) => (
-                  <MemberGroup key={s.id} title={s.name || t.fleet.fallback.squad(s.id)} members={s.members} />
-                ))}
-              </div>
-            ))}
-          </div>
+          <FleetTree layout={layout} />
         </Panel>
       </div>
 
@@ -111,52 +100,5 @@ export async function LiveFleet({ fleet, members, now }: { fleet: FleetSummary; 
         )}
       </Panel>
     </section>
-  );
-}
-
-async function MemberGroup({ title, members }: { title: string; members: FleetMemberRow[] }) {
-  const { t, f } = await getI18n();
-  const c = t.fleet.live.columns;
-  return (
-    <div className="glass-inset overflow-x-auto rounded-lg">
-      <table className="w-full text-sm">
-        <caption className="px-3 pt-2 text-left text-xs text-ink-3">{title}</caption>
-        <thead className="sr-only">
-          <tr>
-            <th>{c.pilot}</th>
-            <th>{c.ship}</th>
-            <th>{c.system}</th>
-            <th>{c.role}</th>
-            <th>{c.joined}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => (
-            <tr key={m.characterId} className="border-t border-surface-contrast/5 first:border-t-0">
-              <td className="px-3 py-1.5">
-                <span className="flex items-center gap-2">
-                  <Portrait id={m.characterId} size={22} />
-                  <span className="truncate">{m.name ?? t.fleet.fallback.character(m.characterId)}</span>
-                </span>
-              </td>
-              <td className="px-3 py-1.5">
-                <span className="flex items-center gap-2">
-                  <TypeIcon id={m.shipTypeId} size={20} />
-                  <span className="truncate text-ink-2">{m.shipName ?? t.fleet.fallback.type(m.shipTypeId)}</span>
-                </span>
-              </td>
-              <td className="px-3 py-1.5 whitespace-nowrap">
-                <span className="flex items-center gap-2">
-                  <SecurityStatus value={m.securityStatus} />
-                  <span className="text-ink-2">{m.systemName ?? t.fleet.fallback.system}</span>
-                </span>
-              </td>
-              <td className="px-3 py-1.5 text-xs whitespace-nowrap text-ink-3">{t.fleet.roles[m.role] ?? m.role}</td>
-              <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap text-ink-3">{f.relativeTime(m.joinTime)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }

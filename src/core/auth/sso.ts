@@ -9,7 +9,8 @@ import { env, ssoCallbackUrl } from "@/core/env";
 
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
+  /** SSO may rotate it on refresh (store the new one), or in principle omit it (keep the old one). */
+  refresh_token?: string;
   expires_in: number;
   token_type: string;
 }
@@ -75,7 +76,23 @@ async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
     }
     throw new SsoError(`SSO token request failed: ${description}`, code, res.status);
   }
-  return (await res.json()) as TokenResponse;
+  return parseTokenResponse(await res.json().catch(() => null));
+}
+
+/** Checks the fields Keystar relies on, so a malformed SSO answer fails here and not later. */
+export function parseTokenResponse(body: unknown): TokenResponse {
+  const r = (body ?? {}) as Record<string, unknown>;
+  if (typeof r.access_token !== "string" || !r.access_token) throw new SsoError("SSO token response has no access token");
+  if (typeof r.expires_in !== "number" || !(r.expires_in > 0)) throw new SsoError("SSO token response has no valid expiry");
+  if (r.refresh_token !== undefined && r.refresh_token !== null && (typeof r.refresh_token !== "string" || !r.refresh_token)) {
+    throw new SsoError("SSO token response has a malformed refresh token");
+  }
+  return {
+    access_token: r.access_token,
+    refresh_token: typeof r.refresh_token === "string" ? r.refresh_token : undefined,
+    expires_in: r.expires_in,
+    token_type: typeof r.token_type === "string" ? r.token_type : "Bearer",
+  };
 }
 
 export function exchangeCode(code: string, codeVerifier: string): Promise<TokenResponse> {

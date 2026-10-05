@@ -50,10 +50,15 @@
      Text on space-950/900 and under the glow: crimson >= 4.5:1, amber and teal >= 6.9:1.
      Colour-vision check (dark surface #101114): all pairs CVD ΔE >= 8.7, normal ΔE >= 20.
      Crimson stays near the critical status red (normal ΔE 7.4), so these are for
-     navigation chrome only, never for data marks or status. */
+     navigation chrome only, never for data marks or status.
+     Violet and pink (pilots, social) against every tone and the accent: CVD ΔE >= 8.0
+     (pink vs accent), normal ΔE >= 18; text >= 5.2:1 under the glow. Pink is normal
+     ΔE 12.6 from critical-text. There is no room for another hue: Finances shares trade. */
   --color-section-industry: #e0a43a;
   --color-section-combat: #e0566b;
   --color-section-trade: #2fbf9f;
+  --color-section-pilots: #a87bff;
+  --color-section-social: #fc98d4;
 
   --radius-glass: 12px;
 }
@@ -118,6 +123,11 @@
   --ramp-5: #9ec5f4;
   /* Net line of the P&L and wallet charts. */
   --series-net: var(--color-ink);
+  /* Income (up) and expenses (down) of the P&L and wallet charts: a polarity pair, not
+     categorical slots, and distinct from the reserved status colours. Lightness keeps them
+     apart under red-green CVD. On #14161a: CVD ΔE 8.8, normal ΔE 29.3, both ≥ 3:1. */
+  --series-income: #36a866;
+  --series-expense: #c2403d;
   /* Current section colour; the accent unless the route's section has a tone. */
   --section: var(--color-accent);
 }
@@ -130,6 +140,12 @@
 }
 [data-section-tone="trade"] {
   --section: var(--color-section-trade);
+}
+[data-section-tone="pilots"] {
+  --section: var(--color-section-pilots);
+}
+[data-section-tone="social"] {
+  --section: var(--color-section-social);
 }
 
 /* Only <html> gets a background: a body background would paint over the
@@ -455,75 +471,77 @@ select option:disabled {
 }
 
 /* ------------------------------------------------------------------ Tables */
-
-.ks-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 0.875rem;
-}
-.ks-table th {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: var(--text-2xs);
-  color: var(--color-ink-3);
-  text-align: left;
-  padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid var(--hairline);
-  white-space: nowrap;
-}
-.ks-table td {
-  padding: 0.6rem 0.9rem;
-  border-bottom: 1px solid var(--row-rule);
-  vertical-align: middle;
-}
-.ks-table tbody tr {
-  transition: background-color 120ms ease;
-}
-.ks-table tbody tr:hover {
-  background: color-mix(in srgb, var(--color-surface-contrast) 2.5%, transparent);
-}
-/* Group header row (e.g. a day in the mining ledger): body text, not column-header styling. */
-.ks-table .ks-group-row > th,
-.ks-table .ks-group-row > td {
-  font-family: inherit;
-  font-weight: 500;
-  letter-spacing: normal;
-  text-transform: none;
-  font-size: 0.8125rem;
-  color: var(--color-ink-2);
-  white-space: normal;
-  background: color-mix(in srgb, var(--color-surface-contrast) 3.5%, transparent);
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-}
-.ks-table tbody:first-of-type .ks-group-row > * {
-  border-top: 0;
-}
-.ks-table tbody tr.ks-group-row:hover > * {
-  background: color-mix(in srgb, var(--color-surface-contrast) 5.5%, transparent);
-}
-/* Rows of a collapsed group: invisible and zero-height, but still sizing the columns
-   (`visibility: collapse` would do this, but Safari treats it as `hidden`). */
-.ks-table [data-collapsed] > tr:not(.ks-group-row) > td {
-  visibility: hidden;
-  padding-block: 0;
-  border-bottom: 0;
-  line-height: 0;
-}
-.ks-table [data-collapsed] > tr:not(.ks-group-row) > td > * {
-  max-height: 0;
-  padding-block: 0;
-  border-block-width: 0;
-  vertical-align: top;
-  overflow: hidden;
-}
-.ks-table .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+/* In the components layer so a cell's utilities (text-right, padding) win over these defaults. */
+@layer components {
+  .ks-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+  }
+  .ks-table th {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  .ks-table td {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--row-rule);
+    vertical-align: middle;
+  }
+  .ks-table tbody tr {
+    transition: background-color 120ms ease;
+  }
+  .ks-table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-surface-contrast) 2.5%, transparent);
+  }
+  /* Group header row (e.g. a day in the mining ledger): body text, not column-header styling. */
+  .ks-table .ks-group-row > th,
+  .ks-table .ks-group-row > td {
+    font-family: inherit;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    font-size: 0.8125rem;
+    color: var(--color-ink-2);
+    white-space: normal;
+    background: color-mix(in srgb, var(--color-surface-contrast) 3.5%, transparent);
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .ks-table tbody:first-of-type .ks-group-row > * {
+    border-top: 0;
+  }
+  .ks-table tbody tr.ks-group-row:hover > * {
+    background: color-mix(in srgb, var(--color-surface-contrast) 5.5%, transparent);
+  }
+  /* Rows of a collapsed group: invisible and zero-height, but still sizing the columns
+     (`visibility: collapse` would do this, but Safari treats it as `hidden`). */
+  .ks-table [data-collapsed] > tr:not(.ks-group-row) > td {
+    visibility: hidden;
+    padding-block: 0;
+    border-bottom: 0;
+    line-height: 0;
+  }
+  .ks-table [data-collapsed] > tr:not(.ks-group-row) > td > * {
+    max-height: 0;
+    padding-block: 0;
+    border-block-width: 0;
+    vertical-align: top;
+    overflow: hidden;
+  }
+  .ks-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }
 
 /* Scrollbars that fit the theme. */
@@ -573,6 +591,10 @@ select option:disabled {
   --color-section-industry: #865600;
   --color-section-combat: #ae2847;
   --color-section-trade: #00705c;
+  /* On #ffffff/#f3f5f8 and under the glow >= 4.6:1; against every tone and the accent
+     CVD ΔE >= 8.6 (violet vs accent), normal ΔE >= 15.9. */
+  --color-section-pilots: #6b45d1;
+  --color-section-social: #75007f;
   --chart-surface: #ffffff;
   --hairline: rgba(24, 35, 50, 0.12);
   --hairline-strong: rgba(24, 35, 50, 0.2);
@@ -593,6 +615,9 @@ select option:disabled {
   --ramp-3: #2f7fe0;
   --ramp-4: #2163b3;
   --ramp-5: #154785;
+  /* On #f3f5f8 (and ≥ 3:1 on #ffffff): CVD ΔE 9.8, normal ΔE 29.4. */
+  --series-income: #249a5e;
+  --series-expense: #b02e2e;
   --glass-background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.8));
   --glass-rim: linear-gradient(160deg, rgba(24, 35, 50, 0.18), rgba(24, 35, 50, 0.08));
   --glass-shadow: inset 0 1px 0 #fff, 0 1px 3px rgba(24, 35, 50, 0.08), 0 12px 32px -18px rgba(24, 35, 50, 0.18);

@@ -2,6 +2,7 @@ import { Box, Clock, Coins, Info, Pickaxe, ReceiptText, Scale, Wallet } from "lu
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { ButtonLink } from "@/components/ui/button";
+import { Portrait } from "@/components/ui/eve-image";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Glass, Panel } from "@/components/ui/glass";
 import { PendingFrame, PendingProvider } from "@/components/ui/pending";
@@ -18,9 +19,11 @@ import { pnlPageContext } from "@/modules/mining/pnl/page-context";
 import {
   getActivityStats,
   getExpenseRows,
+  getFeeRows,
   getIncomeRows,
   getManualDaily,
   getPriceRules,
+  getSaleRows,
   getWalletStatus,
 } from "@/modules/mining/pnl/queries";
 import { buildPnlReport } from "@/modules/mining/pnl/report";
@@ -46,19 +49,27 @@ export default async function MiningPnlPage({ searchParams }: PageProps<"/mining
   const { filters, scope, user } = ctx;
   const characters = user.characters.map((c) => ({ characterId: c.characterId, name: c.name }));
 
-  const [income, expenses, manual, activity, rules, wallet] = await Promise.all([
+  const fromSales = ctx.incomeSource === "sales";
+  const [income, sales, expenses, fees, manual, activity, rules, wallet] = await Promise.all([
     getIncomeRows(scope),
+    fromSales ? getSaleRows(scope) : [],
     getExpenseRows(scope),
+    fromSales ? getFeeRows(scope) : [],
     getManualDaily(scope, user.characterIds),
     getActivityStats(scope),
     getPriceRules(user.id),
     getWalletStatus(user.id),
   ]);
-  const report = buildPnlReport({ ...filters, income, expenses, manual, activity, characters });
+  const report = buildPnlReport({ ...filters, incomeSource: ctx.incomeSource, income, sales, expenses, fees, manual, activity, characters });
   const { totals } = report;
+  // Costs waiting for review: purchases and broker fees.
+  const suggestedCosts = {
+    count: report.purchases.suggested.count + report.fees.suggested.count,
+    amount: report.purchases.suggested.amount + report.fees.suggested.amount,
+  };
   const query = pnlQueryString(filters, { bucket: "day", page: 1 });
   const walletOn = wallet.filter((w) => w.granted).length;
-  const hasData = income.length > 0 || expenses.length > 0 || manual.length > 0;
+  const hasData = income.length > 0 || sales.length > 0 || expenses.length > 0 || fees.length > 0 || manual.length > 0;
   const ratePct = scope.ratePct;
   const rate = ratePct !== 100 ? f.percent(ratePct / 100, Number.isInteger(ratePct) ? 0 : 1) : null;
   const hours = (h: number) => t.pnl.hours(hoursValue(f, h));
@@ -111,7 +122,20 @@ export default async function MiningPnlPage({ searchParams }: PageProps<"/mining
                 label={m.tiles.income}
                 value={f.compact(totals.income)}
                 unit="ISK"
-                hint={incomeHint || ctx.valuationLabel}
+                hint={
+                  !fromSales ? (
+                    incomeHint || ctx.valuationLabel
+                  ) : report.sales.suggested.count > 0 ? (
+                    <Link
+                      href={`/mining/pnl/income?${pnlQueryString(filters, { status: "suggested", bucket: "day", page: 1 })}`}
+                      className="text-accent hover:underline"
+                    >
+                      {m.tiles.salesSuggested(report.sales.suggested.count, f.compact(report.sales.suggested.amount))}
+                    </Link>
+                  ) : (
+                    m.tiles.fromSales(report.sales.counted.count, f.compact(totals.minedIncome))
+                  )
+                }
               />
               <StatTile
                 className="xl:col-span-2"
@@ -120,12 +144,12 @@ export default async function MiningPnlPage({ searchParams }: PageProps<"/mining
                 value={f.compact(totals.expenses)}
                 unit="ISK"
                 hint={
-                  report.purchases.suggested.count > 0 ? (
+                  suggestedCosts.count > 0 ? (
                     <Link
                       href={`/mining/pnl/expenses?${pnlQueryString(filters, { status: "suggested", bucket: "day", page: 1 })}`}
                       className="text-accent hover:underline"
                     >
-                      {m.tiles.suggested(report.purchases.suggested.count, f.compact(report.purchases.suggested.amount))}
+                      {m.tiles.suggested(suggestedCosts.count, f.compact(suggestedCosts.amount))}
                     </Link>
                   ) : totals.manual > 0 ? (
                     m.tiles.manual(f.compact(totals.manual))
@@ -220,8 +244,15 @@ export default async function MiningPnlPage({ searchParams }: PageProps<"/mining
                     <tbody>
                       {report.characters.map((c) => (
                         <tr key={c.characterId ?? "account"}>
-                          <td className={c.characterId === null ? "whitespace-nowrap text-ink-3" : "whitespace-nowrap text-ink"}>
-                            {c.characterId === null ? t.pnl.accountWide : (c.name ?? t.pnl.characterFallback(c.characterId))}
+                          <td>
+                            {c.characterId === null ? (
+                              <span className="whitespace-nowrap text-ink-3">{t.pnl.accountWide}</span>
+                            ) : (
+                              <span className="flex items-center gap-2.5 whitespace-nowrap text-ink">
+                                <Portrait id={c.characterId} size={24} />
+                                {c.name ?? t.pnl.characterFallback(c.characterId)}
+                              </span>
+                            )}
                           </td>
                           <td className="num">{c.income ? f.compact(c.income) : "—"}</td>
                           <td className="num text-ink-2">{c.volume ? f.compact(c.volume) : "—"}</td>
@@ -285,11 +316,13 @@ export default async function MiningPnlPage({ searchParams }: PageProps<"/mining
                 <li className="flex items-start gap-1.5">
                   <Info className="mt-0.5 size-3.5 shrink-0 text-ink-3" aria-hidden />
                   <span>
-                    {m.how.income(
-                      ctx.valuationLabel,
-                      rate,
-                      totals.baseIncome !== totals.income ? f.compact(totals.baseIncome) : null,
-                    )}
+                    {fromSales
+                      ? m.how.incomeSales(f.compact(totals.minedIncome))
+                      : m.how.income(
+                          ctx.valuationLabel,
+                          rate,
+                          totals.baseIncome !== totals.income ? f.compact(totals.baseIncome) : null,
+                        )}
                   </span>
                 </li>
                 <li className="flex items-start gap-1.5">

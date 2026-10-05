@@ -176,7 +176,6 @@ export interface GradeSummary {
   quantity: number;
   volume: number;
   scannerValue: number;
-  minDistanceKm: number | null;
 }
 
 export interface OreSummary {
@@ -195,12 +194,11 @@ export function summariseSurvey(rocks: SurveyRock[]): OreSummary[] {
     const grades = byBase.get(g.base) ?? new Map<string, GradeSummary>();
     const s =
       grades.get(r.name) ??
-      ({ name: r.name, grade: g.grade, rank: g.rank, rocks: 0, quantity: 0, volume: 0, scannerValue: 0, minDistanceKm: null } as GradeSummary);
+      ({ name: r.name, grade: g.grade, rank: g.rank, rocks: 0, quantity: 0, volume: 0, scannerValue: 0 } as GradeSummary);
     s.rocks += 1;
     s.quantity += r.quantity;
     s.volume += r.volume ?? 0;
     s.scannerValue += r.value ?? 0;
-    if (r.distanceKm !== null) s.minDistanceKm = s.minDistanceKm === null ? r.distanceKm : Math.min(s.minDistanceKm, r.distanceKm);
     grades.set(r.name, s);
     byBase.set(g.base, grades);
   }

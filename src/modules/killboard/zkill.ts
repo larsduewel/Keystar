@@ -100,8 +100,21 @@ export function windowPath(window: ZkillWindow): string {
   return `year/${window.year}/month/${window.month}/`;
 }
 
+/** Request counters since the client was created, for System Info and the support package. */
+export interface ZkillClientStats {
+  since: string;
+  requests: number;
+  ok: number;
+  /** 429 and 5xx answers (retried). */
+  throttled: number;
+  failed: number;
+  unreachable: number;
+  minIntervalMs: number;
+}
+
 export class ZkillClient {
   private nextSlot = 0;
+  private readonly counters = { since: new Date().toISOString(), requests: 0, ok: 0, throttled: 0, failed: 0, unreachable: 0 };
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -148,6 +161,37 @@ export class ZkillClient {
     }
   }
 
+  /**
+   * One request without retries, for reachability checks (System Info): an unknown
+   * character's statistics, which zKillboard answers with a tiny error object. Any
+   * HTTP answer resolves with its status (403 = User-Agent or IP blocked); network errors throw.
+   */
+  async ping(signal: AbortSignal = AbortSignal.timeout(10_000)): Promise<{ status: number }> {
+    await this.throttle();
+    // The caller may have given up while this waited for its slot.
+    signal.throwIfAborted();
+    this.counters.requests++;
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.baseUrl}/api/stats/characterID/1/kills/`, {
+        headers: { "User-Agent": this.opts.userAgent, "Accept-Encoding": "gzip", Accept: "application/json" },
+        signal,
+      });
+    } catch (err) {
+      this.counters.unreachable++;
+      throw err;
+    }
+    if (res.ok) this.counters.ok++;
+    else if (res.status === 429 || res.status >= 500) this.counters.throttled++;
+    else this.counters.failed++;
+    await res.body?.cancel().catch(() => undefined);
+    return { status: res.status };
+  }
+
+  stats(): ZkillClientStats {
+    return { ...this.counters, minIntervalMs: this.opts.minIntervalMs ?? 1100 };
+  }
+
   private async throttle(): Promise<void> {
     const interval = this.opts.minIntervalMs ?? 1100;
     const now = Date.now();
@@ -176,6 +220,7 @@ export class ZkillClient {
     let lastError: ZkillError | null = null;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       await this.throttle();
+      this.counters.requests++;
       let res: Response;
       try {
         // Statistics URLs redirect (302) to their default sort; fetch follows that.
@@ -183,20 +228,24 @@ export class ZkillClient {
           headers: { "User-Agent": this.opts.userAgent, "Accept-Encoding": "gzip", Accept: "application/json" },
         });
       } catch (err) {
+        this.counters.unreachable++;
         lastError = new ZkillError(`zKillboard unreachable: ${(err as Error).message}`, null);
         await this.sleep(2000 * attempt);
         continue;
       }
       if (res.status === 429 || res.status >= 500) {
+        this.counters.throttled++;
         const retryAfter = Number(res.headers.get("retry-after"));
         lastError = new ZkillError(`zKillboard responded ${res.status}`, res.status);
         await this.sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 5000 * attempt);
         continue;
       }
       if (!res.ok) {
+        this.counters.failed++;
         // 403 usually means a missing/blocked User-Agent or too many requests from this IP.
         throw new ZkillError(`zKillboard responded ${res.status} for ${path}`, res.status);
       }
+      this.counters.ok++;
       return { body: await res.json(), status: res.status };
     }
     throw lastError ?? new ZkillError("zKillboard request failed", null);

@@ -8,7 +8,8 @@ import type { ActionResult } from "@/lib/action-result";
  * A form around one button that runs a server action and confirms the outcome
  * in a toast. Pass the action already bound to its arguments and the texts
  * already translated (`errors` is keyed by the action's error codes and needs
- * an `unknown` entry). The button is disabled while the action runs.
+ * an `unknown` entry). The button is disabled while the action runs. With
+ * `confirm`, the browser asks that question first and nothing runs on cancel.
  */
 export function ActionForm({
   action,
@@ -16,6 +17,7 @@ export function ActionForm({
   successDetail,
   failed,
   errors,
+  confirm,
   className,
   children,
 }: {
@@ -24,6 +26,7 @@ export function ActionForm({
   successDetail?: string;
   failed: string;
   errors: Record<string, string> & { unknown: string };
+  confirm?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -35,6 +38,7 @@ export function ActionForm({
       aria-busy={pending}
       onSubmit={(e) => {
         e.preventDefault();
+        if (confirm && !window.confirm(confirm)) return;
         startTransition(async () => {
           let result: ActionResult | null = null;
           try {

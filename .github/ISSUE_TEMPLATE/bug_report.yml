@@ -8,11 +8,12 @@ body:
         Thanks for reporting! Please search the [open issues](https://github.com/Theragus/Keystar/issues) first.
         **Security problems** (sign-in, permissions, data exposure) belong in a
         [private report](https://github.com/Theragus/Keystar/security/advisories/new), not here.
+        Issues are public: leave out pilot, corporation and alliance names and IDs, and your server's address.
   - type: input
     id: version
     attributes:
       label: Keystar version
-      description: Shown at the bottom of the sidebar and at `/api/health`.
+      description: Shown at the bottom of the sidebar, in Administration → System Info and at `/api/health`.
       placeholder: "0.8.0"
     validations:
       required: true
@@ -61,10 +62,18 @@ body:
     validations:
       required: true
   - type: textarea
+    id: system
+    attributes:
+      label: System summary
+      description: |
+        Admins: Administration → System Info → Report an issue fills this in. Please also attach the
+        support package from there; it contains technical details only, no pilot or corporation data.
+  - type: textarea
     id: logs
     attributes:
       label: Logs
       description: |
         Relevant output of `docker compose logs app` or `docker compose logs worker`.
-        Remove tokens, secrets and anything else private before posting.
+        Remove tokens and secrets, and replace character and corporation IDs and names, system names and your
+        server's address: logs contain them, and this issue is public.
       render: text

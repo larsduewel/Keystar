@@ -10,6 +10,7 @@ import {
   miningPnlPriceRules,
   miningPnlTxOverrides,
   syncJobs,
+  walletFees,
   walletTransactions,
   type Db,
 } from "@/core/db";
@@ -17,7 +18,7 @@ import { WALLET_SCOPE } from "@/modules/wallet/module";
 
 /**
  * Demo data for the mining P&L of one account: wallet import on for two of
- * its characters (automatic counting on for one, off for the other), a month
+ * its characters (automatic counting of purchases and sales on for one, off for the other), a month
  * of purchases and ore sales, manual costs, a price rule and two weeks of
  * measured mining activity.
  */
@@ -93,8 +94,8 @@ export async function seedMiningPnl(
       .where(sql`${esiTokens.characterId} = ${c.characterId}`);
   }
   await db.insert(miningPnlCharacters).values([
-    { userId, characterId: moon.characterId, autoIncludeExpenses: true },
-    { userId, characterId: ice.characterId, autoIncludeExpenses: false },
+    { userId, characterId: moon.characterId, autoIncludeExpenses: true, autoIncludeSales: true },
+    { userId, characterId: ice.characterId, autoIncludeExpenses: false, autoIncludeSales: false },
   ]);
 
   // --- Wallet purchases and sales over the last 30 days ---------------------
@@ -146,6 +147,36 @@ export async function seedMiningPnl(
     if (compressed && price) sell(ice.characterId, compressed, Math.floor(qty * 0.8), Math.round(price * 0.99), at(2, 20));
   }
   await db.insert(walletTransactions).values(rows);
+
+  // Sales tax on every sale (the moon miner has better trade skills than the ice alt) and broker fees for sell orders.
+  let nextJournal = 23_100_000_000;
+  const fees: (typeof walletFees.$inferInsert)[] = [];
+  for (const r of rows.filter((r) => !r.isBuy)) {
+    const value = r.quantity * r.unitPrice;
+    const rate = r.characterId === moon.characterId ? 0.0225 : 0.036;
+    fees.push({
+      characterId: r.characterId,
+      journalId: nextJournal++,
+      userId,
+      date: r.date,
+      refType: "transaction_tax",
+      amount: Math.round(value * rate * 100) / 100,
+      contextId: r.transactionId,
+      contextIdType: "market_transaction_id",
+    });
+    fees.push({
+      characterId: r.characterId,
+      journalId: nextJournal++,
+      userId,
+      date: new Date(r.date.getTime() - 6 * 3600_000),
+      refType: "brokers_fee",
+      amount: Math.round(value * 0.015 * 100) / 100,
+      contextId: null,
+      contextIdType: null,
+      description: "Market order commission to Jita IV - Moon 4 - Caldari Navy Assembly Plant",
+    });
+  }
+  if (fees.length) await db.insert(walletFees).values(fees);
 
   await db.insert(miningPnlTxOverrides).values([
     { userId, characterId: moon.characterId, transactionId: giftedCrystals, included: false },

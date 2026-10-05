@@ -279,10 +279,8 @@ export const mining: typeof en = {
       count === 1
         ? `1 Zeile übersprungen, die nicht nach einem Asteroiden aussah (Zeile ${lines}).`
         : `${n(count)} Zeilen übersprungen, die nicht nach Asteroiden aussahen (Zeilen ${lines}).`,
-    maxDistance: "Max. Entfernung",
-    anyDistance: "beliebig",
     fleetYield: "Flottenertrag",
-    fleetYieldPlaceholder: "z. B. 60000",
+    fleetYieldPlaceholder: "z. B. 150",
     keystarValue: "Keystar-Wert",
     pricing: "bewerte …",
     unpriced: (count: number) => `${plural(count, "Typ", "Typen")} ohne Preis`,
@@ -300,13 +298,12 @@ export const mining: typeof en = {
     empty: "Füge einen Survey-Scan ein, um das Feld nach Erz und Stufe aufgeschlüsselt zu sehen.",
     grades: (count: number) => plural(count, "Stufe", "Stufen"),
     baseGrade: "Basis",
-    closest: (km: string) => `nächster in ${km} km`,
     columns: {
       ore: "Erz",
       rocks: "Asteroiden",
       units: "Einheiten",
       volume: "Volumen",
-      unitPrice: "Stückpreis",
+      iskPerM3: "ISK/m³",
       scanner: "Scanner",
       keystar: "Keystar",
       share: "Anteil",

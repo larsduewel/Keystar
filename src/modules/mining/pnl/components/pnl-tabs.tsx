@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "overview", href: "/mining/pnl" },
+  { id: "income", href: "/mining/pnl/income" },
   { id: "expenses", href: "/mining/pnl/expenses" },
   { id: "settings", href: "/mining/pnl/settings" },
 ] as const;
 
-/** Overview / Expenses / Settings, keeping the date range and character filter. */
+/** Overview / Income / Expenses / Settings, keeping the date range and character filter. */
 export async function PnlTabs({ current, query }: { current: (typeof TABS)[number]["id"]; query: string }) {
   const { t } = await getI18n();
   return (

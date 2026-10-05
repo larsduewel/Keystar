@@ -45,7 +45,7 @@ export interface NavItem {
 }
 
 /** Section colours, defined as `--color-section-*` in globals.css. */
-export type SectionTone = "industry" | "combat" | "trade";
+export type SectionTone = "industry" | "combat" | "trade" | "pilots" | "social";
 
 export interface NavSection {
   id: string;

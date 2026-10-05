@@ -38,6 +38,12 @@ describe("section tones", () => {
   it("colours the feature sections", () => {
     expect(tones.industry).toBe("industry");
     expect(tones.trade).toBe("trade");
+    expect(tones.pilots).toBe("pilots");
+    expect(tones.social).toBe("social");
+  });
+
+  it("puts finances on the trade tone", () => {
+    expect(tones.finances).toBe("trade");
   });
 
   it("keeps the tone when modules merge into one section", () => {

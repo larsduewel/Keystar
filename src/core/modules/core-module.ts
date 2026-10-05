@@ -1,4 +1,4 @@
-import { Activity, Gauge, ScrollText, Settings, ShieldCheck, UserRoundCog, Users } from "lucide-react";
+import { Activity, Gauge, Info, ScrollText, Settings, ShieldCheck, UserRoundCog, Users } from "lucide-react";
 import { CORE_PERMISSIONS } from "@/core/rbac/permissions";
 import type { KeystarModule } from "./types";
 
@@ -43,6 +43,7 @@ export const coreModule: KeystarModule = {
         { href: "/admin/sync", label: (t) => t.shell.nav.sync, icon: Activity, anyPermission: ["sync.view"] },
         { href: "/admin/settings", label: (t) => t.shell.nav.settings, icon: Settings, anyPermission: ["app.settings.manage"] },
         { href: "/admin/audit", label: (t) => t.shell.nav.audit, icon: ScrollText, anyPermission: ["audit.view"] },
+        { href: "/admin/system", label: (t) => t.shell.nav.system, icon: Info, anyPermission: ["system.view"] },
       ],
     },
   ],

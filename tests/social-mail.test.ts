@@ -78,6 +78,26 @@ describe("mail header import", () => {
     expect(res.windowMin).toBe(0);
   });
 
+  it("does not delete history when ESI ignores the mail cursor", async () => {
+    const { esi, fetchImpl } = mailbox(range(1, 100));
+    fetchImpl.mockImplementation(async () => json(range(51, 100).reverse().map(header)));
+
+    const fetched = await fetchMailHeaders(esi, 7, null);
+
+    expect(fetched.windowMin).toBe(51);
+    expect(deletedInGame(range(1, 100), fetched)).toEqual([]);
+  });
+
+  it("does not delete history after an empty page following a full page", async () => {
+    const { esi, fetchImpl } = mailbox(range(1, 100));
+    fetchImpl.mockImplementationOnce(async () => json(range(51, 100).reverse().map(header))).mockImplementationOnce(async () => json([]));
+
+    const fetched = await fetchMailHeaders(esi, 7, null);
+
+    expect(fetched.windowMin).toBe(51);
+    expect(deletedInGame(range(1, 100), fetched)).toEqual([]);
+  });
+
   it("stops at the page cap on a first import", async () => {
     const { esi, fetchImpl } = mailbox(range(1, 500));
     const res = await fetchMailHeaders(esi, 7, null, 3);

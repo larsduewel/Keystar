@@ -108,20 +108,25 @@ const owner = () =>
     .notNull()
     .references(() => users.id, { onDelete: "cascade" });
 
-/** Income adjustment: ore income is valued at this % of the dashboard valuation (e.g. 90 for buyback). */
+/**
+ * Income basis: "mined" values the mined ore at this % of the dashboard valuation (e.g. 90 for buyback) unless a
+ * price rule applies; "sales" counts what the wallet sales of ore and its products actually brought in.
+ */
 export const miningPnlSettings = pgTable("mining_pnl_settings", {
   userId: owner().primaryKey(),
   incomeRatePct: doublePrecision("income_rate_pct").notNull().default(100),
+  incomeSource: text("income_source").$type<"mined" | "sales">().notNull().default("mined"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Per character: count auto-tagged wallet purchases without reviewing them (off by default). */
+/** Per character: count auto-tagged wallet purchases (expenses) and sales (income) without reviewing them (off by default). */
 export const miningPnlCharacters = pgTable(
   "mining_pnl_characters",
   {
     userId: owner(),
     characterId: bigint("character_id", { mode: "number" }).notNull(),
     autoIncludeExpenses: boolean("auto_include_expenses").notNull().default(false),
+    autoIncludeSales: boolean("auto_include_sales").notNull().default(false),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.characterId] })],
@@ -142,7 +147,10 @@ export const miningPnlPriceRules = pgTable(
   (t) => [index("mining_pnl_price_rules_user_idx").on(t.userId, t.typeId)],
 );
 
-/** The user's decision on a wallet purchase: its category and whether it counts (null = automatic). */
+/**
+ * The user's decision on a wallet purchase or sale: its category (an expense category for a purchase, an income
+ * category for a sale) and whether it counts (null = automatic).
+ */
 export const miningPnlTxOverrides = pgTable(
   "mining_pnl_tx_overrides",
   {
@@ -154,6 +162,19 @@ export const miningPnlTxOverrides = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.characterId, t.transactionId] })],
+);
+
+/** The user's include/exclude decision on a sales tax or broker fee from the wallet journal (`wallet_fees`). */
+export const miningPnlFeeOverrides = pgTable(
+  "mining_pnl_fee_overrides",
+  {
+    userId: owner(),
+    characterId: bigint("character_id", { mode: "number" }).notNull(),
+    journalId: bigint("journal_id", { mode: "number" }).notNull(),
+    included: boolean("included").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.characterId, t.journalId] })],
 );
 
 /**

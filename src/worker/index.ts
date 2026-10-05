@@ -2,11 +2,14 @@ import { hostname } from "node:os";
 import { sql } from "drizzle-orm";
 import { closeDb, getDb, workerHeartbeats } from "@/core/db";
 import { env } from "@/core/env";
-import { getEsi, KEYSTAR_VERSION } from "@/core/esi";
+import { esiStats, getEsi, KEYSTAR_VERSION } from "@/core/esi";
 import { createLogger, errorMessage } from "@/core/logger";
 import { getSetting } from "@/core/settings";
 import { claimDueJobs, executeJob, planJobs } from "@/core/sync/scheduler";
+import { processRuntime } from "@/core/system/runtime";
+import type { HeartbeatInfo } from "@/core/system/worker";
 import { JOBS } from "@/modules/jobs";
+import { zkillStats } from "@/modules/killboard/sync";
 import { runMigrations } from "@/scripts/migrate";
 
 /**
@@ -37,12 +40,22 @@ const TICK_INTERVAL_MS = 3_000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 async function heartbeat(): Promise<void> {
+  // Shown in System Info and the support package (src/core/system), since the web process can't see this one.
+  const info: HeartbeatInfo = {
+    running: running.size,
+    jobs: ACTIVE_JOBS.length,
+    concurrency: env().WORKER_CONCURRENCY,
+    demo: env().KEYSTAR_DEMO_MODE,
+    runtime: processRuntime(),
+    esi: esiStats(),
+    zkill: zkillStats(),
+  };
   await getDb()
     .insert(workerHeartbeats)
-    .values({ workerId, version: KEYSTAR_VERSION, info: { running: running.size, jobs: ACTIVE_JOBS.length } })
+    .values({ workerId, version: KEYSTAR_VERSION, info: { ...info } })
     .onConflictDoUpdate({
       target: workerHeartbeats.workerId,
-      set: { lastBeatAt: sql`now()`, info: { running: running.size, jobs: ACTIVE_JOBS.length } },
+      set: { lastBeatAt: sql`now()`, info: { ...info } },
     });
 }
 

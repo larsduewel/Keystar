@@ -1,13 +1,14 @@
 "use client";
 
 import { ChevronDown, ChevronRight, ClipboardPaste, Eraser, Loader2, TriangleAlert } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { TypeIcon } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
+import { compareSortValues, SortHeader, useSortedRows } from "@/components/ui/sortable-table";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 import { priceSurveyTypes, type SurveyPrice } from "./actions";
-import { parseSurveyScan, summariseSurvey } from "./parse";
+import { type GradeSummary, type OreSummary, parseLocaleNumber, parseSurveyScan, summariseSurvey } from "./parse";
 
 const EXAMPLE = `Scordite III-Grade	41.648	6.247 m3	787.000,00 ISK	21 km
 Scordite III-Grade	49.146	7.371 m3	928.000,00 ISK	21 km
@@ -26,6 +27,19 @@ Plagioclase	73.736	25.807 m3	2.050.000,00 ISK	16 km
 Pyroxeres III-Grade	24.530	7.359 m3	630.000,00 ISK	28 km
 Pyroxeres II-Grade	28.264	8.479 m3	643.000,00 ISK	22 km
 Pyroxeres	29.504	8.851 m3	669.000,00 ISK	18 km`;
+
+interface GradeRow extends GradeSummary {
+  /** Keystar value; null until the grade is priced. */
+  keystar: number | null;
+}
+
+interface OreRow extends Omit<OreSummary, "grades"> {
+  grades: GradeRow[];
+  /** Keystar value of the priced grades. */
+  keystar: number;
+}
+
+const oreName = (r: OreRow) => r.base;
 
 function NumberField({
   label,
@@ -61,7 +75,6 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
   const { t: messages, f } = useI18n();
   const m = messages.mining.estimator;
   const [text, setText] = useState("");
-  const [maxDistance, setMaxDistance] = useState("");
   const [fleetYield, setFleetYield] = useState("");
   const [prices, setPrices] = useState<Record<string, SurveyPrice>>({});
   const [priceError, setPriceError] = useState<"failed" | "esi" | null>(null);
@@ -69,15 +82,7 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const parsed = useMemo(() => parseSurveyScan(text), [text]);
-  const maxKm = Number(maxDistance.replace(",", "."));
-  const rocks = useMemo(
-    () =>
-      maxDistance && Number.isFinite(maxKm)
-        ? parsed.rocks.filter((r) => r.distanceKm === null || r.distanceKm <= maxKm)
-        : parsed.rocks,
-    [parsed.rocks, maxDistance, maxKm],
-  );
-  const summary = useMemo(() => summariseSurvey(rocks), [rocks]);
+  const summary = useMemo(() => summariseSurvey(parsed.rocks), [parsed.rocks]);
   const namesKey = useMemo(() => [...new Set(parsed.rocks.map((r) => r.name))].sort().join("\n"), [parsed.rocks]);
 
   useEffect(() => {
@@ -99,29 +104,76 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the set of ore names changes
   }, [namesKey]);
 
-  const priceOf = (name: string) => prices[name.toLowerCase()]?.unitPrice ?? null;
-  const keystarValue = (name: string, quantity: number) => {
-    const p = priceOf(name);
-    return p === null ? null : p * quantity;
-  };
+  const rows = useMemo(
+    () =>
+      summary.map((ore): OreRow => {
+        const grades = ore.grades.map((g): GradeRow => {
+          const p = prices[g.name.toLowerCase()]?.unitPrice ?? null;
+          return { ...g, keystar: p === null ? null : p * g.quantity };
+        });
+        return { ...ore, grades, keystar: grades.reduce((s, g) => s + (g.keystar ?? 0), 0) };
+      }),
+    [summary, prices],
+  );
 
-  const totals = summary.reduce(
+  const totals = rows.reduce(
     (t, ore) => {
       t.rocks += ore.rocks;
       t.volume += ore.volume;
       t.scanner += ore.scannerValue;
-      for (const g of ore.grades) {
-        const v = keystarValue(g.name, g.quantity);
-        if (v === null) t.unpriced += 1;
-        else t.keystar += v;
-      }
+      t.keystar += ore.keystar;
+      t.unpriced += ore.grades.filter((g) => g.keystar === null).length;
       return t;
     },
     { rocks: 0, volume: 0, scanner: 0, keystar: 0, unpriced: 0 },
   );
-  const yieldPerHour = Number(fleetYield.replace(/[.,\s]/g, ""));
-  const hoursToClear = yieldPerHour > 0 ? totals.volume / yieldPerHour : null;
-  const shareBase = totals.keystar || totals.scanner;
+  // Mining lasers show their yield per second; German or English notation, like the scan itself.
+  const yieldPerSecond = parseLocaleNumber(fleetYield) ?? 0;
+  const hoursToClear = yieldPerSecond > 0 ? totals.volume / yieldPerSecond / 3600 : null;
+  // Share and ISK/m³ use Keystar values once any are priced, scanner values until then.
+  const useKeystar = totals.keystar > 0;
+  const shareBase = useKeystar ? totals.keystar : totals.scanner;
+  const basis = useCallback(
+    (r: OreRow | GradeRow) => (useKeystar ? r.keystar : r.scannerValue),
+    [useKeystar],
+  );
+  const perM3 = useCallback(
+    (r: OreRow | GradeRow) => {
+      const v = basis(r);
+      return v && r.volume ? v / r.volume : null;
+    },
+    [basis],
+  );
+  const sortValue = useCallback(
+    (r: OreRow | GradeRow, key: string) => {
+      switch (key) {
+        case "name":
+          return "base" in r ? r.base : r.rank;
+        case "scanner":
+          return r.scannerValue;
+        case "keystar":
+          return r.keystar || null;
+        case "iskPerM3":
+          return perM3(r);
+        case "share":
+          return basis(r);
+        default:
+          return r[key as "rocks" | "quantity" | "volume"];
+      }
+    },
+    [basis, perM3],
+  );
+  const { sorted, sort, toggle: toggleSort } = useSortedRows<OreRow>(rows, "share", sortValue, oreName);
+  const sortGrades = (grades: GradeRow[]) =>
+    // Grades sort by the same column; "name" keeps them in grade order (base first) in either direction.
+    sort.key === "name"
+      ? grades
+      : [...grades].sort((a, b) => compareSortValues(sortValue(a, sort.key), sortValue(b, sort.key), sort.dir) || a.rank - b.rank);
+  // The header already says ISK/m³.
+  const iskPerM3 = (v: number) => f.unitPrice(v).replace(" ISK", "");
+  const header = (key: string, label: string, align?: "left") => (
+    <SortHeader sortKey={key} label={label} align={align} sort={sort} onSort={toggleSort} />
+  );
 
   const toggle = (base: string) =>
     setCollapsed((c) => {
@@ -178,18 +230,11 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
         )}
         <div className="mt-4 flex gap-3">
           <NumberField
-            label={m.maxDistance}
-            value={maxDistance}
-            onChange={setMaxDistance}
-            placeholder={m.anyDistance}
-            suffix="km"
-          />
-          <NumberField
             label={m.fleetYield}
             value={fleetYield}
             onChange={setFleetYield}
             placeholder={m.fleetYieldPlaceholder}
-            suffix="m³/h"
+            suffix="m³/s"
           />
         </div>
       </Panel>
@@ -229,7 +274,7 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
               <span className="ml-1 text-sm text-ink-2">m³</span>
             </div>
             <div className="mt-1 text-2xs text-ink-3">
-              {totals.volume ? m.perM3(f.unitPrice((totals.keystar || totals.scanner) / totals.volume)) : "—"}
+              {totals.volume ? m.perM3(f.unitPrice(shareBase / totals.volume)) : "—"}
             </div>
           </Glass>
           <Glass className="px-5 py-4">
@@ -261,21 +306,20 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
               <table className="ks-table">
                 <thead>
                   <tr>
-                    <th>{m.columns.ore}</th>
-                    <th className="num">{m.columns.rocks}</th>
-                    <th className="num">{m.columns.units}</th>
-                    <th className="num">{m.columns.volume}</th>
-                    <th className="num">{m.columns.unitPrice}</th>
-                    <th className="num">{m.columns.scanner}</th>
-                    <th className="num">{m.columns.keystar}</th>
-                    <th className="w-[120px]">{m.columns.share}</th>
+                    {header("name", m.columns.ore, "left")}
+                    {header("rocks", m.columns.rocks)}
+                    {header("quantity", m.columns.units)}
+                    {header("volume", m.columns.volume)}
+                    {header("iskPerM3", m.columns.iskPerM3)}
+                    {header("scanner", m.columns.scanner)}
+                    {header("keystar", m.columns.keystar)}
+                    {header("share", m.columns.share)}
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.map((ore) => {
+                  {sorted.map((ore) => {
                     const open = !collapsed.has(ore.base);
-                    const oreValue = ore.grades.reduce((s, g) => s + (keystarValue(g.name, g.quantity) ?? 0), 0);
-                    const shareValue = totals.keystar ? oreValue : ore.scannerValue;
+                    const orePerM3 = perM3(ore);
                     const iconId = prices[ore.grades[0].name.toLowerCase()]?.typeId;
                     return (
                       <Fragment key={ore.base}>
@@ -295,17 +339,16 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
                           <td className="num">{f.integer(ore.rocks)}</td>
                           <td className="num">{f.integer(ore.quantity)}</td>
                           <td className="num">{f.integer(ore.volume)} m³</td>
-                          <td className="num text-ink-3">—</td>
+                          <td className="num">{orePerM3 !== null ? iskPerM3(orePerM3) : "—"}</td>
                           <td className="num">{f.isk(ore.scannerValue)}</td>
-                          <td className="num font-semibold">{oreValue ? f.isk(oreValue) : "—"}</td>
-                          <td>
-                            <ShareBar value={shareBase ? shareValue / shareBase : 0} />
+                          <td className="num font-semibold">{ore.keystar ? f.isk(ore.keystar) : "—"}</td>
+                          <td className="w-[120px]">
+                            <ShareBar value={shareBase ? (basis(ore) ?? 0) / shareBase : 0} />
                           </td>
                         </tr>
                         {open &&
-                          ore.grades.map((g) => {
-                            const v = keystarValue(g.name, g.quantity);
-                            const p = priceOf(g.name);
+                          sortGrades(ore.grades).map((g) => {
+                            const p = perM3(g);
                             return (
                               <tr key={g.name} className="text-ink-2">
                                 <td>
@@ -313,21 +356,16 @@ export function FieldEstimator({ valuationLabel }: { valuationLabel: string }) {
                                     <span className="rounded border border-surface-contrast/10 px-1.5 py-px font-mono text-3xs text-ink-2">
                                       {g.grade === "Base" ? m.baseGrade : g.grade}
                                     </span>
-                                    {g.minDistanceKm !== null && (
-                                      <span className="text-2xs text-ink-3">
-                                        {m.closest(f.number(g.minDistanceKm, Number.isInteger(g.minDistanceKm) ? 0 : 1))}
-                                      </span>
-                                    )}
                                   </div>
                                 </td>
                                 <td className="num">{f.integer(g.rocks)}</td>
                                 <td className="num">{f.integer(g.quantity)}</td>
                                 <td className="num">{f.integer(g.volume)} m³</td>
-                                <td className="num">{p !== null ? f.unitPrice(p) : pricing ? "…" : "—"}</td>
+                                <td className="num">{p !== null ? iskPerM3(p) : pricing ? "…" : "—"}</td>
                                 <td className="num">{f.isk(g.scannerValue)}</td>
-                                <td className="num">{v !== null ? f.isk(v) : "—"}</td>
-                                <td>
-                                  <ShareBar value={shareBase ? (totals.keystar ? (v ?? 0) : g.scannerValue) / shareBase : 0} subtle />
+                                <td className="num">{g.keystar !== null ? f.isk(g.keystar) : pricing ? "…" : "—"}</td>
+                                <td className="w-[120px]">
+                                  <ShareBar value={shareBase ? (basis(g) ?? 0) / shareBase : 0} subtle />
                                 </td>
                               </tr>
                             );

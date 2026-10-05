@@ -19,7 +19,8 @@ const MAX_VISIBLE = 3;
 /**
  * Live kill and loss notifications: toasts for killmails the worker picks up
  * from zKillboard's live feed, or desktop notifications while the user isn't
- * looking at Keystar. Each toast stays 30 seconds (paused while hovered) and
+ * looking at Keystar. Each toast stays 30 seconds of the user looking at the
+ * tab (paused while hovered, or while the tab is hidden or unfocused) and
  * opens the killmail on zKillboard. Registered as `killboard.kills` in src/modules/alerts.ts.
  */
 export function LiveKills() {

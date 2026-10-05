@@ -58,7 +58,7 @@ export interface FetchedJournal {
  * entries push older ones onto later pages while we page, so entries are de-duplicated by id. Corporation wallet
  * responses bypass the ESI response cache: the archive tables are the copy that matters.
  */
-export async function fetchNewJournal(
+export function fetchNewJournal(
   esi: EsiClient,
   corporationId: number,
   division: number,
@@ -66,7 +66,20 @@ export async function fetchNewJournal(
   newestStoredId: number | null,
   maxPages = JOURNAL_MAX_PAGES,
 ): Promise<FetchedJournal> {
-  const path = `/corporations/${corporationId}/wallets/${division}/journal`;
+  return fetchJournalSince(esi, `/corporations/${corporationId}/wallets/${division}/journal`, characterId, newestStoredId, maxPages);
+}
+
+/**
+ * `page` paging shared by corporation and character wallet journals: `path` is the journal route, `characterId` the
+ * character whose token reads it.
+ */
+export async function fetchJournalSince(
+  esi: EsiClient,
+  path: string,
+  characterId: number,
+  newestStoredId: number | null,
+  maxPages = JOURNAL_MAX_PAGES,
+): Promise<FetchedJournal> {
   const byId = new Map<number, EsiCorpJournalEntry>();
   let pages = 0;
   let total = 1;

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import {
   characterCorpRoles,
   characters,
@@ -97,17 +97,25 @@ export const corporationMembersJob: JobDefinition = {
   intervalSeconds: 3600,
   async run({ esi, db, ownerId, characterId }) {
     const res = await esi.get<number[]>(`/corporations/${ownerId}/members`, { characterId: characterId! });
-    if (!res.notModified) {
-      await db.transaction(async (tx) => {
-        await tx.delete(corporationMembers).where(eq(corporationMembers.corporationId, ownerId));
-        if (res.data.length) {
-          await tx
-            .insert(corporationMembers)
-            .values(res.data.map((id) => ({ corporationId: ownerId, characterId: id, updatedAt: new Date() })));
-        }
-      });
-      await ensureNames(res.data);
-    }
+    // Applied on every run, also when ESI answers "not modified": the cache entry is written before this write, so a
+    // run whose write failed would otherwise leave the roster stale until the member list changes. As a diff, an
+    // unchanged roster writes nothing.
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(corporationMembers)
+        .where(
+          res.data.length
+            ? and(eq(corporationMembers.corporationId, ownerId), notInArray(corporationMembers.characterId, res.data))
+            : eq(corporationMembers.corporationId, ownerId),
+        );
+      if (res.data.length) {
+        await tx
+          .insert(corporationMembers)
+          .values(res.data.map((id) => ({ corporationId: ownerId, characterId: id, updatedAt: new Date() })))
+          .onConflictDoNothing();
+      }
+    });
+    await ensureNames(res.data);
     return { summary: `${res.data.length} members`, nextRunAt: res.expiresAt };
   },
 };
@@ -193,7 +201,11 @@ export const housekeepingJob: JobDefinition = {
   async run({ db }) {
     const sessions = await purgeExpiredSessions();
     const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-    const cache = await db.delete(esiCache).where(lt(esiCache.expiresAt, weekAgo)).returning({ key: esiCache.key });
+    // Responses without an Expires header have no expiry to go by; their last write stands in.
+    const cache = await db
+      .delete(esiCache)
+      .where(or(lt(esiCache.expiresAt, weekAgo), and(isNull(esiCache.expiresAt), lt(esiCache.updatedAt, weekAgo))))
+      .returning({ key: esiCache.key });
     await db.delete(workerHeartbeats).where(lt(workerHeartbeats.lastBeatAt, new Date(Date.now() - 24 * 3600 * 1000)));
     return { summary: `Purged ${sessions} sessions, ${cache.length} cache entries` };
   },

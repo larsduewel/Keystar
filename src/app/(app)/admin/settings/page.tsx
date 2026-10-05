@@ -1,8 +1,10 @@
-import { Lock } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
+import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { CorpLogo } from "@/components/ui/eve-image";
 import { Panel } from "@/components/ui/glass";
 import { requirePermission } from "@/core/auth/dal";
+import { outsideGuestIds } from "@/core/auth/manage-users";
 import { getCorporation } from "@/core/corp";
 import { getDb, eveCorporations } from "@/core/db";
 import { env, ssoCallbackUrl, ssoConfigured } from "@/core/env";
@@ -22,7 +24,7 @@ export async function generateMetadata() {
 const selectClass = "glass-inset h-9 rounded-lg px-3 text-sm text-ink";
 
 export default async function SettingsPage() {
-  await requirePermission("app.settings.manage");
+  const actor = await requirePermission("app.settings.manage");
   const { t } = await getI18n();
   const ts = t.admin.settings;
   const settings = await getSettings();
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
   const groups = [...new Set(perms.map((p) => p.group(t)))];
   const overrides = settings["permissions.overrides"];
   const e = env();
+  const outsideGuests = settings["access.restrictToMembers"] ? (await outsideGuestIds()).length : 0;
 
   return (
     <SettingsForm className="space-y-6">
@@ -104,6 +107,28 @@ export default async function SettingsPage() {
               <span>
                 <span className="font-medium">{ts.access.autoAlliance}</span>
                 <span className="block text-xs text-ink-3">{ts.access.autoAllianceHint}</span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 rounded-2xl glass-inset px-4 py-3">
+              <input
+                type="checkbox"
+                name="restrictToMembers"
+                defaultChecked={settings["access.restrictToMembers"]}
+                className="mt-0.5 size-4 accent-accent"
+              />
+              <span>
+                <span className="font-medium">{ts.access.restrict}</span>
+                <span className="block text-xs text-ink-3">{ts.access.restrictHint}</span>
+                {outsideGuests > 0 && (
+                  <span className="mt-1.5 block text-xs text-ink-2">
+                    {ts.access.outsideGuests(outsideGuests)}{" "}
+                    {actor.can("users.view") && (
+                      <Link href="/admin/users" className="inline-flex items-center gap-1 text-accent hover:underline">
+                        {ts.access.reviewOutsideGuests} <ArrowRight className="size-3" aria-hidden />
+                      </Link>
+                    )}
+                  </span>
+                )}
               </span>
             </label>
             <div className="rounded-2xl glass-inset px-4 py-3 text-xs text-ink-2">

@@ -30,6 +30,10 @@ export const core = {
       label: "Trigger syncs",
       description: "Queue a background ESI sync job to run immediately.",
     },
+    systemView: {
+      label: "View system info",
+      description: "See the technical state of this instance and download the support package for bug reports.",
+    },
   },
   scopes: {
     corporationRoles: "Detects which of your characters hold Director/Accountant roles so Keystar uses the right token.",

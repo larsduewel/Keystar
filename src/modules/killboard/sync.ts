@@ -3,7 +3,7 @@ import { killmailAttackers, killmails, type Db } from "@/core/db";
 import { env } from "@/core/env";
 import { KEYSTAR_VERSION } from "@/core/esi";
 import { ensureNames, ensureSystems, ensureTypes } from "@/core/eve/resolver";
-import { monthsBetween, toRows, ZkillClient, type ZkillKillmail, type ZkillWindow } from "./zkill";
+import { monthsBetween, toRows, ZkillClient, type ZkillClientStats, type ZkillKillmail, type ZkillWindow } from "./zkill";
 
 /** How far back the first import reaches. */
 export const BACKFILL_DAYS = 90;
@@ -21,6 +21,11 @@ export function getZkill(): ZkillClient {
     userAgent: `Keystar/${KEYSTAR_VERSION} (${env().ESI_CONTACT}; +${env().SOURCE_URL})`,
   });
   return client;
+}
+
+/** Counters of the shared client in this process; null when it hasn't been used yet. */
+export function zkillStats(): ZkillClientStats | null {
+  return client?.stats() ?? null;
 }
 
 export interface KillboardSyncState {

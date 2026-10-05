@@ -92,7 +92,7 @@ export const fleet = {
       duration: "Running for",
     },
     composition: { title: "Composition", subtitle: "Members per ship class", ships: "Ships" },
-    structure: { title: "Fleet structure", command: "Fleet command", commander: "Commander" },
+    structure: { title: "Fleet structure", command: "Fleet command", pilots: (value: number) => count(value, "pilot", "pilots") },
     columns: { pilot: "Pilot", ship: "Ship", system: "System", role: "Role", joined: "Joined" },
     activity: {
       title: "Joins & leaves",

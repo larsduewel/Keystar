@@ -1,8 +1,8 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { audit } from "@/core/audit";
+import { audit, auditInTx } from "@/core/audit";
 import { assertPermission, getCurrentUser, type CurrentUser } from "@/core/auth/dal";
 import { disableOptionalScope, enableOptionalScope } from "@/core/auth/scope-switch";
 import { revokeRefreshToken } from "@/core/auth/sso";
@@ -15,9 +15,14 @@ import {
   mailLabels,
   mailLists,
   mailMessages,
+  miningPnlFeeOverrides,
+  syncJobs,
   users,
+  walletFees,
+  industryJobs,
   walletTransactions,
 } from "@/core/db";
+import { forgetCharacterEsiCache } from "@/core/esi";
 import { optionalScopePermission, optionalScopes } from "@/core/modules/registry";
 import { triggerJobs } from "@/core/sync/scheduler";
 import { ok, refused, type ActionResult } from "@/lib/action-result";
@@ -61,13 +66,39 @@ export async function removeCharacter(characterId: number): Promise<ActionResult
   if (user.characterIds.length <= 1) return refused("onlyCharacter");
   const db = getDb();
   const [token] = await db.select().from(esiTokens).where(eq(esiTokens.characterId, characterId));
-  await db.delete(characters).where(and(eq(characters.characterId, characterId), eq(characters.userId, user.id)));
-  await db
-    .delete(walletTransactions)
-    .where(and(eq(walletTransactions.characterId, characterId), eq(walletTransactions.userId, user.id)));
-  await db.delete(mailMessages).where(and(eq(mailMessages.characterId, characterId), eq(mailMessages.userId, user.id)));
-  await db.delete(mailLabels).where(and(eq(mailLabels.characterId, characterId), eq(mailLabels.userId, user.id)));
-  await db.delete(mailLists).where(and(eq(mailLists.characterId, characterId), eq(mailLists.userId, user.id)));
+  await db.transaction(async (tx) => {
+    const removed = await tx
+      .delete(characters)
+      .where(and(eq(characters.characterId, characterId), eq(characters.userId, user.id)))
+      .returning({ characterId: characters.characterId });
+    // Industry jobs have no owner column: delete them only if this account's link was the one removed, so a
+    // character that changed hands meanwhile keeps its new owner's jobs.
+    if (removed.length) {
+      await tx.delete(industryJobs).where(eq(industryJobs.characterId, characterId));
+      await forgetCharacterEsiCache(tx, characterId);
+      await tx
+        .update(syncJobs)
+        .set({ meta: null })
+        .where(
+          and(
+            eq(syncJobs.ownerType, "character"),
+            eq(syncJobs.ownerId, characterId),
+            inArray(syncJobs.jobKey, ["wallet.character-transactions", "wallet.character-fees"]),
+          ),
+        );
+    }
+    // This account's imported data goes in the same transaction, so a crash can't leave it behind to resurface on relink.
+    await tx
+      .delete(walletTransactions)
+      .where(and(eq(walletTransactions.characterId, characterId), eq(walletTransactions.userId, user.id)));
+    await tx.delete(walletFees).where(and(eq(walletFees.characterId, characterId), eq(walletFees.userId, user.id)));
+    await tx
+      .delete(miningPnlFeeOverrides)
+      .where(and(eq(miningPnlFeeOverrides.characterId, characterId), eq(miningPnlFeeOverrides.userId, user.id)));
+    await tx.delete(mailMessages).where(and(eq(mailMessages.characterId, characterId), eq(mailMessages.userId, user.id)));
+    await tx.delete(mailLabels).where(and(eq(mailLabels.characterId, characterId), eq(mailLabels.userId, user.id)));
+    await tx.delete(mailLists).where(and(eq(mailLists.characterId, characterId), eq(mailLists.userId, user.id)));
+  });
   if (user.main?.characterId === characterId) {
     const next = user.characterIds.find((id) => id !== characterId) ?? null;
     await db.update(users).set({ mainCharacterId: next }).where(eq(users.id, user.id));
@@ -118,18 +149,21 @@ export async function setOptionalScope(
         .where(eq(fleetTrackers.characterId, characterId));
       if (tracker?.status === "tracking" || tracker?.status === "not_boss") return "active" as const;
     }
-    return enabled ? enableOptionalScope(characterId, scope, tx) : disableOptionalScope(characterId, scope, tx);
+    const result = enabled ? await enableOptionalScope(characterId, scope, tx) : await disableOptionalScope(characterId, scope, tx);
+    if (result === "ok") {
+      await auditInTx(tx, {
+        actorUserId: user.id,
+        actorName: user.main?.name,
+        action: enabled ? "esi.scope.enabled" : "esi.scope.disabled",
+        targetType: "character",
+        targetId: characterId,
+        details: { scope },
+      });
+    }
+    return result;
   });
   if (outcome !== "ok") return refused(outcome);
   // The worker's planner (every 30 seconds) starts or stops the scope's background jobs.
-  await audit({
-    actorUserId: user.id,
-    actorName: user.main?.name,
-    action: enabled ? "esi.scope.enabled" : "esi.scope.disabled",
-    targetType: "character",
-    targetId: characterId,
-    details: { scope },
-  });
   revalidatePath("/", "layout");
   return ok;
 }
