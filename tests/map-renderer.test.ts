@@ -13,7 +13,7 @@ it("coalesces input and draws thousands of stars in bounded batches without repe
  vi.stubGlobal("ResizeObserver",class {observe(){} disconnect(){}});
  vi.stubGlobal("MutationObserver",class {observe(){} disconnect(){}});
  vi.stubGlobal("Path2D",class {rect(){} moveTo(){} lineTo(){}});
- const ctx={measureText:vi.fn(()=>({width:60})),setTransform:vi.fn(),clearRect:vi.fn(),fill:vi.fn(),fillText:vi.fn(),beginPath:vi.fn(),arc:vi.fn(),stroke:vi.fn(),save:vi.fn(),restore:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn()};
+ const ctx={createRadialGradient:vi.fn(()=>({addColorStop:vi.fn()})),measureText:vi.fn(()=>({width:60})),setTransform:vi.fn(),clearRect:vi.fn(),fill:vi.fn(),fillText:vi.fn(),beginPath:vi.fn(),arc:vi.fn(),stroke:vi.fn(),save:vi.fn(),restore:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn()};
  const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
  const systems:MapSystem[]=Array.from({length:8490},(_,i)=>[i,`System ${i}`,i%3===0?.8:i%3===1?.2:-.5,i%100,Math.floor(i/100),0]);
  const renderer=createMapRenderer(canvas,systems,{overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>dragging,selected:null,query:"",labels:true,format:String,onHits:vi.fn()});
@@ -27,7 +27,8 @@ it("coalesces input and draws thousands of stars in bounded batches without repe
  overlay={...EMPTY_OVERLAY,inRange:[0]};renderer.schedule();callback(32);
   expect(ctx.measureText).toHaveBeenCalledTimes(8490);
  overlay={...EMPTY_OVERLAY,route:[0,1,2]};renderer.schedule();callback(100);
- expect(ctx.save).toHaveBeenCalledTimes(1);
+ expect(ctx.createRadialGradient).toHaveBeenCalledTimes(1);
+ expect(ctx.lineTo).not.toHaveBeenCalled();
  const framesBefore=raf.mock.calls.length;
  callback(500);expect(raf.mock.calls.length).toBe(framesBefore+1);
  callback(3100);expect(raf.mock.calls.length).toBe(framesBefore+2);

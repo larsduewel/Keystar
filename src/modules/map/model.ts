@@ -7,3 +7,7 @@ export function project(x: number, y: number, z: number, yaw: number, pitch: num
 export function securityClass(security: number): "high" | "low" | "null" {
   return security >= 0.45 ? "high" : security > 0 ? "low" : "null";
 }
+
+export function systemSpace(id: number): "known" | "wormholes" | "all" {
+  return id >= 32000000 ? "all" : id >= 31000000 ? "wormholes" : "known";
+}

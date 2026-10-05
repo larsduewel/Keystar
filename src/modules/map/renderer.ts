@@ -81,7 +81,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
   if(overlay?.route.length) {
    const path=new Path2D();let previous=false;
    for(const id of overlay.route) {const p=points.find(p=>p.system[0]===id);if(!p){previous=false;continue;}if(previous)path.lineTo(p.hit.x,p.hit.y);else path.moveTo(p.hit.x,p.hit.y);previous=true;}
-   ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1.5;ctx.stroke(path);
+   ctx.save();ctx.globalAlpha=.25;ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.stroke(path);ctx.restore();
    const hops = overlay.route.length - 1;
    const duration = Math.min(hops * 750, 6000);
    const elapsed = now - beamStarted;
@@ -93,12 +93,24 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
     if (from && to) {
      const x = from.hit.x + (to.hit.x - from.hit.x) * fraction;
      const y = from.hit.y + (to.hit.y - from.hit.y) * fraction;
-     const tail = Math.max(0, fraction - .18);
-     ctx.save();ctx.shadowColor=colors.range||ink;ctx.shadowBlur=10;
-     ctx.strokeStyle=ink;ctx.lineWidth=2.5;ctx.beginPath();
-     ctx.moveTo(from.hit.x+(to.hit.x-from.hit.x)*tail,from.hit.y+(to.hit.y-from.hit.y)*tail);
-     ctx.lineTo(x,y);ctx.stroke();
-     ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();ctx.restore();
+     ctx.save();ctx.globalCompositeOperation="lighter";
+     const glow = ctx.createRadialGradient(x,y,0,x,y,16);
+     glow.addColorStop(0,ink);glow.addColorStop(.18,colors.range||ink);glow.addColorStop(1,"transparent");
+     ctx.globalAlpha=.65;ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);ctx.fill();
+     // Short, separate sparks follow the bright core rather than a moving stroke.
+     const length = Math.hypot(to.hit.x-from.hit.x,to.hit.y-from.hit.y);
+     for(let spark=1;spark<=5;spark++) {
+      const behind = fraction-spark*5/Math.max(length,1);
+      if(behind<0)break;
+      ctx.globalAlpha=.5*(1-spark/6);ctx.fillStyle=colors.range||ink;ctx.beginPath();
+      ctx.arc(from.hit.x+(to.hit.x-from.hit.x)*behind,from.hit.y+(to.hit.y-from.hit.y)*behind,Math.max(.5,1.8-spark*.2),0,Math.PI*2);ctx.fill();
+     }
+     ctx.globalAlpha=1;ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x,y,2.2,0,Math.PI*2);ctx.fill();
+     if(fraction<.18) {
+      const pulse=fraction/.18;
+      ctx.globalAlpha=(1-pulse)*.7;ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(from.hit.x,from.hit.y,4+pulse*12,0,Math.PI*2);ctx.stroke();
+     }
+     ctx.restore();
     }
     schedule();
    }
