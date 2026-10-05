@@ -6,9 +6,11 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-05
+
 ### Changed
-- **Jump Range ship classes.** Expand ship classes to cover command carriers, supercapitals, force auxiliaries, lancer dreadnoughts and Rorquals.
-- **Travel Check system inputs.** Use the Threat Intel system picker, including keyboard selection, region names and security status.
+- **Jump Range ship classes.** Expand ship classes to cover command carriers, supercapitals, force auxiliaries, lancer dreadnoughts and Rorquals. ([PR #13](https://github.com/larsduewel/Keystar/pull/13))
+- **Travel Check system inputs.** Use the Threat Intel system picker, including keyboard selection, region names and security status. ([PR #13](https://github.com/larsduewel/Keystar/pull/13))
 
 ## [0.14.0] - 2026-10-05
 
