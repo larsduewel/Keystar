@@ -1,4 +1,5 @@
-import { Swords } from "lucide-react";
+import Link from "next/link";
+import { Info, Swords } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Portrait } from "@/components/ui/eve-image";
 import { getI18n } from "@/i18n/server";
@@ -43,6 +44,7 @@ export async function PilotRow({
   pilot,
   standing,
   names,
+  scanId,
 }: {
   pilot: ScanPilot;
   standing: Standing;
@@ -63,7 +65,7 @@ export async function PilotRow({
         <div className="flex w-full items-start gap-2">
           <a href={zkillCharacter(pilot.characterId)} target="_blank" rel="noopener noreferrer" aria-label={pilot.name} className="shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-accent"><Portrait id={pilot.characterId} size={40} /></a>
           <div className="min-w-0 flex-1">
-            <a href={zkillCharacter(pilot.characterId)} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-semibold text-ink hover:text-accent hover:underline" title={pilot.name}>{pilot.name}</a>
+            <div className="flex items-center gap-1"><a href={zkillCharacter(pilot.characterId)} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-sm font-semibold text-ink hover:text-accent hover:underline" title={pilot.name}>{pilot.name}</a><Link href={`/intel/${scanId}/pilot/${pilot.characterId}`} aria-label={`${p.fullProfile}: ${pilot.name}`} title={p.fullProfile} className="shrink-0 text-ink-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"><Info className="size-3.5" aria-hidden /></Link></div>
             <div className="mt-0.5 truncate text-xs text-ink-3" title={pilot.corporationName ?? undefined}>
               {pilot.corporationId ? (
                 <a href={zkillCorporation(pilot.corporationId)} target="_blank" rel="noopener noreferrer" className="hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent" title={pilot.corporationName ?? undefined}>

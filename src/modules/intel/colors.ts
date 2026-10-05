@@ -8,7 +8,7 @@ const RAMP = MOON_RARITY.map((m) => m.color);
 
 export const TIER_COLOR = {
   low: "var(--color-good-text)",
-  moderate: "#f97316",
+  moderate: "var(--color-serious)",
   high: "var(--color-critical-text)",
   extreme: "var(--color-critical-text)",
   unknown: "var(--series-other)",

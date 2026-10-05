@@ -78,9 +78,11 @@ export function threatLevelOf(input: Pick<BriefingInput, "summary" | "engagement
   const recentLoss = input.engagements
     .slice(0, 5)
     .some((e) => e.ourLosses > e.ourKills && input.now.getTime() - Date.parse(e.start) < 48 * HOUR_MS);
-  if (t.extreme >= 2 || (t.extreme >= 1 && (roles.cyno > 0 || roles.capital > 0)) || (t.extreme + t.high >= 3 && recentLoss)) return "critical";
-  if (t.extreme >= 1 || t.high >= 2) return "high";
-  if (t.high >= 1 || t.moderate >= 2) return "elevated";
+  // High is now the top tier. Include legacy extreme counts for saved inputs.
+  const high = t.high + t.extreme;
+  if (high >= 2 || (high >= 1 && (roles.cyno > 0 || roles.capital > 0 || recentLoss))) return "critical";
+  if (high >= 1) return "high";
+  if (t.moderate >= 2) return "elevated";
   if (t.moderate >= 1) return "low";
   return "minimal";
 }

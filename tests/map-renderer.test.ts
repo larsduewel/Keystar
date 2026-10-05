@@ -26,7 +26,9 @@ it("coalesces input and draws thousands of stars in bounded batches without repe
  expect(ctx.fillText.mock.calls.length).toBeLessThanOrEqual(100);
  overlay={...EMPTY_OVERLAY,inRange:[0]};renderer.schedule();callback(32);
   expect(ctx.measureText).toHaveBeenCalledTimes(8490);
- overlay={...EMPTY_OVERLAY,route:[0,1,2]};renderer.schedule();callback(100);
+ overlay={...EMPTY_OVERLAY,route:Array.from({length:100},(_,i)=>i)};renderer.schedule();
+ const linearLookups=vi.spyOn(Array.prototype,"find");callback(100);
+ const scans=linearLookups.mock.calls.length;linearLookups.mockRestore();expect(scans).toBe(0);
  expect(ctx.createRadialGradient).toHaveBeenCalledTimes(1);
  expect(ctx.lineTo).not.toHaveBeenCalled();
  const framesBefore=raf.mock.calls.length;
