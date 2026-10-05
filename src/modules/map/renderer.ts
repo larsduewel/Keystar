@@ -1,4 +1,4 @@
-import type { MapSystem } from "./model";
+import type { MapSystem, MapRegion } from "./model";
 import type { MapOverlay } from "./travel";
 import { securityClass } from "./model";
 
@@ -7,6 +7,7 @@ type Options = {
  overlay?: () => MapOverlay;
  camera: () => { yaw: number; pitch: number; zoom: number; panX?: number; panY?: number };
  dragging: () => boolean; selected: number | null; query: string; labels: boolean;
+ regions?: MapRegion[]; regionId?: number|null; regionLabels?: boolean;
  distanceUnit?: string;
  format: (value: number) => string; onHits: (hits: Hit[]) => void;
 };
@@ -18,7 +19,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
  const min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
  for (const s of systems) for (let i=0;i<3;i++) { min[i]=Math.min(min[i],s[i+3] as number); max[i]=Math.max(max[i],s[i+3] as number); }
  const focus = systems.find(s => s[0]===options.selected);
- const center = focus ? focus.slice(3) as number[] : min.map((v,i)=>(v+max[i])/2);
+ const regionSystems = options.regionId ? systems.filter(s=>s[6]===options.regionId) : [];
+ const center = focus ? focus.slice(3,6) as number[] : regionSystems.length ? [3,4,5].map(axis=>regionSystems.reduce((sum,s)=>sum+(s[axis] as number),0)/regionSystems.length) : min.map((v,i)=>(v+max[i])/2);
  const range = Math.max(...max.map((v,i)=>v-min[i]),1);
  let lastOverlay: MapOverlay | undefined;
  let route = new Set<number>(), inRange = new Set<number>();
@@ -33,6 +35,17 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    rangeLabel:label,rangeWidth:0,group:securityClass(s[2]),hit:{system:s,x:0,y:0}};
  });
  const pointsById = new Map(points.map(p => [p.system[0], p]));
+ const regionNames = new Map(options.regions ?? []);
+ const regionCenters = new Map<number,{name:string;x:number;y:number;z:number;count:number;width:number}>();
+ for(const p of points) {
+  const id=p.system[6];if(id===undefined||!regionNames.has(id))continue;
+  const r=regionCenters.get(id)??{name:regionNames.get(id)!,x:0,y:0,z:0,count:0,width:0};
+  r.x+=p.x;r.y+=p.y;r.z+=p.z;r.count++;regionCenters.set(id,r);
+ }
+ ctx.font="13px Inter, sans-serif";
+ for(const r of regionCenters.values()){r.x/=r.count;r.y/=r.count;r.z/=r.count;r.width=ctx.measureText(r.name).width;}
+ ctx.font="11px Inter, sans-serif";
+ const regionLabelEntries=[...regionCenters].sort((a,b)=>Number(b[0]===options.regionId)-Number(a[0]===options.regionId));
  let width=0,height=0, frame=0, destroyed=false;
  let ink="", colors: Record<string,string>={};
  function theme() {
@@ -70,9 +83,9 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    if(x<0||y<0||x>width||y>height)continue;
    hits.push(p.hit);onScreen.push(p);
    const group=route.has(p.system[0]) ? overlay?.risks[p.system[0]] ?? "unknown" : inRange.has(p.system[0]) ? "range" : p.group;
-   const match=p.match && (!overlay?.range || inRange.has(p.system[0]) || p.system[0]===overlay.originId);
+   const match=inRange.has(p.system[0]) || p.system[0]===overlay?.originId || (p.match && (!options.regionId || p.system[6]===options.regionId) && !overlay?.range);
    const key=`${group}:${route.has(p.system[0]) || match}`;const path=paths[key]??(paths[key]=new Path2D());
-   const size=route.has(p.system[0])||inRange.has(p.system[0])?5:3;
+   const size=route.has(p.system[0])||inRange.has(p.system[0])?5:options.regionId&&p.system[6]===options.regionId?4:3;
    path.rect(x-size/2,y-size/2,size,size);
   }
   for(const [key,path] of Object.entries(paths)) {
@@ -127,9 +140,25 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
   if(options.dragging())return;
   ctx.fillStyle=ink;
   const occupied=new Set<string>();let count=0;
+  if(options.regionLabels) {
+   ctx.font="13px Inter, sans-serif";
+   const regionCells=new Set<string>();
+   for(const [id,r] of regionLabelEntries) {
+    if(c.zoom>=3 && (focus || id!==options.regionId))continue;
+    const x=width/2+(c.panX??0)+(r.x*cy-r.z*sy)*scale-r.width/2;
+    const y=height/2+(c.panY??0)-(r.y*cp-(r.x*sy+r.z*cy)*sp)*scale;
+    if(x<0||y<16||x+r.width>width||y>height)continue;
+    const cells:string[]=[];
+    for(let col=Math.floor((x-8)/32);col<=Math.floor((x+r.width+12)/32);col++)for(let row=Math.floor((y-20)/16);row<=Math.floor((y+8)/16);row++)cells.push(`${col}:${row}`);
+    if(cells.some(cell=>regionCells.has(cell)))continue;
+    ctx.fillStyle=id===options.regionId?(colors.range||ink):ink;ctx.globalAlpha=id===options.regionId?1:.7;ctx.fillText(r.name,x,y);
+    cells.forEach(cell=>{regionCells.add(cell);occupied.add(cell);});
+   }
+   ctx.font="11px Inter, sans-serif";ctx.globalAlpha=1;ctx.fillStyle=ink;
+  }
   for(const p of onScreen) {
    const active=p.system[0]===options.selected;
-   if(!active && !route.has(p.system[0]) && (!options.labels||!p.match||count>=100 || (overlay?.range && !inRange.has(p.system[0]))))continue;
+   if(!active && !route.has(p.system[0]) && (!options.labels||(options.regionLabels&&c.zoom<3)||(!p.match&&!inRange.has(p.system[0]))||(options.regionId&&p.system[6]!==options.regionId&&!inRange.has(p.system[0]))||count>=100 || (overlay?.range && !inRange.has(p.system[0]))))continue;
    const x=p.hit.x+7,y=p.hit.y-5;
    const label=overlay?.range?p.rangeLabel:p.label, labelWidth=overlay?.range?p.rangeWidth:p.width;
    const cells:string[]=[];

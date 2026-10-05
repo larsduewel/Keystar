@@ -6,7 +6,13 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+### Added
+
+- **Map regions.** Add CCP region names and system membership, region highlighting and focus, zoom-aware labels and selected-system region/security context.
+
 ### Changed
+
+- **Compact map planning.** Widen Travel Check and Jump Range by 24 pixels and shorten their evidence notes in English and German.
 
 - **Jump Range controls.** Move Ship Class below Origin System and give its dropdown the full panel width. ([PR #15](https://github.com/larsduewel/Keystar/pull/15))
 

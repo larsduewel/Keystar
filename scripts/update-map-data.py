@@ -10,11 +10,14 @@ for line in archive.open("mapSolarSystems.jsonl"):
     name = record.get("name", {}).get("en")
     if position and name:
         rows.append([record["_key"], name, record["securityStatus"],
-                     *[position[axis] / 9.4607304725808e15 for axis in ("x", "y", "z")]])
+                     *[position[axis] / 9.4607304725808e15 for axis in ("x", "y", "z")], record["regionID"]])
 rows.sort(key=lambda row: row[1].lower())
 target = pathlib.Path(__file__).resolve().parents[1] / "public/data/map-systems.json"
 target.write_text(json.dumps(rows, separators=(",", ":")), encoding="utf8")
 print(f"Wrote {len(rows)} systems to {target}")
+regions = [[r["_key"], r["name"]["en"]] for line in archive.open("mapRegions.jsonl") for r in [json.loads(line)]]
+regions.sort(key=lambda r: r[1].lower())
+(target.parent / "map-regions.json").write_text(json.dumps(regions, separators=(",", ":")), encoding="utf8")
 
 gates = []
 for line in archive.open("mapStargates.jsonl"):
