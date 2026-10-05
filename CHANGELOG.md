@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
-- **Upstream review fixes.** Sync PR #87 while preserving the fork’s map controls, jump classes and Azure deployment.
+- **Upstream review fixes.** Sync PR #87 while preserving the fork’s map controls, jump classes and Azure deployment. ([PR #14](https://github.com/larsduewel/Keystar/pull/14))
 
 ## [0.15.0] - 2026-10-05
 
