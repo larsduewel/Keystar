@@ -8,6 +8,15 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [0.14.0] - 2026-10-05
 
+### Upgrade notes
+
+Industry jobs need two optional character scopes.
+
+1. Add `esi-industry.read_character_jobs.v1` and `esi-universe.read_structures.v1` to the scopes of your EVE
+   application at <https://developers.eveonline.com/applications>. Nobody is asked for them unless they enable
+   industry access, but without them that EVE login fails with `invalid_scope`.
+2. Update as usual; the database migrations run on start.
+
 ### Fork updates
 
 - **Route light particles.** Animate a glowing core with separate fading sparks and a departure pulse between route systems, while keeping the route guide faint. Respect reduced-motion settings. ([PR #11](https://github.com/larsduewel/Keystar/pull/11))
