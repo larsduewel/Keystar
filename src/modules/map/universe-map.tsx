@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/client";
 import { type MapSystem } from "./model";
+import { matchingSystems } from "./search";
 import { createMapRenderer } from "./renderer";
 import { MapPlanning } from "./planning";
 import { EMPTY_OVERLAY } from "./travel";
@@ -73,10 +74,10 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
  }, [selected]);
  const button = "glass-chip rounded-md px-3 py-1.5 text-xs text-ink-2 hover:text-ink transition-colors";
  const choose = (s: MapSystem) => { stopRotation(); setSpace(s[0]>=31000000?"wormholes":"known"); setSelected(s); setCamera(c => ({...c,zoom:Math.max(c.zoom,5),panX:0,panY:0})); };
- return <div className="space-y-3"><Panel title={m.universe} subtitle={m.controls} actions={<span className="text-xs font-semibold tabular-nums text-ink-2">{f.integer(visible.length)} {m.systems}</span>} bodyClassName="px-3 pb-3">
+ return <div className="grid items-start gap-3 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]"><MapPlanning initialOriginId={initialSystemId} systems={systems} selected={selected} onFocus={choose} onOverlay={setOverlay}/><Panel title={m.universe} subtitle={m.controls} actions={<span className="text-xs font-semibold tabular-nums text-ink-2">{f.integer(visible.length)} {m.systems}</span>} bodyClassName="px-3 pb-3">
   <div className="mb-3 flex flex-wrap items-center gap-2">
-   <input aria-label={m.search} placeholder={m.search} value={query} list="map-system-search" onChange={e => {setQuery(e.target.value);const match=systems.find(s=>s[1].toLowerCase()===e.target.value.trim().toLowerCase());if(match)choose(match);}} onKeyDown={e=>{if(e.key==="Enter"){const match=visible.find(s=>s[1].toLowerCase().startsWith(query.trim().toLowerCase()));if(query.trim()&&match){setQuery(match[1]);choose(match);}}}} className="glass-inset min-w-48 rounded-md px-3 py-2 text-xs text-ink"/>
-   <datalist id="map-system-search">{query.trim()&&systems.filter(s=>s[1].toLowerCase().includes(query.trim().toLowerCase())).slice(0,20).map(s=><option key={s[0]} value={s[1]}/>)}</datalist>
+   <input aria-label={m.search} placeholder={m.search} value={query} list="map-system-search" onChange={e => {setQuery(e.target.value);const match=systems.find(s=>s[1].toLowerCase()===e.target.value.trim().toLowerCase());if(match)choose(match);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();const match=matchingSystems(systems,query,1)[0];if(match){setQuery(match[1]);choose(match);}}}} className="glass-inset min-w-48 rounded-md px-3 py-2 text-xs text-ink"/>
+   <datalist id="map-system-search">{query.trim()&&matchingSystems(systems,query,20).map(s=><option key={s[0]} value={s[1]}/>)}</datalist>
    <select aria-label={m.systems} value={space} onChange={e => {stopRotation();setSpace(e.target.value);setSelected(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}} className="glass-inset rounded-md px-3 py-2 text-xs text-ink"><option value="known">{m.known}</option><option value="wormholes">{m.wormholes}</option><option value="all">{m.all}</option></select>
    <button className={button} onClick={() => {stopRotation();setSelected(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}}>{m.reset}</button>
    <button className={button} aria-label={m.zoomIn} onClick={() => setCamera(c => ({...c,zoom:Math.min(100,c.zoom*1.4)}))}>+</button>
@@ -95,5 +96,5 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
    </div>
   </div>
   <div className="flex flex-wrap justify-between gap-3 border-t border-surface-contrast/10 p-3 text-xs text-ink-2"><div className="flex gap-4">{(["high","low","null"] as const).map((key,i) => <span key={key} className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{background:`var(--series-${["ice","gas","ore"][i]})`}}/>{m[key]}</span>)}</div></div>
- </Panel><MapPlanning initialOriginId={initialSystemId} systems={systems} selected={selected} onFocus={choose} onOverlay={setOverlay}/></div>;
+ </Panel></div>;
 }

@@ -3,14 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/i18n/client";
 import { Panel } from "@/components/ui/glass";
 import type { MapSystem } from "./model";
+import { matchingSystems } from "./search";
 import { distanceLy, gateGraph, jumpRange, routeGateKills, routeRisk, shortestRoute, systemsInRange, type GateCheck, type JumpRules, type JumpShip, type MapGate, type MapOverlay } from "./travel";
 
 function SystemSearch({label,systems,value,onPick}:{label:string;systems:MapSystem[];value:MapSystem|null;onPick:(s:MapSystem|null)=>void}) {
  const { f }=useI18n();
  const [text,setText]=useState("");const [open,setOpen]=useState(false);
- const matches=useMemo(()=>text.trim()?systems.filter(s=>s[1].toLowerCase().includes(text.trim().toLowerCase())).slice(0,8):[],[systems,text]);
+ const matches=useMemo(()=>matchingSystems(systems,text,8),[systems,text]);
  return <div className="relative min-w-0"><label className="mb-1 block text-xs text-ink-3">{label}</label>
- <input aria-label={label} value={open?text:value?.[1]??text} autoComplete="off" onFocus={()=>{setText(value?.[1]??text);setOpen(true);}} onBlur={()=>setOpen(false)} onChange={e=>{setText(e.target.value);onPick(null);setOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setOpen(false);if(e.key==="Enter"){const exact=systems.find(s=>s[1].toLowerCase()===text.trim().toLowerCase());if(exact){onPick(exact);setText(exact[1]);setOpen(false);}}}} className="glass-inset w-full rounded-md px-3 py-2 text-xs text-ink"/>
+ <input aria-label={label} value={open?text:value?.[1]??text} autoComplete="off" onFocus={()=>{setText(value?.[1]??text);setOpen(true);}} onBlur={()=>setOpen(false)} onChange={e=>{setText(e.target.value);onPick(null);setOpen(true);}} onKeyDown={e=>{if(e.key==="Escape")setOpen(false);if(e.key==="Enter"){e.preventDefault();const exact=matches[0];if(exact){onPick(exact);setText(exact[1]);setOpen(false);}}}} className="glass-inset w-full rounded-md px-3 py-2 text-xs text-ink"/>
  {open && matches.length>0 && <div className="glass absolute inset-x-0 top-full z-30 mt-1 max-h-64 overflow-y-auto p-1">{matches.map(s=><button key={s[0]} onMouseDown={e=>e.preventDefault()} onClick={()=>{onPick(s);setText(s[1]);setOpen(false);}} className="flex w-full justify-between rounded px-2 py-2 text-left text-xs text-ink-2 hover:bg-surface-contrast/5"><span>{s[1]}</span><span>{f.number(s[2],1)}</span></button>)}</div>}
  </div>;
 }
@@ -49,7 +50,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
   return ()=>controller.abort();
  },[route,checkVersion]);
  const button="glass-chip rounded-md px-3 py-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40";
- return <div className="grid gap-3 xl:grid-cols-2">
+ return <div className="grid min-w-0 gap-3">
  <Panel title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2"><SystemSearch label={m.start} systems={systems} value={start} onPick={setStart}/><SystemSearch label={m.end} systems={systems} value={end} onPick={setEnd}/></div>
   <div className="my-3 flex flex-wrap items-center gap-2"><button className={button} disabled={!start||!end||!gates.length} onClick={()=>{if(!start||!end)return;const path=shortestRoute(graph,start[0],end[0]);setRouteError(!path);setChecking(!!path);setChecks({});setFailed([]);setRoute(path??[]);if(path)onFocus(start);}}>{m.plan}</button>{route.length>0 && <><span className="text-xs text-ink-2">{route.length-1} {m.jumps}</span><button className={button} disabled={checking} onClick={()=>{setChecking(true);setChecks({});setFailed([]);setCheckVersion(v=>v+1);}}>{m.refreshCheck}</button></>}</div>
