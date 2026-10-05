@@ -56,6 +56,7 @@ export const walletModule: KeystarModule = {
       id: "finances",
       label: (t) => t.wallet.module.navSection,
       order: 25,
+      tone: "trade",
       items: [
         {
           href: "/finances",

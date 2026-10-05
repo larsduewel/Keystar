@@ -7,12 +7,14 @@ import { core } from "./core";
 import { dashboard } from "./dashboard";
 import { eve } from "./eve";
 import { fleet } from "./fleet";
+import { industry } from "./industry";
 import { intel } from "./intel";
 import { killboard } from "./killboard";
 import { mining } from "./mining";
 import { pnl } from "./pnl";
 import { setup } from "./setup";
 import { shell } from "./shell";
+import { skills } from "./skills";
 import { social } from "./social";
 import { trade } from "./trade";
 import { wallet } from "./wallet";
@@ -36,10 +38,12 @@ export const en = {
   pnl,
   killboard,
   fleet,
+  industry,
   intel,
   trade,
   wallet,
   social,
+  skills,
 };
 
 export type Messages = typeof en;

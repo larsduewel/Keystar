@@ -1,10 +1,12 @@
-import { LogOut } from "lucide-react";
+import { LogOut, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 
 import type { CurrentUser } from "@/core/auth/dal";
 import { env } from "@/core/env";
 import { navSections } from "@/core/modules/registry";
-import { KEYSTAR_VERSION } from "@/core/version";
+import { buildInfo, versionLabel } from "@/core/version";
 import { getI18n } from "@/i18n/server";
+import { cn } from "@/lib/utils";
 import { Portrait } from "@/components/ui/eve-image";
 import { RoleBadge } from "@/components/ui/badge";
 import { ThemeSwitcher } from "./theme-switcher";
@@ -31,6 +33,9 @@ export function visibleNav(user: CurrentUser) {
 export async function Sidebar({ user, corpTicker }: { user: CurrentUser; corpTicker: string | null }) {
   const { sections, hasNested } = visibleNav(user);
   const { t } = await getI18n();
+  const build = buildInfo();
+  const version = versionLabel(build, env().SOURCE_URL);
+  const pilotLinkHover = "transition-colors hover:bg-surface-contrast/[0.06] focus-visible:bg-surface-contrast/[0.06]";
   const pilotInfo = (
     <>
       <div className="truncate text-[0.82rem] font-medium">{user.main?.name ?? t.shell.unknownPilot}</div>
@@ -52,7 +57,7 @@ export async function Sidebar({ user, corpTicker }: { user: CurrentUser; corpTic
           <SidebarToggle />
         </div>
         <nav
-          className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 group-data-[sidebar=collapsed]/shell:overflow-clip"
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-4 group-data-[sidebar=collapsed]/shell:overflow-clip"
           aria-label={t.shell.mainNav}
         >
           {sections.map((section) => (
@@ -100,30 +105,46 @@ export async function Sidebar({ user, corpTicker }: { user: CurrentUser; corpTic
             <ThemeSwitcher />
           </div>
           <a
-            href={`${env().SOURCE_URL}/releases`}
+            href={version.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-2 font-mono text-3xs whitespace-nowrap text-ink-3 hover:text-ink-2 group-data-[sidebar=collapsed]/shell:hidden"
-            title={t.shell.releaseNotes}
+            className={cn(
+              "flex items-center gap-1.5 px-2 font-mono text-3xs whitespace-nowrap group-data-[sidebar=collapsed]/shell:hidden",
+              version.prerelease
+                ? "rounded-md bg-warning/12 py-1 text-warning ring-1 ring-warning/30 ring-inset hover:bg-warning/20"
+                : "text-ink-3 hover:text-ink-2",
+            )}
+            title={version.prerelease ? t.shell.unstableBuild(build.imageTag, build.commit, build.buildDate) : t.shell.releaseNotes}
           >
-            Keystar v{KEYSTAR_VERSION}
+            {version.prerelease && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
+            <span className="truncate">{version.text}</span>
           </a>
         </div>
         <div className="shrink-0 border-t border-surface-contrast/[0.07] p-3 group-data-[sidebar=collapsed]/shell:px-0">
           <div className="flex items-center gap-2.5 group-data-[sidebar=collapsed]/shell:flex-col group-data-[sidebar=collapsed]/shell:gap-2">
             <RailFlyout
-              className="shrink-0"
+              className="min-w-0 flex-1 group-data-[sidebar=collapsed]/shell:flex-none"
               card={
-                <div className="px-2.5 py-1.5" data-flyout-anchor>
+                <Link href="/characters" tabIndex={-1} className={cn("block rounded-md px-2.5 py-1.5", pilotLinkHover)} data-flyout-anchor>
                   {pilotInfo}
-                </div>
+                </Link>
               }
             >
-              <div data-flyout-anchor>
-                {user.main ? <Portrait id={user.main.characterId} size={32} /> : <div className="size-8 rounded-full bg-space-700" />}
-              </div>
+              {/* One link for portrait and name: the collapsed rail keeps a single tab stop. */}
+              <Link
+                href="/characters"
+                title={t.shell.nav.characters}
+                className={cn(
+                  "-mx-1.5 flex items-center gap-2.5 rounded-md px-1.5 py-1 group-data-[sidebar=collapsed]/shell:mx-0 group-data-[sidebar=collapsed]/shell:rounded-full group-data-[sidebar=collapsed]/shell:p-0",
+                  pilotLinkHover,
+                )}
+              >
+                <div className="shrink-0" data-flyout-anchor>
+                  {user.main ? <Portrait id={user.main.characterId} size={32} /> : <div className="size-8 rounded-full bg-space-700" />}
+                </div>
+                <div className="min-w-0 flex-1 group-data-[sidebar=collapsed]/shell:sr-only">{pilotInfo}</div>
+              </Link>
             </RailFlyout>
-            <div className="min-w-0 flex-1 group-data-[sidebar=collapsed]/shell:sr-only">{pilotInfo}</div>
             <form action="/auth/logout" method="post">
               <button
                 type="submit"

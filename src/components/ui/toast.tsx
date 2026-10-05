@@ -33,6 +33,27 @@ function useMounted() {
   );
 }
 
+function subscribeFocus(onChange: () => void) {
+  window.addEventListener("focus", onChange);
+  window.addEventListener("blur", onChange);
+  // Switching back from another tab may only make the document visible, without a window focus event.
+  document.addEventListener("visibilitychange", onChange);
+  return () => {
+    window.removeEventListener("focus", onChange);
+    window.removeEventListener("blur", onChange);
+    document.removeEventListener("visibilitychange", onChange);
+  };
+}
+
+/** The user is looking at this tab: visible and its window focused. */
+function useLooking() {
+  return useSyncExternalStore(
+    subscribeFocus,
+    () => document.visibilityState === "visible" && document.hasFocus(),
+    () => true,
+  );
+}
+
 function Stack({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section
@@ -61,8 +82,9 @@ export function ToastViewport({ label, children }: { label: string; children: Re
 
 /**
  * One toast: a card with a close button and a countdown bar along the bottom
- * edge. With `href` the whole card is a link. Hovering or focusing it pauses
- * the countdown; when the bar runs out the toast fades and `onDismiss` removes it.
+ * edge. With `href` the whole card is a link. The countdown only runs while
+ * the tab is visible and its window focused, and hovering or focusing the
+ * toast pauses it; when the bar runs out the toast fades and `onDismiss` removes it.
  */
 export function Toast({
   href,
@@ -93,6 +115,7 @@ export function Toast({
 }) {
   const [paused, setPaused] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const looking = useLooking();
 
   useEffect(() => {
     if (!leaving) return;
@@ -160,7 +183,7 @@ export function Toast({
           style={{
             background: color,
             ["--toast-duration" as string]: `${durationMs}ms`,
-            animationPlayState: paused || leaving ? "paused" : "running",
+            animationPlayState: paused || leaving || !looking ? "paused" : "running",
           }}
           onAnimationEnd={() => setLeaving(true)}
         />

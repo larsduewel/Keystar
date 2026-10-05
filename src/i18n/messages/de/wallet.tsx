@@ -16,6 +16,7 @@ export const wallet: typeof en = {
     },
     jobs: {
       transactions: "Wallet-Transaktionen",
+      fees: "Wallet-Steuern und -Gebühren",
       corporationWallets: "Corporation-Wallets",
       corporationDivisions: "Namen der Wallet-Divisionen",
     },

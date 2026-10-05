@@ -120,7 +120,7 @@ export function MultiSelect({
             <X className="size-3" aria-hidden /> {t.common.multiSelect.clear}
           </button>
         </div>
-        <div className="mt-1 max-h-[320px] overflow-y-auto pr-1">
+        <div className="mt-1 max-h-[320px] overflow-y-auto overscroll-contain pr-1">
           {groups.length === 0 && <div className="px-2 py-6 text-center text-xs text-ink-3">{t.common.multiSelect.noMatches}</div>}
           {groups.map(([group, items]) => (
             <div key={group} className="py-1">

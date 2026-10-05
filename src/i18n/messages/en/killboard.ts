@@ -13,18 +13,18 @@ export const killboard = {
     navSection: "Combat",
     nav: { killboard: "Combat Report" },
     alerts: { kills: { label: "Kills and losses", hint: "When a corporation member gets a kill or loses a ship" } },
-    permissionGroup: "Killboard",
+    permissionGroup: "Combat Report",
     permissions: {
       view: {
-        label: "View killboard",
+        label: "View combat report",
         description: "See the corporation's kills, losses, ship and pilot statistics and the situation report.",
       },
-      manage: { label: "Manage killboard", description: "Rewrite the weekly situation report." },
+      manage: { label: "Manage combat report", description: "Rewrite the weekly situation report." },
     },
     jobs: {
-      zkillSync: "Killboard (zKillboard)",
-      liveFeed: "Killboard live feed (zKillboard)",
-      situationReport: "Killboard situation report",
+      zkillSync: "Combat Report (zKillboard)",
+      liveFeed: "Combat Report live feed (zKillboard)",
+      situationReport: "Combat Report situation report",
     },
   },
   /** Words shared by tables, tiles and charts. */
@@ -48,7 +48,7 @@ export const killboard = {
     system: "Unknown system",
   },
   page: {
-    metaTitle: "Killboard",
+    metaTitle: "Combat Report",
     description: (corp: string) => `${corp} · combat performance from zKillboard`,
     noCorp: {
       title: "No home corporation set",

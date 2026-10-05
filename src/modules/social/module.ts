@@ -51,6 +51,7 @@ export const socialModule: KeystarModule = {
       id: "social",
       label: (t) => t.social.module.navSection,
       order: 30,
+      tone: "social",
       items: [{ href: "/mail", label: (t) => t.social.module.nav.mail, icon: Mail, anyPermission: [SOCIAL_PERMISSIONS.mail] }],
     },
   ],

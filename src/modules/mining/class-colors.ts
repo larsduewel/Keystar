@@ -6,7 +6,8 @@ import type { OreClass } from "@/core/eve/ore";
  * surface: adjacent CVD ΔE ≥ 8.4, normal-vision ΔE ≥ 19.8, all ≥ 3:1; on the
  * light page: CVD ΔE ≥ 9.0, normal ΔE ≥ 17.6, all ≥ 3.6:1. Moon rarity is
  * ordinal (R4 → R64), so it uses one blue ramp instead of new hues —
- * validated with --ordinal in both themes.
+ * validated with --ordinal in both themes. Income/expense colours of the P&L
+ * charts are a separate polarity pair (`pnl/colors.ts`).
  */
 export type ChartClass = "moon" | "ore" | "ice" | "gas" | "other";
 

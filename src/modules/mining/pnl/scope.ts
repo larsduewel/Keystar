@@ -3,6 +3,18 @@ import type { MiningScope, Valuation } from "../queries";
 import type { PnlFilters } from "./filters";
 
 /**
+ * What P&L income is: the mined ore at the valuation (rate and price rules), or what the counted wallet sales
+ * actually brought in.
+ */
+export const INCOME_SOURCES = ["mined", "sales"] as const;
+
+export type IncomeSource = (typeof INCOME_SOURCES)[number];
+
+export function isIncomeSource(value: unknown): value is IncomeSource {
+  return typeof value === "string" && (INCOME_SOURCES as readonly string[]).includes(value);
+}
+
+/**
  * Who and what a P&L query covers. Always the signed-in account's own
  * characters, whatever corporation-wide permissions the user has.
  */

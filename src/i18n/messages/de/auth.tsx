@@ -11,6 +11,7 @@ export const auth: typeof en = {
       sso_denied: "Die Anmeldung über EVE SSO wurde abgebrochen.",
       sso_failed: "Die Anmeldung mit EVE Online ist fehlgeschlagen.",
       provision: "Deine Anmeldung konnte nicht abgeschlossen werden.",
+      not_member: "Hier können sich nur Mitglieder der Corporation registrieren.",
       demo_disabled: "Der Demo-Modus ist auf diesem Server deaktiviert.",
     },
     genericError: "Etwas ist schiefgelaufen.",

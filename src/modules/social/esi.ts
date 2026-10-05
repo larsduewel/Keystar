@@ -45,6 +45,7 @@ export interface MailHeader {
 }
 
 export const BUILTIN_LABELS = { inbox: 1, sent: 2, corp: 4, alliance: 8 } as const;
+const MAIL_HEADER_PAGE_SIZE = 50;
 
 /** The 18 label colours ESI allows; anything else is not used as a colour. */
 export const LABEL_COLORS = new Set([
@@ -118,7 +119,8 @@ export interface FetchedHeaders {
 /**
  * Mail headers newer than `newestStoredId`. ESI returns the 50 newest; older
  * ones are paged with `last_mail_id` ("only mail with a lower id") until a
- * page reaches mail already stored, comes back empty or `maxPages` is hit.
+ * page reaches mail already stored, comes back empty after a partial page or
+ * `maxPages` is hit.
  * The first page is always read, so read state and labels of recent mail stay
  * current. Mail bypasses the ESI response cache: private content is only kept
  * in the mail tables, which the owner can delete.
@@ -131,11 +133,13 @@ export async function fetchMailHeaders(
 ): Promise<FetchedHeaders> {
   const path = `/characters/${characterId}/mail`;
   const first = await esi.get<EsiMailHeader[]>(path, { characterId, noCache: true });
-  let batch = (first.data ?? []).map(normalizeHeader).filter((h): h is MailHeader => h !== null);
+  const firstRaw = first.data ?? [];
+  let batch = firstRaw.map(normalizeHeader).filter((h): h is MailHeader => h !== null);
   const rows = [...batch];
   let pages = 1;
   let truncated = false;
-  let reachedEnd = batch.length === 0;
+  let previousRawWasShort = firstRaw.length > 0 && firstRaw.length < MAIL_HEADER_PAGE_SIZE;
+  let reachedEnd = false;
   while (batch.length) {
     const cursor = Math.min(...batch.map((h) => h.mailId));
     if (newestStoredId !== null && cursor <= newestStoredId) break;
@@ -145,12 +149,14 @@ export async function fetchMailHeaders(
     }
     const res = await esi.get<EsiMailHeader[]>(path, { characterId, query: { last_mail_id: cursor }, noCache: true });
     pages++;
+    const raw = res.data ?? [];
     // Guard against a cursor that is ignored: only strictly older mail advances.
-    batch = (res.data ?? [])
+    batch = raw
       .map(normalizeHeader)
       .filter((h): h is MailHeader => h !== null && h.mailId < cursor);
     rows.push(...batch);
-    if (!batch.length) reachedEnd = true;
+    reachedEnd = raw.length === 0 && previousRawWasShort;
+    previousRawWasShort = raw.length > 0 && raw.length < MAIL_HEADER_PAGE_SIZE;
   }
   const windowMin = !rows.length ? null : reachedEnd ? 0 : Math.min(...rows.map((h) => h.mailId));
   return { rows, pages, truncated, windowMin, expiresAt: first.expiresAt };

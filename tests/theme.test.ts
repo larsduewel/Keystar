@@ -80,13 +80,21 @@ const ratio = (x: string, y: string) => {
 };
 describe("chart palette per theme", () => {
   it("defines every series and ramp step for both themes", () => {
-    expect(tokens(dark, "series")).toHaveLength(5);
-    expect(tokens(light, "series")).toHaveLength(4); // the neutral slate is shared
+    // Five categorical slots plus the income/expense pair; the neutral slate is shared.
+    expect(tokens(dark, "series")).toHaveLength(7);
+    expect(tokens(light, "series")).toHaveLength(6);
     expect(tokens(dark, "ramp")).toHaveLength(5);
     expect(tokens(light, "ramp")).toHaveLength(5);
   });
   it("keeps light series marks at 3:1 on the light page", () => {
     for (const c of [...tokens(light, "series"), "#5d6878"]) expect(ratio(c, colors["space-950"])).toBeGreaterThanOrEqual(3);
+  });
+  it("keeps the income/expense pair at 3:1 on each surface", () => {
+    const pair = (block: string) => [...block.matchAll(/--series-(?:income|expense): (#[0-9a-f]{6});/g)].map((m) => m[1]);
+    expect(pair(dark)).toHaveLength(2);
+    expect(pair(light)).toHaveLength(2);
+    for (const c of pair(dark)) expect(ratio(c, "#14161a")).toBeGreaterThanOrEqual(3);
+    for (const c of pair(light)) for (const s of [colors["space-950"], "#ffffff"]) expect(ratio(c, s)).toBeGreaterThanOrEqual(3);
   });
   it("makes the high end of the ramp the most salient on each surface", () => {
     const contrast = (ramp: string[], surface: string) => ramp.map((c) => ratio(c, surface));

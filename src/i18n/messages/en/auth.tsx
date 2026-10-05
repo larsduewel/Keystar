@@ -11,6 +11,7 @@ export const auth = {
       sso_denied: "The EVE SSO login was cancelled.",
       sso_failed: "Signing in with EVE Online failed.",
       provision: "We couldn't complete your sign-in.",
+      not_member: "Only members of the corporation can sign up here.",
       demo_disabled: "Demo mode is disabled on this server.",
     },
     genericError: "Something went wrong.",

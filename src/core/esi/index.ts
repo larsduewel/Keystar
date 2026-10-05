@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
-import { esiCache, getDb } from "@/core/db";
+import { eq, like } from "drizzle-orm";
+import { esiCache, getDb, type Db } from "@/core/db";
 import { env } from "@/core/env";
-import { EsiClient, type EsiCacheStore } from "./client";
+import { EsiClient, type EsiCacheStore, type EsiClientStats } from "./client";
 import { KEYSTAR_VERSION } from "@/core/version";
 import { getAccessToken } from "./tokens";
 
@@ -32,6 +32,15 @@ const dbCache: EsiCacheStore = {
   },
 };
 
+/**
+ * Deletes the cached ESI responses read with a character's token (keys start with `${characterId}:`), or only those
+ * under `pathPrefix`. For unlinking, transfers and deleted data: the bodies are that owner's private data, and a
+ * cached entry would answer the next sync with "not modified" although nothing is stored for the character any more.
+ */
+export async function forgetCharacterEsiCache(db: Pick<Db, "delete">, characterId: number, pathPrefix = ""): Promise<void> {
+  await db.delete(esiCache).where(like(esiCache.key, `${characterId}:GET ${pathPrefix}%`));
+}
+
 let client: EsiClient | undefined;
 
 /** Shared ESI client backed by the database cache and stored tokens. */
@@ -47,4 +56,9 @@ export function getEsi(): EsiClient {
     });
   }
   return client;
+}
+
+/** Counters of the shared client in this process; null when it hasn't been used yet. */
+export function esiStats(): EsiClientStats | null {
+  return client?.stats() ?? null;
 }

@@ -47,6 +47,41 @@ export const walletTransactions = pgTable(
   ],
 );
 
+/** Personal wallet journal entries Keystar keeps: market fees only (`ref_type` of WALLET_FEE_REF_TYPES). */
+export const WALLET_FEE_REF_TYPES = ["transaction_tax", "brokers_fee"] as const;
+
+export type WalletFeeRefType = (typeof WALLET_FEE_REF_TYPES)[number];
+
+/**
+ * Sales tax and broker fees from the personal wallet journal (GET /characters/{id}/wallet/journal), imported with
+ * the same opt-in wallet scope and kept like `wallet_transactions`: shown only to `user_id`, deleted with the wallet
+ * history. Other journal entries (bounties, transfers …) are not stored.
+ */
+export const walletFees = pgTable(
+  "wallet_fees",
+  {
+    characterId: bigint("character_id", { mode: "number" }).notNull(),
+    /** Journal reference id. */
+    journalId: bigint("journal_id", { mode: "number" }).notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    refType: text("ref_type").$type<WalletFeeRefType>().notNull(),
+    /** ISK paid (positive). */
+    amount: doublePrecision("amount").notNull(),
+    contextId: bigint("context_id", { mode: "number" }),
+    contextIdType: text("context_id_type"),
+    /** The journal's own description, as the EVE client shows it (null for entries imported before it was kept). */
+    description: text("description"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.characterId, t.journalId] }),
+    index("wallet_fees_user_date_idx").on(t.userId, t.date),
+  ],
+);
+
 /*
  * Corporation wallets. ESI only returns about 30 days (and at most 10,000 journal entries) per division, so these
  * tables are the long-term archive: rows are never deleted and carry no foreign keys to characters, so they outlive

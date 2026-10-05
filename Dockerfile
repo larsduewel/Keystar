@@ -13,7 +13,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Builds the Next.js standalone server and bundles worker/migrate/demo-seed into dist/.
+# Builds the Next.js standalone server and bundles worker/migrate/demo-seed/support into dist/.
 RUN pnpm build
 
 FROM node:22-alpine AS runner
@@ -25,6 +25,10 @@ LABEL org.opencontainers.image.source="https://github.com/theragus/keystar" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# Build metadata for System Info and the support package (src/core/version.ts); the
+# release and main-image workflows set them. Declared late so they don't bust the build cache.
+ARG KEYSTAR_COMMIT="" KEYSTAR_IMAGE_TAG="" KEYSTAR_BUILD_DATE=""
+ENV KEYSTAR_COMMIT=$KEYSTAR_COMMIT KEYSTAR_IMAGE_TAG=$KEYSTAR_IMAGE_TAG KEYSTAR_BUILD_DATE=$KEYSTAR_BUILD_DATE
 RUN addgroup -S keystar && adduser -S keystar -G keystar
 COPY --from=build --chown=keystar:keystar /app/.next/standalone ./
 COPY --from=build --chown=keystar:keystar /app/.next/static ./.next/static

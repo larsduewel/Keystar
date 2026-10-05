@@ -12,9 +12,10 @@ import { env } from "@/core/env";
 import { getI18n } from "@/i18n/server";
 import { SortableTable, type Column, type EntityRow } from "@/components/ui/sortable-table";
 import { AppraisalForm } from "@/modules/trade/components/appraisal-form";
+import { DeleteAppraisalButton } from "@/modules/trade/components/delete-appraisal-button";
 import { TRADE_PERMISSIONS } from "@/modules/trade/module";
 import { splitPrice, type AppraisalItem, type AppraisalTotals, type UnparsedLine } from "@/modules/trade/appraisal/types";
-import { createAppraisal } from "../actions";
+import { createAppraisal, deleteAppraisal } from "../actions";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -22,7 +23,7 @@ export async function generateMetadata() {
 }
 
 export default async function AppraisalResultPage({ params }: PageProps<"/trade/appraisal/[id]">) {
-  await requirePermission(TRADE_PERMISSIONS.appraisal);
+  const user = await requirePermission(TRADE_PERMISSIONS.appraisal);
   const { t, f } = await getI18n();
   const m = t.trade.result;
   const full = (v: number) => f.isk(v, { compact: false });
@@ -67,9 +68,14 @@ export default async function AppraisalResultPage({ params }: PageProps<"/trade/
         title={t.trade.appraisal.title}
         description={m.description(f.dateTime(row.createdAt), row.createdByName)}
         actions={
-          <ButtonLink href="/trade/appraisal" size="sm">
-            <ArrowLeft className="size-4" aria-hidden /> {m.newAppraisal}
-          </ButtonLink>
+          <>
+            {row.createdBy === user.id && (
+              <DeleteAppraisalButton action={deleteAppraisal.bind(null, row.id)} labelled backTo="/trade/appraisal" />
+            )}
+            <ButtonLink href="/trade/appraisal" size="sm">
+              <ArrowLeft className="size-4" aria-hidden /> {m.newAppraisal}
+            </ButtonLink>
+          </>
         }
       />
 

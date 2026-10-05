@@ -1,6 +1,6 @@
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildAuthorizeUrl, createPkcePair, verifyAccessToken } from "@/core/auth/sso";
+import { buildAuthorizeUrl, createPkcePair, parseTokenResponse, verifyAccessToken } from "@/core/auth/sso";
 import { base64UrlSha256 } from "@/core/crypto";
 
 let privateKey: CryptoKey;
@@ -47,6 +47,20 @@ describe("EVE SSO", () => {
     await expect(verifyAccessToken(await token({}, { aud: ["test-client-id"] }), { keySet: jwks })).rejects.toThrow();
     await expect(verifyAccessToken(await token({}, { iss: "https://evil.example" }), { keySet: jwks })).rejects.toThrow();
     await expect(verifyAccessToken(await token({}, { exp: "-1m" }), { keySet: jwks })).rejects.toThrow();
+  });
+
+  it("checks the SSO token response", () => {
+    expect(parseTokenResponse({ access_token: "a", refresh_token: "r", expires_in: 1199, token_type: "Bearer" })).toEqual({
+      access_token: "a",
+      refresh_token: "r",
+      expires_in: 1199,
+      token_type: "Bearer",
+    });
+    expect(parseTokenResponse({ access_token: "a", expires_in: 1199 }).refresh_token).toBeUndefined();
+    expect(() => parseTokenResponse(null)).toThrow(/no access token/);
+    expect(() => parseTokenResponse({ access_token: "", expires_in: 1199 })).toThrow(/no access token/);
+    expect(() => parseTokenResponse({ access_token: "a" })).toThrow(/no valid expiry/);
+    expect(() => parseTokenResponse({ access_token: "a", expires_in: 1199, refresh_token: 5 })).toThrow(/malformed refresh token/);
   });
 
   it("builds a PKCE authorize URL", () => {

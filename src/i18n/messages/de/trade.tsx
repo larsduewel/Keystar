@@ -27,6 +27,18 @@ export const trade: typeof en = {
     recentEmpty: "Noch nichts bewertet.",
     more: (count: number) => `+${n(count)}`,
   },
+  delete: {
+    button: "Löschen",
+    hint: "Diese Bewertung löschen",
+    confirm: "Diese Bewertung löschen? Ihr geteilter Link funktioniert dann nicht mehr.",
+    deleted: "Bewertung gelöscht",
+    failed: "Die Bewertung konnte nicht gelöscht werden",
+    errors: {
+      notOwned: "Nur wer eine Bewertung erstellt hat, kann sie löschen.",
+      notFound: "Diese Bewertung wurde bereits gelöscht.",
+      unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+    },
+  },
   result: {
     description: (date: string, by: string | null) => `Preise in Jita 4-4 vom ${date}${by ? ` · von ${by}` : ""}`,
     newAppraisal: "Neue Bewertung",

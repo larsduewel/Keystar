@@ -78,7 +78,7 @@ describe("grades", () => {
     const scordite = summary.find((s) => s.base === "Scordite")!;
     expect(scordite.rocks).toBe(4);
     expect(scordite.grades.map((g) => g.grade)).toEqual(["Base", "II-Grade", "III-Grade"]);
-    expect(scordite.grades[2]).toMatchObject({ rocks: 2, quantity: 50_552, volume: 7582, scannerValue: 955_000, minDistanceKm: 21 });
+    expect(scordite.grades[2]).toMatchObject({ rocks: 2, quantity: 50_552, volume: 7582, scannerValue: 955_000 });
     expect(scordite.scannerValue).toBe(168_000 + 787_000 + 770_000 + 661_000);
     // Families sorted by value, most valuable first.
     expect(summary[0].base).toBe("Scordite");

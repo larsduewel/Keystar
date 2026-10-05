@@ -14,7 +14,8 @@
 Keystar signs pilots in with **EVE SSO**, collects their **ESI tokens** with exactly the scopes its modules need,
 syncs data in the background and turns it into dashboards. Modules so far: **mining** (personal and moon-refinery
 ledgers with filters, daily volume / value / quantity, member and ore breakdowns, CSV export, an ore field estimator
-for survey scans and a personal **mining P&L** with opt-in wallet import), a **killboard** with the corporation's PvP
+for survey scans and a personal **mining P&L** with opt-in wallet import), **industry jobs** of your own characters
+with progress and completion times, a **killboard** with the corporation's PvP
 performance from zKillboard and a weekly situation report, **live fleet** tracking, **threat intel** for pasted
 local, fleets and d-scans, an **appraisal** tool for Jita prices and **corporation wallets** with income, expenses and a
 long-term journal archive.
@@ -50,6 +51,9 @@ long-term journal archive.
   token revocation on removal, and a shareable `/join` link that explains every requested scope to members.
 - **Roles inside Keystar**: Admin › Director › Contributor › Viewer › Member › Guest. Directors approve guests and
   manage roles below their own; admins can tune the minimum role of every permission.
+- **Industry jobs**: every job of your own characters (manufacturing, ME/TE research, copying, invention,
+  reactions) with a progress bar, time left and end time, filterable by running/finished, character, activity, system
+  and station. Opt-in per character on the Industry access page; only you see your characters' jobs.
 - **Mining**
   - Personal ledgers *and* corporation moon-observer ledgers, de-duplicated in a combined view
   - Filters for date range, members, ore class, ore type, system and data source — all in the URL
@@ -58,7 +62,7 @@ long-term journal archive.
   - Valuation by Jita 4-4 buy / sell / split or ESI average, at current or historical prices
   - Full ledger with pagination and CSV export
   - **Ore field estimator**: paste a survey scanner result (German or English client) and get the field's value by
-    ore and grade, with distance filter and time-to-clear
+    ore and grade, with ISK/m³, sortable columns and time-to-clear from your fleet's yield per second
   - **Mining P&L** for pilots mining with alts: ore income valued like the dashboard (with a buyback % and per-ore
     prices), mining costs from opt-in wallet imports (crystals, Heavy Water, burst charges, drones, hulls — suggested
     until you include them) plus manual costs, net profit per day / week / month, ISK per hour from measured ledger

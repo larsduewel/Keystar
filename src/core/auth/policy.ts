@@ -47,3 +47,24 @@ export function reconcileRole(current: Role, policy: Role): Role {
   if (current === "guest" && ROLE_LEVEL[policy] > ROLE_LEVEL[current]) return policy;
   return current;
 }
+
+/**
+ * Whether the character belongs to the home corporation, or to its alliance when
+ * alliance members are auto-approved. Unlike `policyRole` this ignores the
+ * auto-approve switch for the corporation: a corp member is a member either way.
+ */
+export function isHomeMember(input: RolePolicyInput): boolean {
+  if (input.homeCorporationId && input.corporationId === input.homeCorporationId) return true;
+  return Boolean(
+    input.autoApproveAllianceMembers && input.homeAllianceId && input.allianceId && input.allianceId === input.homeAllianceId,
+  );
+}
+
+/**
+ * Whether a new account may be created for the character. With sign-ups restricted
+ * to members, outsiders get no account at all instead of waiting as guests;
+ * configured admins and the very first user still get in.
+ */
+export function mayRegister(input: RolePolicyInput, restrictToMembers: boolean): boolean {
+  return !restrictToMembers || policyRole(input) !== "guest" || isHomeMember(input);
+}
