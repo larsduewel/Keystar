@@ -32,6 +32,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    label,width:ctx.measureText(label).width,match:!query || s[1].toLowerCase().includes(query),
    rangeLabel:label,rangeWidth:0,group:securityClass(s[2]),hit:{system:s,x:0,y:0}};
  });
+ const pointsById = new Map(points.map(p => [p.system[0], p]));
  let width=0,height=0, frame=0, destroyed=false;
  let ink="", colors: Record<string,string>={};
  function theme() {
@@ -52,7 +53,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    const nextRouteKey = (overlay?.route ?? []).join(",");
    if (nextRouteKey !== routeKey) { routeKey = nextRouteKey; beamStarted = now; }
    lastOverlay=overlay; route=new Set(overlay?.route ?? []);inRange=new Set(overlay?.inRange ?? []);
-   const origin=points.find(p=>p.system[0]===overlay?.originId);
+   const origin=pointsById.get(overlay?.originId ?? -1);
    if(origin&&overlay?.range)for(const p of points)if(inRange.has(p.system[0])||p.system[0]===overlay.originId){p.rangeLabel=`${p.label} · ${options.format(Math.hypot(p.x-origin.x,p.y-origin.y,p.z-origin.z))} ${options.distanceUnit ?? "LY"}`;p.rangeWidth=ctx.measureText(p.rangeLabel).width;}
   }
   const c=options.camera(), sy=Math.sin(c.yaw),cy=Math.cos(c.yaw),sp=Math.sin(c.pitch),cp=Math.cos(c.pitch);
@@ -80,7 +81,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
   options.onHits(hits);ctx.globalAlpha=1;
   if(overlay?.route.length) {
    const path=new Path2D();let previous=false;
-   for(const id of overlay.route) {const p=points.find(p=>p.system[0]===id);if(!p){previous=false;continue;}if(previous)path.lineTo(p.hit.x,p.hit.y);else path.moveTo(p.hit.x,p.hit.y);previous=true;}
+   for(const id of overlay.route) {const p=pointsById.get(id);if(!p){previous=false;continue;}if(previous)path.lineTo(p.hit.x,p.hit.y);else path.moveTo(p.hit.x,p.hit.y);previous=true;}
    ctx.save();ctx.globalAlpha=.25;ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.stroke(path);ctx.restore();
    const hops = overlay.route.length - 1;
    const duration = Math.min(hops * 750, 6000);
@@ -88,8 +89,8 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    if (!reducedMotion && hops > 0) {
     const progress = (elapsed % duration) / duration * hops;
     const index = Math.floor(progress), fraction = progress - index;
-    const from = points.find(p => p.system[0] === overlay.route[index]);
-    const to = points.find(p => p.system[0] === overlay.route[index + 1]);
+    const from = pointsById.get(overlay.route[index]);
+    const to = pointsById.get(overlay.route[index + 1]);
     if (from && to) {
      const x = from.hit.x + (to.hit.x - from.hit.x) * fraction;
      const y = from.hit.y + (to.hit.y - from.hit.y) * fraction;
@@ -116,7 +117,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    }
   }
   if(overlay?.range) {
-   const origin=points.find(p=>p.system[0]===overlay?.originId);
+   const origin=pointsById.get(overlay?.originId ?? -1);
    if(origin){ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(origin.hit.x,origin.hit.y,overlay.range*scale,0,Math.PI*2);ctx.stroke();}
   }
   if(focus) {

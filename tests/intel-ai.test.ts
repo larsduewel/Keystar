@@ -150,6 +150,14 @@ describe("Claude briefing and dossier", () => {
 });
 
 describe("intel templates", () => {
+  it("uses the current high tier for high and critical briefings", () => {
+    const base = input();
+    const summary = { ...base.summary, tiers: { low: 0, moderate: 0, high: 1, extreme: 0, unknown: 0 }, roles: { ...base.summary.roles, cyno: 0, capital: 0 } };
+    expect(threatLevelOf({ ...base, summary })).toBe("high");
+    expect(threatLevelOf({ ...base, summary: { ...summary, tiers: { ...summary.tiers, high: 2 } } })).toBe("critical");
+    expect(threatLevelOf({ ...base, summary: { ...summary, roles: { ...summary.roles, cyno: 1 } } })).toBe("critical");
+    expect(threatLevelOf({ ...base, summary: { ...summary, tiers: { ...summary.tiers, high: 0, moderate: 2 } } })).toBe("elevated");
+  });
   it("briefs from the computed data, recent activity first", () => {
     const draft = templateBriefing(input());
     const b = renderBriefing(draft, MESSAGES.en, now);

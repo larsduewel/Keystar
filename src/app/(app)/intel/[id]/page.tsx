@@ -82,7 +82,7 @@ export default async function ScanPage({ params }: PageProps<"/intel/[id]">) {
             <ButtonLink href="/intel" size="sm">
               <ArrowLeft className="size-4" aria-hidden /> {text.newScan}
             </ButtonLink>
-            {canAi && scan.status === "ready" && <BriefingControl scanId={scan.id} action={rewriteBriefing}>
+            {(scan.status === "ready" || briefing || scan.briefingStatus === "pending") && <BriefingControl scanId={scan.id} action={canAi && scan.status === "ready" ? rewriteBriefing : undefined}>
               <BriefingPanel note={briefing} pending={scan.briefingStatus === "pending"} scanId={scan.id} pilotNames={pilotNames} claudeHint={claudeHint} />
             </BriefingControl>}
             <DscanDropdown supplied={!!scan.dscan}>{dscanPanel}</DscanDropdown>
