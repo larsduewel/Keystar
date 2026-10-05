@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
-- **Jump Range controls.** Move Ship Class below Origin System and give its dropdown the full panel width.
+- **Jump Range controls.** Move Ship Class below Origin System and give its dropdown the full panel width. ([PR #15](https://github.com/larsduewel/Keystar/pull/15))
 
 - **Upstream review fixes.** Sync PR #87 while preserving the fork’s map controls, jump classes and Azure deployment. ([PR #14](https://github.com/larsduewel/Keystar/pull/14))
 
