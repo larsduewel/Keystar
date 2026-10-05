@@ -1,4 +1,5 @@
 export const map = {
+ region: "Region", allRegions: "All regions", regionLabels: "Region names", unknownRegion: "Unknown region",
  universe: "Universe",
  title: "Map", description: "Explore the EVE universe in 3D. Select a system to see its name and security status.",
  search: "Find a system", all: "All space", known: "Known space", wormholes: "Wormhole space", reset: "Reset view",
@@ -18,7 +19,7 @@ export const map = {
  notChecked: "Not checked",
  checkFailed: "Gate evidence unavailable",
  routeHint: "Shortest by gate count. Static stargates only; no wormholes or player jump bridges.",
- evidenceHint: "Last 2 hours · within 150 km of a route gate, or a killmail resolved to that gate. Green means no evidence found, not guaranteed safety. zKillboard may delay or omit kills and cache results for an hour.",
+ evidenceHint: "Gate kills in the last 2 hours · within 150 km or linked to the gate. Green: none reported; safety not guaranteed.",
  checked: "Checked",
  gateTo: "Gate to",
  killmail: "Killmail",
@@ -37,7 +38,7 @@ export const map = {
  inRange: "Systems in range",
  showRange: "Show jump range",
  hideRange: "Hide jump range",
- rangeHint: "Geometric range only. Cyno availability, fuel and fatigue are not checked. Highsec and special-space systems are marked as restricted destinations.",
+ rangeHint: "Range only · cyno, fuel and fatigue not checked. Highsec and special-space destinations are restricted.",
  restricted: "Restricted destination",
  originRestricted: "Jump drives cannot be used from this system.",
  noOrigin: "Select an origin system.",

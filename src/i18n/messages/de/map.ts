@@ -1,5 +1,6 @@
 import type { map as en } from "../en/map";
 export const map: typeof en = {
+ region: "Region", allRegions: "Alle Regionen", regionLabels: "Regionsnamen", unknownRegion: "Unbekannte Region",
  universe: "Universum",
  title: "Karte", description: "Erkunde das EVE-Universum in 3D. Wähle ein System für Name und Sicherheitsstatus.",
  search: "System suchen", all: "Gesamter Weltraum", known: "Bekannter Weltraum", wormholes: "Wurmlochraum", reset: "Ansicht zurücksetzen",
@@ -19,7 +20,7 @@ export const map: typeof en = {
  notChecked: "Nicht geprüft",
  checkFailed: "Torevidenz nicht verfügbar",
  routeHint: "Kürzeste Route nach Toranzahl. Nur statische Stargates; keine Wurmlöcher oder Spieler-Sprungbrücken.",
- evidenceHint: "Letzte 2 Stunden · innerhalb von 150 km eines Routentors oder dem Tor zugeordneter Killmail. Grün bedeutet keine Evidenz gefunden, keine garantierte Sicherheit. zKillboard kann Kills verzögert oder unvollständig liefern und Ergebnisse eine Stunde cachen.",
+ evidenceHint: "Gate-Kills der letzten 2 Stunden · innerhalb von 150 km oder dem Tor zugeordnet. Grün: keine gemeldet; keine Sicherheitsgarantie.",
  checked: "Geprüft",
  gateTo: "Tor nach",
  killmail: "Killmail",
@@ -38,7 +39,7 @@ export const map: typeof en = {
  inRange: "Systeme in Reichweite",
  showRange: "Sprungreichweite anzeigen",
  hideRange: "Sprungreichweite ausblenden",
- rangeHint: "Nur räumliche Reichweite. Cynoverfügbarkeit, Treibstoff und Fatigue werden nicht geprüft. Highsec und Spezialraum sind als eingeschränkte Ziele markiert.",
+ rangeHint: "Nur Reichweite · Cyno, Treibstoff und Ermüdung ungeprüft. Hochsicherheits- und Spezialgebiete sind als Ziele gesperrt.",
  restricted: "Eingeschränktes Ziel",
  originRestricted: "Sprungantriebe können in diesem System nicht genutzt werden.",
  noOrigin: "Wähle ein Ursprungssystem.",
