@@ -1,11 +1,15 @@
 import { addDays, bucketEnd, bucketStart, type DateBucket } from "@/lib/dates";
 import { CHART_CLASSES, chartClassOf, type ChartClass } from "../class-colors";
 import { EXPENSE_CATEGORIES, type ExpenseCategory, type ExpenseStatus } from "./categories";
-import type { ActivityStats, ExpenseRow, IncomeRow, ManualDailyRow } from "./queries";
+import type { ActivityStats, ExpenseRow, IncomeRow, ManualDailyRow, SaleRow } from "./queries";
+import type { IncomeSource } from "./scope";
 
 /**
  * Turns P&L query rows into the sheet: totals, day/week/month buckets,
  * per-character and per-activity splits, ISK/hour and cost per m³. Pure.
+ *
+ * Income is either the mined ore at the P&L valuation or the counted wallet sales (`incomeSource`); the other figure
+ * is still reported for comparison. Mined volume, active hours and ISK/hour always come from the mined ore.
  */
 
 /** Below this share of income covered by measured activity, expenses are split by m³ instead of hours. */
@@ -20,7 +24,7 @@ export interface PnlBucket {
   end: string;
   income: number;
   incomeByClass: ClassValues;
-  /** Counted wallet purchases. */
+  /** Counted wallet purchases and broker fees. */
   wallet: number;
   /** Manual entries (spread ones divided over their days). */
   manual: number;
@@ -60,11 +64,22 @@ export interface StatusTotal {
 }
 
 export interface PnlReport {
+  incomeSource: IncomeSource;
   totals: {
+    /** Mined value or counted sales, depending on `incomeSource`. */
     income: number;
+    /** Mined ore at the P&L valuation (rate and price rules). */
+    minedIncome: number;
     /** The same ore at the dashboard valuation (no rate or price rules). */
     baseIncome: number;
+    /** Counted wallet sales, net of sales tax. */
+    salesIncome: number;
+    /** Sales tax deducted from the counted sales. */
+    salesTax: number;
+    /** Counted wallet purchases and broker fees. */
     wallet: number;
+    /** Of `wallet`: counted broker fees. */
+    fees: number;
     manual: number;
     expenses: number;
     net: number;
@@ -72,6 +87,8 @@ export interface PnlReport {
     unpricedRows: number;
   };
   purchases: Record<ExpenseStatus, StatusTotal>;
+  sales: Record<ExpenseStatus, StatusTotal>;
+  fees: Record<ExpenseStatus, StatusTotal>;
   byCategory: { category: ExpenseCategory; amount: number }[];
   buckets: PnlBucket[];
   characters: PnlCharacterRow[];
@@ -84,7 +101,7 @@ export interface PnlReport {
     characterHours: number;
     /** P&L value of the ore mined in measured windows. */
     measuredIncome: number;
-    /** measuredIncome / income (0–1). */
+    /** measuredIncome / mined income (0–1). */
     measuredShare: number;
     trackedSince: Date | null;
   };
@@ -100,17 +117,32 @@ export function allocateByShare<K>(total: number, weights: Map<K, number>): Map<
 
 const perHour = (value: number, hours: number) => (hours > 0 ? value / hours : null);
 
+const statusTotals = (): Record<ExpenseStatus, StatusTotal> => ({
+  counted: { amount: 0, count: 0 },
+  suggested: { amount: 0, count: 0 },
+  excluded: { amount: 0, count: 0 },
+  untagged: { amount: 0, count: 0 },
+});
+
 export function buildPnlReport(input: {
   from: string;
   to: string;
   bucket: DateBucket;
+  /** Defaults to the mined ore. */
+  incomeSource?: IncomeSource;
   income: IncomeRow[];
+  /** Wallet sales; only counted ones are income, and only with `incomeSource` "sales". */
+  sales?: SaleRow[];
   expenses: ExpenseRow[];
+  /** Broker fees (category "fees"); counted ones are wallet expenses, with `incomeSource` "sales" only. */
+  fees?: ExpenseRow[];
   manual: ManualDailyRow[];
   activity: ActivityStats;
   characters: { characterId: number; name: string }[];
 }): PnlReport {
   const { from, to, bucket, income, expenses, manual, activity } = input;
+  const incomeSource = input.incomeSource ?? "mined";
+  const fromSales = incomeSource === "sales";
 
   // Buckets covering the range, in order.
   const buckets = new Map<string, PnlBucket>();
@@ -155,47 +187,64 @@ export function buildPnlReport(input: {
 
   const classIncome = zeroClasses();
   const classVolume = zeroClasses();
-  let totalIncome = 0;
+  const addIncome = (date: string, characterId: number, cls: ChartClass, value: number) => {
+    classIncome[cls] += value;
+    const b = bucketOf(date);
+    if (b) {
+      b.income += value;
+      b.incomeByClass[cls] += value;
+    }
+    charRow(characterId).income += value;
+  };
+  let minedIncome = 0;
   let baseIncome = 0;
   let volume = 0;
   let unpricedRows = 0;
   for (const r of income) {
     const cls = chartClassOf(r.oreClass);
-    totalIncome += r.value;
+    minedIncome += r.value;
     baseIncome += r.baseValue;
     volume += r.volume;
     unpricedRows += r.unpricedRows;
-    classIncome[cls] += r.value;
     classVolume[cls] += r.volume;
-    const b = bucketOf(r.date);
-    if (b) {
-      b.income += r.value;
-      b.incomeByClass[cls] += r.value;
-    }
-    const c = charRow(r.characterId);
-    c.income += r.value;
-    c.volume += r.volume;
+    charRow(r.characterId).volume += r.volume;
+    if (!fromSales) addIncome(r.date, r.characterId, cls, r.value);
   }
 
-  const purchases: Record<ExpenseStatus, StatusTotal> = {
-    counted: { amount: 0, count: 0 },
-    suggested: { amount: 0, count: 0 },
-    excluded: { amount: 0, count: 0 },
-    untagged: { amount: 0, count: 0 },
-  };
-  const byCategory = new Map<ExpenseCategory, number>();
-  let wallet = 0;
-  for (const r of expenses) {
-    purchases[r.status].amount += r.amount;
-    purchases[r.status].count += r.count;
+  const sales = statusTotals();
+  let salesIncome = 0;
+  let salesTax = 0;
+  // Sale amounts are net of the sales tax paid on them.
+  for (const r of input.sales ?? []) {
+    sales[r.status].amount += r.amount;
+    sales[r.status].count += r.count;
     if (r.status !== "counted") continue;
+    salesIncome += r.amount;
+    salesTax += r.tax;
+    if (fromSales) addIncome(r.date, r.characterId, r.category ?? "other", r.amount);
+  }
+  const totalIncome = fromSales ? salesIncome : minedIncome;
+
+  const purchases = statusTotals();
+  const byCategory = new Map<ExpenseCategory, number>();
+  const fees = statusTotals();
+  let wallet = 0;
+  let feeTotal = 0;
+  const countWallet = (r: ExpenseRow, stats: Record<ExpenseStatus, StatusTotal>) => {
+    stats[r.status].amount += r.amount;
+    stats[r.status].count += r.count;
+    if (r.status !== "counted") return 0;
     wallet += r.amount;
     const category = r.category ?? "other";
     byCategory.set(category, (byCategory.get(category) ?? 0) + r.amount);
     const b = bucketOf(r.date);
     if (b) b.wallet += r.amount;
     charRow(r.characterId).expenses += r.amount;
-  }
+    return r.amount;
+  };
+  for (const r of expenses) countWallet(r, purchases);
+  // Broker fees are a cost of selling: they only count when the sales are the income (a mined-value rate covers them).
+  if (fromSales) for (const r of input.fees ?? []) feeTotal += countWallet(r, fees);
   let manualTotal = 0;
   for (const r of manual) {
     manualTotal += r.amount;
@@ -218,7 +267,8 @@ export function buildPnlReport(input: {
 
   const totalExpenses = wallet + manualTotal;
   const measuredIncome = activity.total.value;
-  const measuredShare = totalIncome > 0 ? Math.min(1, measuredIncome / totalIncome) : 0;
+  // Activity values the mined ore, so its share is of the mined income whatever the income basis.
+  const measuredShare = minedIncome > 0 ? Math.min(1, measuredIncome / minedIncome) : 0;
   const wallClockHours = activity.total.hours;
   const characterHours = [...activity.byCharacter.values()].reduce((a, f) => a + f.hours, 0);
 
@@ -262,10 +312,15 @@ export function buildPnlReport(input: {
   );
 
   return {
+    incomeSource,
     totals: {
       income: totalIncome,
+      minedIncome,
       baseIncome,
+      salesIncome,
+      salesTax,
       wallet,
+      fees: feeTotal,
       manual: manualTotal,
       expenses: totalExpenses,
       net: totalIncome - totalExpenses,
@@ -273,6 +328,8 @@ export function buildPnlReport(input: {
       unpricedRows,
     },
     purchases,
+    sales,
+    fees,
     byCategory: EXPENSE_CATEGORIES.filter((c) => byCategory.has(c)).map((c) => ({ category: c, amount: byCategory.get(c)! })),
     buckets: [...buckets.values()],
     characters,

@@ -132,7 +132,7 @@ export function SystemPicker({
               {status}
             </p>
           ) : (
-            <ul ref={listRef} id={listId} role="listbox" className="max-h-72 overflow-y-auto">
+            <ul ref={listRef} id={listId} role="listbox" className="max-h-72 overflow-y-auto overscroll-contain">
               {matches.map((option, i) => (
                 <li
                   key={option[0]}

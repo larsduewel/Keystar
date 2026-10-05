@@ -11,6 +11,7 @@ await build({
     worker: path.join(root, "src/worker/index.ts"),
     migrate: path.join(root, "src/scripts/migrate.ts"),
     "demo-seed": path.join(root, "src/scripts/demo-seed.ts"),
+    support: path.join(root, "src/scripts/support-package.ts"),
   },
   outdir: path.join(root, "dist"),
   outExtension: { ".js": ".mjs" },

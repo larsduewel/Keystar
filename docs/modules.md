@@ -1,8 +1,9 @@
 # Writing a module
 
-Every feature beyond the core (mining today; skills, assets, wallets, fleets, threat intel later) is a **module**.
+Every feature beyond the core (mining, skills, wallets, fleets, threat intel; assets later) is a **module**.
 A module declares what it needs and what it offers; the core takes care of tokens, scheduling, permissions and
-navigation. Use `src/modules/mining` as the reference implementation.
+navigation. Use `src/modules/mining` as the reference implementation; the example below is a simplified
+`src/modules/skills`.
 
 ## 1. Manifest — `src/modules/<name>/module.ts`
 
@@ -15,8 +16,8 @@ export const skillsModule: KeystarModule = {
   name: "Skills",
   description: "Character skills, queues and corporation skill plans.",
   scopes: [
-    { scope: "esi-skills.read_skills.v1", level: "character", reason: (t) => t.skills.module.scopes.skills },
-    { scope: "esi-skills.read_skillqueue.v1", level: "character", reason: (t) => t.skills.module.scopes.queue },
+    { scope: "esi-skills.read_skills.v1", level: "character", optional: true, manageHref: "/skills/settings", reason: (t) => t.skills.module.scopes.skills },
+    { scope: "esi-skills.read_skillqueue.v1", level: "character", optional: true, manageHref: "/skills/settings", reason: (t) => t.skills.module.scopes.queue },
   ],
   permissions: [
     {
@@ -26,17 +27,17 @@ export const skillsModule: KeystarModule = {
       group: (t) => t.skills.module.permissionGroup,
       defaultMinRole: "member",
     },
-    // … skills.view.corp, skills.plans.manage
+    // … skills.view.corp
   ],
   nav: [
     {
       id: "pilots",
       label: (t) => t.skills.module.navSection,
-      order: 20,
+      order: 5,
       items: [
         {
           href: "/skills",
-          label: (t) => t.skills.module.nav.skills,
+          label: (t) => t.skills.module.nav.queues,
           icon: GraduationCap,
           anyPermission: ["skills.view.own", "skills.view.corp"],
         },
@@ -49,10 +50,11 @@ export const skillsModule: KeystarModule = {
 User-facing text is never written into the manifest directly: `label`, `description`, `group` and `reason` are
 selectors into the dictionaries (see step 5), so the sidebar and settings render in the viewer's language.
 
-A nav section may set `tone` (`"industry"`, `"combat"` or `"trade"`) to colour its page headings, the sidebar marker
-and the header glow; without one it uses the accent. Sections merged by id share the first tone set, so only one
-module needs to declare it. Don't add new tones ad hoc: they are checked for contrast and colour-vision safety in
-`src/app/globals.css`.
+A nav section may set `tone` (`"industry"`, `"combat"`, `"trade"`, `"pilots"` or `"social"`) to colour its page
+headings, the sidebar marker and the header glow; without one it uses the accent. Sections merged by id share the
+first tone set, so only one module needs to declare it. Don't add new tones ad hoc: they are checked for contrast and
+colour-vision safety in `src/app/globals.css`, and there is no room left for another distinct hue, so a new section
+reuses an existing tone or keeps the accent.
 
 Register it in `src/core/modules/registry.ts` (`MODULES`). That alone:
 
@@ -93,8 +95,8 @@ keys from history tables to `characters` — history should survive a character 
 import type { JobDefinition } from "@/core/sync/types";
 
 export const skillsJob: JobDefinition = {
-  key: "skills.character-skills",
-  label: (t) => t.skills.module.jobs.characterSkills,
+  key: "skills.character",
+  label: (t) => t.skills.module.jobs.character,
   module: "skills",
   owner: "character",                       // character | corporation | global
   requiredScopes: ["esi-skills.read_skills.v1"],

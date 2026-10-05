@@ -7,12 +7,13 @@ import { MINING_PERMISSIONS } from "../module";
 import { miningValuation, valuationLabel } from "../page-context";
 import { parsePnlFilters, type PnlFilters } from "./filters";
 import { getPnlSettings } from "./queries";
-import { pnlScope, type PnlScope } from "./scope";
+import { pnlScope, type IncomeSource, type PnlScope } from "./scope";
 
 export interface PnlPageContext {
   user: CurrentUser;
   filters: PnlFilters;
   scope: PnlScope;
+  incomeSource: IncomeSource;
   valuationLabel: string;
   presets: RangePreset[];
   today: string;
@@ -29,6 +30,7 @@ export async function pnlPageContext(searchParams: Record<string, string | strin
     user,
     filters,
     scope: pnlScope(user, filters, valuation, pnl.ratePct),
+    incomeSource: pnl.incomeSource,
     valuationLabel: valuationLabel(t, valuation),
     presets: DATE_PRESETS.map((p) => ({ id: p.id, label: t.common.datePresets[p.id], ...p.range(today) })),
     today,

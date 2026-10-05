@@ -75,7 +75,7 @@ export const dashboard = {
   roadmap: {
     title: "On the roadmap",
     items: {
-      skills: { title: "Skills & skill plans", text: "Corp skill plans and who can fly what." },
+      skills: { title: "Skill plans", text: "Corp skill plans and who can fly what." },
       assets: { title: "Assets", text: "Find items across members and corp hangars." },
       wallets: { title: "Wallets", text: "Corporation divisions and personal wallets." },
     },

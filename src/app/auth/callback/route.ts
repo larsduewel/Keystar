@@ -105,7 +105,11 @@ export async function GET(request: NextRequest) {
     }
     return res;
   } catch (err) {
-    if (err instanceof ProvisionError) return linkReturn ? linkFailed(linkReturn, err.code) : fail("provision", err.message);
+    if (err instanceof ProvisionError) {
+      // Only new accounts are refused for being outside the corporation, so this never comes from linking.
+      if (err.code === "notMember") return fail("not_member");
+      return linkReturn ? linkFailed(linkReturn, err.code) : fail("provision", err.message);
+    }
     // Details stay in the server log; the unauthenticated login page only gets a generic error.
     log.error("SSO callback failed", { error: errorMessage(err) });
     return linkReturn ? linkFailed(linkReturn, "failed") : fail("sso_failed");

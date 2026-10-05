@@ -6,9 +6,10 @@ import { requirePermission } from "@/core/auth/dal";
 import { appraisals, getDb } from "@/core/db";
 import { getI18n } from "@/i18n/server";
 import { AppraisalForm } from "@/modules/trade/components/appraisal-form";
+import { DeleteAppraisalButton } from "@/modules/trade/components/delete-appraisal-button";
 import { TRADE_PERMISSIONS } from "@/modules/trade/module";
 import type { AppraisalItem, AppraisalTotals } from "@/modules/trade/appraisal/types";
-import { createAppraisal } from "./actions";
+import { createAppraisal, deleteAppraisal } from "./actions";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -40,8 +41,8 @@ export default async function AppraisalPage() {
                 const totals = a.totals as AppraisalTotals;
                 const items = a.items as AppraisalItem[];
                 return (
-                  <li key={a.id}>
-                    <Link href={`/trade/appraisal/${a.id}`} className="flex items-center gap-3 py-2.5 hover:text-accent">
+                  <li key={a.id} className="flex items-center gap-2 py-2.5">
+                    <Link href={`/trade/appraisal/${a.id}`} className="flex min-w-0 flex-1 items-center gap-3 hover:text-accent">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">
                           {items.slice(0, 2).map((i) => i.name).join(", ")}
@@ -51,6 +52,7 @@ export default async function AppraisalPage() {
                       </div>
                       <div className="text-right text-sm font-semibold tabular-nums">{f.compact(totals.sell)}</div>
                     </Link>
+                    <DeleteAppraisalButton action={deleteAppraisal.bind(null, a.id)} />
                   </li>
                 );
               })}

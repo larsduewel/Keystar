@@ -4,6 +4,8 @@ import { FORMATTERS } from "@/lib/format";
 export const shell = {
   mainNav: "Main",
   releaseNotes: "Release notes",
+  unstableBuild: (tag: string | null, commit: string | null, builtAt: string | null) =>
+    `Unreleased ${tag ?? "development"} build: may be unstable.${commit ? ` Commit ${commit}` : ""}${builtAt ? `, built ${FORMATTERS.en.dateTime(builtAt)}` : ""}`,
   unknownPilot: "Unknown pilot",
   signOut: "Sign out",
   noHomeCorp: "No home corporation",
@@ -35,6 +37,7 @@ export const shell = {
     sync: "Sync Status",
     settings: "Settings",
     audit: "Audit Log",
+    system: "System Info",
   },
   /** Live alerts menu in the top bar. */
   alerts: {
@@ -43,7 +46,7 @@ export const shell = {
     desktop: {
       label: "Desktop notifications",
       hint: "Show alerts as system notifications while Keystar is in the background",
-      blocked: "Blocked for this site in the browser settings",
+      blocked: "Blocked by the browser, system settings or an extension",
       unsupported: "Not available in this browser here (needs HTTPS)",
     },
   },

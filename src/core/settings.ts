@@ -1,6 +1,6 @@
 import { inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { appSettings, getDb } from "@/core/db";
+import { appSettings, getDb, type Db } from "@/core/db";
 import { ROLES } from "@/core/rbac/roles";
 
 /**
@@ -11,6 +11,8 @@ const settingSchemas = {
   "corp.homeCorporationId": z.number().int().positive().nullable(),
   "access.autoApproveCorpMembers": z.boolean(),
   "access.autoApproveAllianceMembers": z.boolean(),
+  /** Refuse new accounts for characters that wouldn't be auto-approved (outside the corp/alliance). */
+  "access.restrictToMembers": z.boolean(),
   "permissions.overrides": z.record(z.string(), z.enum(ROLES)),
   "mining.valuationSource": z.enum(["jita_buy", "jita_sell", "jita_split", "esi_average"]),
   "mining.valuationMode": z.enum(["current", "historical"]),
@@ -31,6 +33,7 @@ export const SETTING_DEFAULTS: Settings = {
   "corp.homeCorporationId": null,
   "access.autoApproveCorpMembers": true,
   "access.autoApproveAllianceMembers": false,
+  "access.restrictToMembers": false,
   "permissions.overrides": {},
   "mining.valuationSource": "jita_buy",
   "mining.valuationMode": "current",
@@ -39,6 +42,8 @@ export const SETTING_DEFAULTS: Settings = {
   "demo.users": {},
   "setup.completedAt": null,
 };
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 const KEYS = Object.keys(settingSchemas) as SettingKey[];
 
@@ -62,9 +67,15 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<Settings
   return (parsed?.success ? parsed.data : SETTING_DEFAULTS[key]) as Settings[K];
 }
 
-export async function setSetting<K extends SettingKey>(key: K, value: Settings[K], updatedBy?: string | null): Promise<void> {
+/** Pass `tx` to save the setting together with its audit entry (see `auditInTx`). */
+export async function setSetting<K extends SettingKey>(
+  key: K,
+  value: Settings[K],
+  updatedBy?: string | null,
+  tx: Db | Tx = getDb(),
+): Promise<void> {
   const parsed = settingSchemas[key].parse(value);
-  await getDb()
+  await tx
     .insert(appSettings)
     .values({ key, value: parsed as object, updatedBy: updatedBy ?? null })
     .onConflictDoUpdate({

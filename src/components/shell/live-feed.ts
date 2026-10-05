@@ -74,10 +74,18 @@ const desktopSwitch = createSwitch("ks_kill_alerts_desktop", false);
 
 export type Permission = NotificationPermission | "unsupported";
 
+/**
+ * The browser turned down a request without asking and left the permission at
+ * "default" (Safari does when websites may not ask in its settings). Counts as
+ * denied until the user comes back from elsewhere, maybe from those settings.
+ */
+let refused = false;
+
 /** The browser's notification permission; "unsupported" without the API or outside a secure context. */
 function readPermission(): Permission {
   if (typeof window === "undefined" || !window.isSecureContext || typeof Notification === "undefined") return "unsupported";
-  return Notification.permission;
+  const permission = Notification.permission;
+  return permission === "default" && refused ? "denied" : permission;
 }
 
 const permissionListeners = new Set<() => void>();
@@ -85,7 +93,14 @@ const permissionListeners = new Set<() => void>();
 function subscribePermission(listener: () => void) {
   permissionListeners.add(listener);
   // Site settings can change the permission while the page is open; re-read when the user comes back.
-  window.addEventListener("focus", listener);
+  const onReturn = () => {
+    if (document.visibilityState !== "visible") return;
+    refused = false;
+    listener();
+  };
+  // Switching back from another tab may only make the document visible, without a window focus event.
+  window.addEventListener("focus", onReturn);
+  document.addEventListener("visibilitychange", onReturn);
   let status: PermissionStatus | null = null;
   let unsubscribed = false;
   navigator.permissions
@@ -99,7 +114,8 @@ function subscribePermission(listener: () => void) {
   return () => {
     unsubscribed = true;
     permissionListeners.delete(listener);
-    window.removeEventListener("focus", listener);
+    window.removeEventListener("focus", onReturn);
+    document.removeEventListener("visibilitychange", onReturn);
     status?.removeEventListener("change", listener);
   };
 }
@@ -111,9 +127,11 @@ export function useDesktopAlerts() {
   const toggle = useCallback(async () => {
     if (on && permission === "granted") return desktopSwitch.write(false);
     // Asking has to happen in the click itself; browsers ignore requests without a user gesture.
-    const granted = permission === "granted" || (await Notification.requestPermission()) === "granted";
+    const result = permission === "granted" ? permission : await Notification.requestPermission();
+    // A dismissed prompt ("default") may be asked again; a refusal must show as blocked, not as a switch that does nothing.
+    refused = result === "denied";
     for (const listener of permissionListeners) listener();
-    desktopSwitch.write(granted);
+    desktopSwitch.write(result === "granted");
   }, [on, permission]);
   return { active: on && permission === "granted", permission, toggle };
 }

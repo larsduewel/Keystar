@@ -5,8 +5,8 @@ import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveConta
 import { Segmented } from "@/components/ui/segmented";
 import type { DateBucket } from "@/lib/dates";
 import { useI18n } from "@/i18n/client";
-import { CHART_CLASSES, type ChartClass } from "../../class-colors";
-import { EXPENSE_COLOR, NET_COLOR } from "../colors";
+import { CHART_CLASSES } from "../../class-colors";
+import { EXPENSE_COLOR, INCOME_COLOR, NET_COLOR } from "../colors";
 import { bucketLabel } from "../labels";
 import type { PnlBucket } from "../report";
 import { SignedIsk } from "./signed-isk";
@@ -20,28 +20,21 @@ interface ShapeProps {
   width?: number;
   height?: number;
   fill?: string;
-  payload?: Record<string, number | string | boolean>;
 }
 
-/** Income segment: 2px gap above it, rounded corners only on the top of the column. */
-function makeIncomeShape(classId: ChartClass, order: ChartClass[]) {
-  function IncomeShape({ x = 0, y = 0, width = 0, height = 0, fill, payload }: ShapeProps) {
-    if (!height || height <= 0) return null;
-    const above = order.slice(order.indexOf(classId) + 1);
-    const isTop = above.every((c) => !Number(payload?.[c] ?? 0));
-    const top = isTop ? y : y + GAP;
-    const h = Math.max(0, y + height - top);
-    if (h <= 0.5) return null;
-    if (!isTop) return <rect x={x} y={top} width={width} height={h} fill={fill} />;
-    const r = Math.min(RADIUS, width / 2, h);
-    return (
-      <path
-        d={`M${x},${top + h} V${top + r} Q${x},${top} ${x + r},${top} H${x + width - r} Q${x + width},${top} ${x + width},${top + r} V${top + h} Z`}
-        fill={fill}
-      />
-    );
-  }
-  return IncomeShape;
+/** Income grows upwards from the baseline with a rounded data end. */
+function IncomeShape({ x = 0, y = 0, width = 0, height = 0, fill }: ShapeProps) {
+  const top = Math.min(y, y + height);
+  const h = Math.abs(height) - GAP / 2;
+  if (h <= 0.5 || width <= 0) return null;
+  const r = Math.min(RADIUS, width / 2, h);
+  const end = top + h;
+  return (
+    <path
+      d={`M${x},${end} V${top + r} Q${x},${top} ${x + r},${top} H${x + width - r} Q${x + width},${top} ${x + width},${top + r} V${end} Z`}
+      fill={fill}
+    />
+  );
 }
 
 /** Expenses grow downwards from the baseline with a rounded data end. */
@@ -90,13 +83,18 @@ function ChartTooltip({ active, payload, bucket }: { active?: boolean; payload?:
         {bucketLabel({ start: String(row.start), end: String(row.end) }, bucket, f, true)}
         {row.partial ? ` · ${t.pnl.chart.partial}` : ""}
       </div>
-      {classes.map((c) => (
-        <div key={c.id} className="flex items-center gap-2 py-0.5">
-          <span className="size-2.5 rounded-[3px]" style={{ background: c.color }} aria-hidden />
-          <span className="text-ink-3">{t.mining.chartClasses[c.id]}</span>
-          <span className="ml-auto font-semibold text-ink tabular-nums">{f.compact(Number(row[c.id]))}</span>
-        </div>
-      ))}
+      <div className="flex items-center gap-2 py-0.5">
+        <span className="size-2.5 rounded-[3px]" style={{ background: INCOME_COLOR }} aria-hidden />
+        <span className="text-ink-3">{t.pnl.chart.income}</span>
+        <span className="ml-auto font-semibold text-ink tabular-nums">{f.compact(Number(row.income))}</span>
+      </div>
+      {classes.length > 1 &&
+        classes.map((c) => (
+          <div key={c.id} className="flex items-center gap-2 py-0.5 pl-[18px]">
+            <span className="text-ink-3">{t.mining.chartClasses[c.id]}</span>
+            <span className="ml-auto text-ink-2 tabular-nums">{f.compact(Number(row[c.id]))}</span>
+          </div>
+        ))}
       <div className="flex items-center gap-2 py-0.5">
         <span className="size-2.5 rounded-[3px]" style={{ background: EXPENSE_COLOR }} aria-hidden />
         <span className="text-ink-3">{t.pnl.chart.expenses}</span>
@@ -115,12 +113,10 @@ function ChartTooltip({ active, payload, bucket }: { active?: boolean; payload?:
   );
 }
 
-/** Income stacked up by resource, expenses down, net profit as a line. */
+/** Income up, expenses down, net profit as a line; the tooltip breaks income down by resource. */
 export function PnlChart({ buckets, bucket }: { buckets: PnlBucket[]; bucket: DateBucket }) {
   const { t, f } = useI18n();
   const [view, setView] = useState<"chart" | "table">("chart");
-  const present = CHART_CLASSES.filter((c) => buckets.some((b) => b.incomeByClass[c.id] > 0));
-  const order = present.map((c) => c.id);
   const data: Row[] = buckets.map((b) => ({
     start: b.start,
     end: b.end,
@@ -141,12 +137,11 @@ export function PnlChart({ buckets, bucket }: { buckets: PnlBucket[]; bucket: Da
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label={t.pnl.chart.legend}>
-          {present.map((c) => (
-            <li key={c.id} className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-[3px]" style={{ background: c.color }} aria-hidden />
-              <span className="text-ink-2">{t.mining.chartClasses[c.id]}</span>
-            </li>
-          ))}
+          <li className="flex items-center gap-1.5">
+            <span className="size-2.5 rounded-[3px]" style={{ background: INCOME_COLOR }} aria-hidden />
+            <span className="text-ink-2">{t.pnl.chart.income}</span>
+            <span className="text-ink-3 tabular-nums">{f.compact(totals.income)}</span>
+          </li>
           <li className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-[3px]" style={{ background: EXPENSE_COLOR }} aria-hidden />
             <span className="text-ink-2">{t.pnl.chart.expenses}</span>
@@ -198,21 +193,15 @@ export function PnlChart({ buckets, bucket }: { buckets: PnlBucket[]; bucket: Da
                 content={<ChartTooltip bucket={bucket} />}
                 isAnimationActive={false}
               />
-              {present.map((c) => {
-                const Shape = makeIncomeShape(c.id, order);
-                return (
-                  <Bar
-                    key={c.id}
-                    dataKey={c.id}
-                    stackId="pnl"
-                    fill={c.color}
-                    maxBarSize={28}
-                    isAnimationActive={false}
-                    shape={<Shape />}
-                    name={t.mining.chartClasses[c.id]}
-                  />
-                );
-              })}
+              <Bar
+                dataKey="income"
+                stackId="pnl"
+                fill={INCOME_COLOR}
+                maxBarSize={28}
+                isAnimationActive={false}
+                shape={<IncomeShape />}
+                name={t.pnl.chart.income}
+              />
               <Bar
                 dataKey="expensesNeg"
                 stackId="pnl"

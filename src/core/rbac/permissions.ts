@@ -70,6 +70,14 @@ export const CORE_PERMISSIONS = [
     group: (t) => t.core.permissionGroup,
     defaultMinRole: "contributor",
   },
+  {
+    key: "system.view",
+    label: (t) => t.core.permissions.systemView.label,
+    description: (t) => t.core.permissions.systemView.description,
+    group: (t) => t.core.permissionGroup,
+    defaultMinRole: "admin",
+    locked: true,
+  },
 ] as const satisfies readonly PermissionDef[];
 
 export function effectiveMinRole(def: PermissionDef, overrides: PermissionOverrides): Role {

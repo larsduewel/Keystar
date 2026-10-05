@@ -36,7 +36,7 @@ export async function trackedCorporations(): Promise<number[]> {
 /**
  * Ensures a schedule row exists for every eligible (job, owner) pair and
  * disables rows whose owner is no longer eligible (token revoked, scope
- * removed, character left the corporation, …).
+ * removed, account disabled, character left the corporation, …).
  */
 export async function planJobs(jobs: JobDefinition[], db: Db = getDb()): Promise<void> {
   const corps = await trackedCorporations();
@@ -48,9 +48,13 @@ export async function planJobs(jobs: JobDefinition[], db: Db = getDb()): Promise
     if (job.owner === "global") {
       eligible = [0];
     } else if (job.owner === "character") {
+      // A disabled account's characters stay idle until it is enabled again; corporation jobs skip them too.
       const rows = await db.execute<{ id: string }>(sql`
-        SELECT character_id AS id FROM esi_tokens
-        WHERE status = 'active' AND scopes @> ${pgTextArray(scopes)}`);
+        SELECT t.character_id AS id
+        FROM esi_tokens t
+        JOIN characters c ON c.character_id = t.character_id
+        JOIN users u ON u.id = c.user_id
+        WHERE t.status = 'active' AND t.scopes @> ${pgTextArray(scopes)} AND NOT u.is_disabled`);
       eligible = rows.map((r) => Number(r.id));
     } else {
       if (!corps.length) {
@@ -58,8 +62,10 @@ export async function planJobs(jobs: JobDefinition[], db: Db = getDb()): Promise
       } else {
         const rows = await db.execute<{ id: string }>(sql`
           SELECT DISTINCT c.corporation_id AS id
-          FROM characters c JOIN esi_tokens t ON t.character_id = c.character_id
-          WHERE t.status = 'active' AND t.scopes @> ${pgTextArray(scopes)}
+          FROM characters c
+          JOIN esi_tokens t ON t.character_id = c.character_id
+          JOIN users u ON u.id = c.user_id
+          WHERE t.status = 'active' AND t.scopes @> ${pgTextArray(scopes)} AND NOT u.is_disabled
             AND c.corporation_id IN (${sql.join(
               corps.map((c) => sql`${c}`),
               sql`, `,
@@ -121,7 +127,7 @@ export async function claimDueJobs(
     .where(sql`${syncJobs.id} IN (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})`);
 }
 
-/** Characters whose tokens may serve a corporation job, best candidates first. */
+/** Characters whose tokens may serve a corporation job, best candidates first; disabled accounts never do. */
 export async function corporationCandidates(db: Db, corporationId: number, job: JobDefinition): Promise<number[]> {
   const roles = [...(job.preferredCorpRoles ?? []), "Director"];
   const roleFilter = job.anyCorpMember ? sql`` : sql`AND (r.roles IS NULL OR r.roles && ${pgTextArray(roles)})`;
@@ -129,9 +135,10 @@ export async function corporationCandidates(db: Db, corporationId: number, job: 
     SELECT c.character_id AS id
     FROM characters c
     JOIN esi_tokens t ON t.character_id = c.character_id
+    JOIN users u ON u.id = c.user_id
     LEFT JOIN character_corp_roles r ON r.character_id = c.character_id
     WHERE c.corporation_id = ${corporationId}
-      AND t.status = 'active'
+      AND t.status = 'active' AND NOT u.is_disabled
       AND t.scopes @> ${pgTextArray(job.requiredScopes ?? [])}
       ${roleFilter}
     ORDER BY COALESCE(r.roles && ${pgTextArray(roles)}, false) DESC, (r.roles IS NOT NULL) DESC,

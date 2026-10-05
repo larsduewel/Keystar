@@ -1,6 +1,6 @@
 {
   "name": "keystar",
-  "version": "0.10.0",
+  "version": "0.13.0",
   "private": true,
   "description": "Keystar — a self-hosted EVE Online corporation dashboard built on ESI",
   "license": "AGPL-3.0-or-later",
@@ -19,7 +19,8 @@
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "demo:seed": "tsx src/scripts/demo-seed.ts",
-    "release:prepare": "tsx src/scripts/release-prepare.ts"
+    "release:prepare": "tsx src/scripts/release-prepare.ts",
+    "support:package": "tsx src/scripts/support-package.ts"
   },
   "packageManager": "pnpm@10.28.0",
   "dependencies": {

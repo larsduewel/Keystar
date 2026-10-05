@@ -1,8 +1,10 @@
 import { mapModule } from "@/modules/map/module";
 import { fleetModule } from "@/modules/fleet/module";
+import { industryModule } from "@/modules/industry/module";
 import { intelModule } from "@/modules/intel/module";
 import { killboardModule } from "@/modules/killboard/module";
 import { miningModule } from "@/modules/mining/module";
+import { skillsModule } from "@/modules/skills/module";
 import { socialModule } from "@/modules/social/module";
 import { tradeModule } from "@/modules/trade/module";
 import { walletModule } from "@/modules/wallet/module";
@@ -20,7 +22,9 @@ import type { AlertDef, KeystarModule, NavSection, ScopeRequirement } from "./ty
 export const MODULES: KeystarModule[] = [
   coreModule,
   mapModule,
+  skillsModule,
   miningModule,
+  industryModule,
   killboardModule,
   fleetModule,
   intelModule,

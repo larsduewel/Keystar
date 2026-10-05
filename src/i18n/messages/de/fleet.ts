@@ -92,7 +92,7 @@ export const fleet: typeof en = {
       duration: "Läuft seit",
     },
     composition: { title: "Zusammensetzung", subtitle: "Mitglieder pro Schiffsklasse", ships: "Schiffe" },
-    structure: { title: "Flottenstruktur", command: "Flottenkommando", commander: "Commander" },
+    structure: { title: "Flottenstruktur", command: "Flottenkommando", pilots: (value: number) => count(value, "Pilot", "Piloten") },
     columns: { pilot: "Pilot", ship: "Schiff", system: "System", role: "Rolle", joined: "Beigetreten" },
     activity: {
       title: "Beitritte & Abgänge",

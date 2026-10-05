@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { policyRole, reconcileRole, type RolePolicyInput } from "@/core/auth/policy";
+import { isHomeMember, mayRegister, policyRole, reconcileRole, type RolePolicyInput } from "@/core/auth/policy";
 import { CORE_PERMISSIONS, effectiveMinRole, permissionsForRole, type PermissionDef } from "@/core/rbac/permissions";
 import { assignableRoles, canManageRole, roleAtLeast } from "@/core/rbac/roles";
 
@@ -80,6 +80,24 @@ describe("role policy on sign-in", () => {
     expect(policyRole({ ...base, corporationId: 200 })).toBe("guest");
     expect(policyRole({ ...base, corporationId: 200, autoApproveAllianceMembers: true })).toBe("member");
     expect(policyRole({ ...base, autoApproveCorpMembers: false })).toBe("guest");
+  });
+
+  it("counts corp members as members even without auto-approval, alliance members only with it", () => {
+    expect(isHomeMember({ ...base, autoApproveCorpMembers: false })).toBe(true);
+    expect(isHomeMember({ ...base, corporationId: 200 })).toBe(false);
+    expect(isHomeMember({ ...base, corporationId: 200, autoApproveAllianceMembers: true })).toBe(true);
+    expect(isHomeMember({ ...base, homeCorporationId: null })).toBe(false);
+  });
+
+  it("refuses new accounts for outsiders only while sign-ups are restricted", () => {
+    const outsider = { ...base, corporationId: 200, allianceId: null };
+    expect(mayRegister(outsider, false)).toBe(true);
+    expect(mayRegister(outsider, true)).toBe(false);
+    // Corp members still get in (as guests awaiting approval when auto-approval is off).
+    expect(mayRegister({ ...base, autoApproveCorpMembers: false }, true)).toBe(true);
+    // Configured admins and the very first user are never locked out.
+    expect(mayRegister({ ...outsider, adminCharacterIds: [1] }, true)).toBe(true);
+    expect(mayRegister({ ...outsider, hasUsers: false }, true)).toBe(true);
   });
 
   it("promotes but never demotes existing users", () => {

@@ -9,7 +9,10 @@ export const allianceLogo = (id: number, size: Size = 64) => `${BASE}/alliances/
 export const typeIcon = (id: number, size: 32 | 64 = 32) => `${BASE}/types/${id}/icon?size=${size}`;
 export const typeRender = (id: number, size: Size = 128) => `${BASE}/types/${id}/render?size=${size}`;
 
-/** Security status colours as shown in the EVE client. */
+/**
+ * Security status colours: the EVE client's blue (1.0) to dark red (0.1) steps, then one clear red for all of
+ * null-sec (0.0 down to -1.0) where CCP uses purple, so the scale reads blue → red.
+ */
 export function securityColor(sec: number): string {
   const s = Math.round(sec * 10) / 10;
   if (s >= 1.0) return "#2c75e1";
@@ -22,7 +25,7 @@ export function securityColor(sec: number): string {
   if (s >= 0.3) return "#ce440f";
   if (s >= 0.2) return "#bb1116";
   if (s > 0.0) return "#731f1f";
-  return "#8f2f69";
+  return "#d0342c";
 }
 
 /** EVE rounds security for display: 0.05 → 0.1, but anything in (0, 0.05) shows as 0.0. */

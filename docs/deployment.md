@@ -89,20 +89,34 @@ IP. Caddy can only obtain a certificate once DNS resolves to the server — chec
    esi-corporations.read_divisions.v1
    esi-corporations.read_structures.v1
    esi-fleets.read_fleet.v1
+   esi-industry.read_character_jobs.v1
    esi-industry.read_character_mining.v1
    esi-industry.read_corporation_mining.v1
    esi-mail.read_mail.v1
+   esi-skills.read_skillqueue.v1
+   esi-skills.read_skills.v1
+   esi-universe.read_structures.v1
    esi-wallet.read_character_wallet.v1
    esi-wallet.read_corporation_wallets.v1
    ```
 
    Keystar only ever asks members for the scopes its enabled modules need; corporation scopes are requested only when
-   a director links a character with "corporation access", and the wallet, mail and fleet scopes only when a pilot enables
-   wallet import for a character in the mining P&L, mail for a character on the EVE Mail page or fleet access for a
-   character on the Live fleet page. (The login page also shows this exact list while SSO is not configured yet.)
+   a director links a character with "corporation access", and the wallet, mail, fleet, skills and industry scopes
+   only when a pilot enables wallet import for a character in the mining P&L, mail for a character on the EVE Mail
+   page, fleet access for a character on the Live fleet page, skill sharing on the Skills access page or industry
+   access on the Industry access page. (The login page also shows this exact list while SSO is not configured yet.)
 5. Save and keep the **Client ID** and **Secret Key** for the next step.
 
-When future modules (skills, assets) are added, add their scopes to the application as well.
+When future modules (assets) are added, add their scopes to the application as well.
+
+> **Upgrading to the release with industry jobs (see the CHANGELOG):** add `esi-industry.read_character_jobs.v1` and
+> `esi-universe.read_structures.v1` to the EVE application. Without them, "Enable industry access" on the Industry
+> access page fails at the EVE login with `invalid_scope`. Nobody is asked for the scopes unless they enable industry
+> access themselves; the structures scope names the player structures jobs run in (only those the character may dock at).
+
+> **Upgrading to the release with skill queues (see the CHANGELOG):** add `esi-skills.read_skillqueue.v1` and
+> `esi-skills.read_skills.v1` to the EVE application. Without them, "Share skills" on the Skills access page fails at
+> the EVE login with `invalid_scope`. Nobody is asked for the scopes unless they share their skills themselves.
 
 > **Upgrading to the release with EVE Mail (see the CHANGELOG):** add `esi-mail.read_mail.v1` to the EVE application.
 > Without it, "Enable mail" on the EVE Mail page fails at the EVE login with `invalid_scope`. Nobody is asked for the
@@ -276,6 +290,18 @@ The login page then offers one-click sign-in for every role. Never enable demo m
 signing in without EVE SSO. `demo-seed` refuses to run if real users exist.
 
 ## Troubleshooting
+
+Start with **Administration → System Info** (admins): its health checks catch the most common problems below, and
+**Report an issue** walks you through a bug report with a support package that contains no pilot or corporation
+data. If the web app doesn't start, create the package from the command line:
+
+```bash
+docker compose run --rm --no-deps -T worker node dist/support.mjs > keystar-support.json
+```
+
+The support package contains no pilot or corporation data. Logs do: `docker compose logs` output carries character
+and corporation IDs and can name pilots, corporations, systems and your server. Replace those before posting logs in
+a GitHub issue, since issues are public.
 
 | Symptom                                               | Fix                                                                                               |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------- |

@@ -31,6 +31,10 @@ export const core: typeof en = {
       label: "Syncs auslösen",
       description: "Einen ESI-Sync-Job zur sofortigen Ausführung einreihen.",
     },
+    systemView: {
+      label: "Systeminfo ansehen",
+      description: "Den technischen Zustand dieser Instanz sehen und das Supportpaket für Fehlerberichte herunterladen.",
+    },
   },
   scopes: {
     corporationRoles:

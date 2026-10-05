@@ -12,6 +12,7 @@ import { SubmitButton, SwitchButton } from "@/modules/mining/pnl/components/form
 import { PnlTabs } from "@/modules/mining/pnl/components/pnl-tabs";
 import { pnlQueryString } from "@/modules/mining/pnl/filters";
 import { pnlPageContext } from "@/modules/mining/pnl/page-context";
+import { INCOME_SOURCES } from "@/modules/mining/pnl/scope";
 import { getMinedTypes, getPriceRules, getSaleHints, getWalletStatus, HINT_DAYS, hintRange } from "@/modules/mining/pnl/queries";
 import { WALLET_SCOPE } from "@/modules/wallet/module";
 import {
@@ -20,7 +21,9 @@ import {
   deletePriceRule,
   deleteWalletData,
   setAutoInclude,
+  setAutoIncludeSales,
   setIncomeRate,
+  setIncomeSource,
 } from "../actions";
 import { setOptionalScope } from "@/app/(app)/characters/actions";
 
@@ -98,8 +101,8 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
                         : w.lastSuccessAt
                           ? m.wallet.noTransactions(f.relativeTime(w.lastSuccessAt))
                           : m.wallet.firstImport
-                      : w.transactions > 0
-                        ? m.wallet.kept(w.transactions)
+                      : w.transactions + w.fees > 0
+                        ? m.wallet.kept(w.transactions + w.fees)
                         : m.wallet.nothing}
                     {w.granted && w.lastStatus === "error" && w.lastError ? ` · ${w.lastError}` : ""}
                   </p>
@@ -116,6 +119,11 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
                   {w.granted && (
                     <form action={setAutoInclude.bind(null, w.characterId, !w.autoInclude)}>
                       <SwitchButton on={w.autoInclude} label={m.wallet.autoCount} />
+                    </form>
+                  )}
+                  {w.granted && (
+                    <form action={setAutoIncludeSales.bind(null, w.characterId, !w.autoIncludeSales)}>
+                      <SwitchButton on={w.autoIncludeSales} label={m.wallet.autoCountSales} />
                     </form>
                   )}
                   {w.granted || w.switchedOff ? (
@@ -146,7 +154,7 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
                       <Wallet className="size-3.5" aria-hidden /> {m.wallet.enable}
                     </ButtonLink>
                   )}
-                  {!w.granted && w.transactions > 0 && (
+                  {!w.granted && w.transactions + w.fees > 0 && (
                     <ActionForm
                       action={deleteWalletData.bind(null, w.characterId)}
                       success={m.wallet.toast.deleted(w.name)}
@@ -166,13 +174,33 @@ export default async function PnlSettingsPage({ searchParams }: PageProps<"/mini
         <ul className="mt-4 list-disc space-y-1 pl-4 text-xs text-ink-3">
           <li>{m.wallet.notes.enable()}</li>
           <li>{m.wallet.notes.autoCount}</li>
+          <li>{m.wallet.notes.autoCountSales}</li>
           <li>{m.wallet.notes.stop}</li>
         </ul>
       </Panel>
 
       <div className="grid gap-4 2xl:grid-cols-12">
-        <Panel className="2xl:col-span-4" title={m.income.title} subtitle={m.income.base(ctx.valuationLabel)}>
-          <form action={setIncomeRate} className="space-y-3">
+        <Panel className="2xl:col-span-4" title={m.income.title}>
+          <form action={setIncomeSource} className="space-y-3">
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-xs text-ink-3">{m.income.source.label}</legend>
+              {INCOME_SOURCES.map((source) => (
+                <label key={source} className="flex cursor-pointer items-start gap-2 text-sm text-ink">
+                  <input type="radio" name="source" value={source} defaultChecked={ctx.incomeSource === source} className="mt-1 accent-current" />
+                  <span>
+                    <span className="block">{m.income.source.options[source]}</span>
+                    <span className="block text-xs text-ink-3">{m.income.source.hints[source]}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <SubmitButton variant="primary">{m.income.save}</SubmitButton>
+          </form>
+          <form action={setIncomeRate} className="mt-5 space-y-3 border-t border-surface-contrast/8 pt-4">
+            <div>
+              <div className="eve-label text-2xs text-ink-3">{m.income.valuation}</div>
+              <p className="text-xs text-ink-3">{m.income.base(ctx.valuationLabel)}</p>
+            </div>
             <label className="block space-y-1 text-xs text-ink-3">
               {m.income.share}
               <span className="flex items-center gap-2">

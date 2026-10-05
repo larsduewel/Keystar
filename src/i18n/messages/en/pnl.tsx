@@ -1,23 +1,26 @@
 import type { ReactNode } from "react";
 import type { DateBucket } from "@/lib/dates";
 import { FORMATTERS } from "@/lib/format";
-import type { ExpenseCategory, ExpenseStatus } from "@/modules/mining/pnl/categories";
+import type { ExpenseCategory, ExpenseStatus, FeeKind, IncomeCategory } from "@/modules/mining/pnl/categories";
 import type { StatusFilter } from "@/modules/mining/pnl/filters";
+import type { IncomeSource } from "@/modules/mining/pnl/scope";
 
 const n = FORMATTERS.en.integer;
 const plural = (count: number, one: string, many: string) => `${n(count)} ${count === 1 ? one : many}`;
 
-/** Mining P&L: overview, expense review and settings (wallet import, income valuation, ore prices). */
+/** Mining P&L: overview, income and expense review, and settings (wallet import, income basis, ore prices). */
 export const pnl = {
   title: "Mining P&L",
   metaTitle: {
     overview: "Mining P&L",
+    income: "Mining P&L · Income",
     expenses: "Mining P&L · Expenses",
     settings: "Mining P&L · Settings",
   },
   tabs: {
     label: "Mining P&L",
     overview: "Overview",
+    income: "Income",
     expenses: "Expenses",
     settings: "Settings",
   },
@@ -36,10 +39,18 @@ export const pnl = {
     fuel: { label: "Fuel", hint: "Heavy Water for Orca / Rorqual industrial cores" },
     bursts: { label: "Burst charges", hint: "Mining Foreman burst charges" },
     drones: { label: "Mining drones", hint: "Mining, ice and excavator drones" },
-    ships: { label: "Ships & fittings", hint: "Mining hulls, mining modules, rigs, compressors" },
+    ships: { label: "Ships & fittings", hint: "Mining hulls, mining modules, rigs, compressors, industrial cores" },
+    fees: { label: "Broker fees", hint: "Broker fees from your wallet journal" },
     subscription: { label: "PLEX / Omega", hint: "Game time for mining alts" },
     other: { label: "Other", hint: "Anything else you count as a mining cost" },
   } satisfies Record<ExpenseCategory, { label: string; hint: string }>,
+  incomeCategories: {
+    ore: { label: "Ore & minerals", hint: "Asteroid ore, raw or compressed, and minerals" },
+    moon: { label: "Moon ore & materials", hint: "Moon ore, raw or compressed, and moon materials" },
+    ice: { label: "Ice & ice products", hint: "Ice, raw or compressed, and ice products" },
+    gas: { label: "Gas", hint: "Gas clouds, raw or compressed" },
+    other: { label: "Other", hint: "Anything else you count as mining income" },
+  } satisfies Record<IncomeCategory, { label: string; hint: string }>,
   statuses: {
     counted: { label: "Counted", hint: "Included in your expenses" },
     suggested: { label: "Suggested", hint: "Tagged as a mining cost, waiting for you to include it" },
@@ -53,9 +64,23 @@ export const pnl = {
     excluded: "Excluded",
     untagged: "Other purchases",
   } satisfies Record<StatusFilter, string>,
+  saleStatuses: {
+    counted: { label: "Counted", hint: "Included in your income" },
+    suggested: { label: "Suggested", hint: "Tagged as mining income, waiting for you to include it" },
+    excluded: { label: "Excluded", hint: "You excluded it" },
+    untagged: { label: "Other sales", hint: "Not recognised as mining income; tag it to count it" },
+  } satisfies Record<ExpenseStatus, { label: string; hint: string }>,
+  saleStatusFilters: {
+    mining: "Mining sales",
+    suggested: "Suggested",
+    counted: "Counted",
+    excluded: "Excluded",
+    untagged: "Other sales",
+  } satisfies Record<StatusFilter, string>,
   spread: (days: number) => (days === 1 ? "One day" : `${n(days)} days`),
   hours: (value: string) => `${value} h`,
   accountWide: "Account-wide entries",
+  typeFallback: (id: number) => `Type ${id}`,
   characterFallback: (id: number) => `Character ${id}`,
   switch: { on: "On", off: "Off" },
 
@@ -84,6 +109,8 @@ export const pnl = {
         `${income} income − ${expenses} expenses${margin ? ` · ${margin} margin` : ""}`,
       income: "Income",
       rate: (percent: string) => `${percent} of valuation`,
+      fromSales: (count: number, mined: string) => `${plural(count, "wallet sale", "wallet sales")} · ${mined} mined`,
+      salesSuggested: (count: number, amount: string) => `${n(count)} sales suggested (${amount})`,
       rules: (count: number) => plural(count, "price rule", "price rules"),
       expenses: "Expenses",
       suggested: (count: number, amount: string) => `${n(count)} suggested (${amount})`,
@@ -105,7 +132,7 @@ export const pnl = {
       subtitle: "Counted purchases and manual entries",
       review: "Review",
       empty: "No expenses counted in this period.",
-      split: "Wallet purchases · manual entries",
+      split: "Wallet · manual entries",
       walletOff: (enable: ReactNode) => (
         <>Wallet import is off for all your characters. {enable} to pick up crystals, fuel, burst charges, drones and hulls you buy.</>
       ),
@@ -140,11 +167,19 @@ export const pnl = {
           {base ? ` At the plain dashboard value it would be ${base}.` : ""}
         </>
       ),
+      incomeSales: (mined: string) => (
+        <>
+          <b className="text-ink">Income</b> is what the wallet sales you counted brought in (ore, minerals, moon
+          materials, ice products and gas) after their sales tax, on the day of the sale. The ore mined in this period is worth {mined} at the
+          valuation; ISK per hour still values the mined ore.
+        </>
+      ),
       expenses: () => (
         <>
           <b className="text-ink">Expenses</b> are wallet purchases you counted (or that are counted automatically for
           characters where you switched that on) plus manual entries; spread entries are divided evenly over their days.
-          Trades between your own characters don&apos;t count.
+          When income comes from wallet sales, the broker fees you include come from the wallet journal (sales tax is
+          deducted from the sales instead). Trades between your own characters don&apos;t count.
         </>
       ),
       iskPerHour: (wallClock: string, characterHours: string, since: string | null, share: string) => (
@@ -153,7 +188,7 @@ export const pnl = {
           ±15 min per session). Characters mining at the same time count once ({wallClock} wall-clock, {characterHours}{" "}
           character hours).{" "}
           {since
-            ? `Tracked since ${since}; covers ${share} of this period's income.`
+            ? `Tracked since ${since}; covers ${share} of the ore mined in this period (by value).`
             : "Tracking starts with the next ledger sync; earlier mining has no activity data."}
         </>
       ),
@@ -163,6 +198,60 @@ export const pnl = {
           {unpriced > 0 ? ` ${plural(unpriced, "ledger row has", "ledger rows have")} no price yet and count as 0 ISK.` : ""}
         </>
       ),
+    },
+  },
+
+  income: {
+    description: "Decide which wallet sales were mining income: ore, minerals, moon materials, ice products and gas.",
+    minedNotice: (settings: ReactNode) => (
+      <>Income is currently the value of the ore you mine, so these sales don&apos;t count yet. {settings} to count them instead.</>
+    ),
+    switchToSales: "Switch to wallet sales",
+    sales: {
+      salesTax: {
+        none: "No sales tax imported for these sales.",
+        counted: (amount: string, count: number) =>
+          `Sales tax: ${amount} deducted from ${plural(count, "counted sale", "counted sales")}.`,
+        pending: (amount: string) => ` ${amount} more on sales you haven't reviewed yet, deducted once you include them.`,
+      },
+      columns: { tax: "Sales tax" },
+      net: (amount: string) => `net ${amount}`,
+      title: "Wallet sales",
+      subtitle: "Auto-tagged by item group: ore (raw or compressed), minerals, moon materials, ice products and gas",
+      includeAll: (count: number) => `Include all ${n(count)} suggested`,
+      includeAllHint: "Count every suggested sale in this period",
+      walletOff:
+        "Wallet import is off for all your characters. Turn it on per character to have ore and mineral sales suggested here; nothing counts until you include it (or switch on automatic counting for that character).",
+      enableWallet: "Enable wallet import",
+      statusNav: "Sale status",
+      empty: "No sales here for this period.",
+      notMiningIncome: "Not mining income",
+      includeHint: "Count this sale as mining income",
+      excludeHint: "Exclude: not mining income",
+      page: (page: number, pages: number, total: number) => `Page ${n(page)} of ${n(pages)} · ${plural(total, "sale", "sales")}`,
+      footer: (back: ReactNode) => (
+        <>
+          Market sales from your imported wallets. Trades between your own characters don&apos;t count. {back}
+        </>
+      ),
+    },
+    flows: {
+      title: "Mined vs sold",
+      subtitle: "Per ore, in raw units: compressed ore counts 1:1, it only takes less room",
+      summary: (sold: string, atValuation: string | null, left: string, volume: string) =>
+        `Sold for ${sold}${atValuation ? ` (${atValuation} at the valuation)` : ""} · ${left} still unsold at today's valuation (${volume} uncompressed)`,
+      columns: {
+        ore: "Ore",
+        mined: "Mined",
+        sold: "Sold",
+        left: "Left",
+        got: "You got / unit",
+        valuation: "Valuation / unit",
+        isk: "Sold for",
+      },
+      compressed: (share: string) => `${share} compressed`,
+      notes:
+        "Left below zero means you sold ore mined before this period. Sales you excluded and trades between your own characters don't count; only market sales are matched. Gas isn't matched to its compressed variant.",
     },
   },
 
@@ -201,6 +290,24 @@ export const pnl = {
       newer: "Newer",
       older: "Older",
     },
+    fees: {
+      title: "Broker fees",
+      subtitle: "Charged when you place or change a market order, from your wallet journal",
+      columns: { description: "Fee" },
+      kinds: { transaction_tax: "Sales tax", brokers_fee: "Broker fee" } satisfies Record<FeeKind, string>,
+      time: (time: string) => `${time} EVE`,
+      empty: "No broker fees here for this period.",
+      includeAll: (count: number) => `Include all ${n(count)} broker fees`,
+      includeAllHint: "Count every suggested broker fee in this period",
+      includeHint: "Count this broker fee as a mining cost",
+      excludeHint: "Exclude: not a mining order",
+      page: (page: number, pages: number, total: number) =>
+        `Page ${n(page)} of ${n(pages)} · ${plural(total, "broker fee", "broker fees")}`,
+      notes:
+        "ESI doesn't say which order a broker fee was for, so the journal's own description is all there is; they only count once you include them. Sales tax isn't listed here: it is deducted from the sale it was paid on (Income tab).",
+      minedNote:
+        "Income is currently the value of the ore you mine, so broker fees don't count; your income rate covers them. They count once income comes from wallet sales (Settings → Income).",
+    },
     add: {
       title: "Add a cost",
       subtitle: "PLEX / Omega for alts, contracts, anything ESI can't see",
@@ -230,10 +337,10 @@ export const pnl = {
   },
 
   settings: {
-    description: "Wallet import per character, how ore income is valued, and what you really sell for.",
+    description: "Wallet import per character, how income is counted, and what you really sell for.",
     wallet: {
       title: "Wallet import",
-      subtitle: "Optional and per character. Keystar then reads that character's market purchases and sales; only you see them.",
+      subtitle: "Optional and per character. Keystar then reads that character's market purchases and sales and the taxes and fees paid on them; only you see them.",
       revoked: "Token revoked",
       on: "Wallet import on",
       off: "Wallet import off",
@@ -241,12 +348,13 @@ export const pnl = {
         `${plural(count, "transaction", "transactions")} since ${since} · synced ${synced}`,
       noTransactions: (synced: string) => `No market transactions in the last 30 days · synced ${synced}`,
       firstImport: "First import within a few minutes",
-      kept: (count: number) => `${plural(count, "imported transaction", "imported transactions")} kept`,
+      kept: (count: number) => `${plural(count, "imported wallet entry", "imported wallet entries")} kept`,
       nothing: "Nothing imported",
       activitySince: (date: string) => `Mining activity measured since ${date}`,
       activityNext: "Mining activity is measured from the next ledger sync",
       activityNone: "No mining ledger access: activity can't be measured",
       autoCount: "Count tagged purchases automatically",
+      autoCountSales: "Count tagged sales automatically",
       enable: "Enable wallet import",
       stop: "Stop wallet import",
       demo: "Not available in demo mode",
@@ -272,11 +380,25 @@ export const pnl = {
         ),
         autoCount:
           "“Count tagged purchases automatically” is off by default: purchases tagged as mining costs are only suggested until you include them. Switch it on for characters that buy for mining only; you can still exclude single purchases.",
+        autoCountSales:
+          "“Count tagged sales automatically” works the same for sales of ore, minerals, moon materials, ice products and gas. It only matters when income comes from wallet sales.",
         stop: "Stopping switches wallet import off in Keystar right away; re-authorise the character on My Characters to remove the scope from its EVE token too. Imported history is kept until you delete it.",
       },
     },
     income: {
-      title: "Income valuation",
+      title: "Income",
+      source: {
+        label: "Count income from",
+        options: {
+          mined: "Value of the ore you mine",
+          sales: "Your wallet sales",
+        } satisfies Record<IncomeSource, string>,
+        hints: {
+          mined: "When you mine it, at the valuation below. Works without wallet import.",
+          sales: "When you sell it, at the price you got. Review the sales on the Income tab.",
+        } satisfies Record<IncomeSource, string>,
+      },
+      valuation: "Valuation of mined ore",
       base: (valuation: string) => `Base: ${valuation}`,
       share: "Share of the valuation you actually get",
       hint: "E.g. 90 if you sell to a buyback at 90% of Jita buy. Ores with a price rule use that price instead.",

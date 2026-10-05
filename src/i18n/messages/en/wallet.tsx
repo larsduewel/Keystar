@@ -19,6 +19,7 @@ export const wallet = {
     },
     jobs: {
       transactions: "Wallet transactions",
+      fees: "Wallet taxes and fees",
       corporationWallets: "Corporation wallets",
       corporationDivisions: "Wallet division names",
     },

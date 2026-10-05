@@ -1,9 +1,7 @@
-import { CHART_CLASS_COLOR } from "../class-colors";
-
 /**
- * Income bars reuse the validated resource colours; expenses take the neutral
- * slate slot and grow downwards, and net is a neutral ink line, so the P&L
- * introduces no new hues.
+ * Income bars are green and grow upwards, expenses are red and grow downwards, and net is a neutral ink line.
+ * Income/expenses is a polarity pair with its own validated tokens (globals.css), not resource colours.
  */
-export const EXPENSE_COLOR = CHART_CLASS_COLOR.other;
+export const INCOME_COLOR = "var(--series-income)";
+export const EXPENSE_COLOR = "var(--series-expense)";
 export const NET_COLOR = "var(--series-net)";

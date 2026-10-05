@@ -17,6 +17,8 @@ Status: ✅ done · 🚧 in progress · 📝 planned · 💡 idea
 
 - ✅ EVE SSO login (OAuth2 + PKCE, JWT validation), multiple characters per account
 - ✅ ESI token management ("ESI keys"): encrypted refresh tokens, scope tracking, re-authorisation, shareable `/join` registration link
+- 💡 Admin setting to only let characters from the home corporation or alliance register: the `/join` link and EVE
+  login turn everyone else away
 - ✅ Keystar roles: Admin, Director, Contributor, Viewer, Member, Guest — with a per-permission override matrix
 - ✅ Background sync worker: ESI caching (ETag/Expires), pagination, error-limit and rate-limit back-off, compatibility date
 - ✅ Member audit: in-game roster vs registered characters, missing/revoked ESI
@@ -46,6 +48,15 @@ Status: ✅ done · 🚧 in progress · 📝 planned · 💡 idea
 - 💡 Mining P&L: recurring manual costs (monthly Omega), contract import for buyback sales
 - 💡 Mining tax / buyback calculations per member
 - 💡 Moon extraction timers (`/corporation/{id}/mining/extractions`, Station_Manager)
+
+## Industry
+
+- ✅ **Industry jobs** of your own characters: manufacturing, ME/TE research, copying, invention and reactions with
+  progress, time left and end time; filters for state, character, activity, system and station; stations and
+  docking-accessible structures named; opt-in per character on the Industry access page
+- 💡 Corporation industry jobs (`esi-industry.read_corporation_jobs.v1`, Factory Manager) for directors
+- 💡 Job cost and output value, profit per job from Jita prices
+- 💡 Live alert when a job is ready to deliver
 
 ## Combat
 
@@ -122,11 +133,13 @@ character, so it lives in one module.
 
 ## Planned modules
 
-### 📝 Skills & corporation skill plans
+### 🚧 Skills & corporation skill plans
 
-- Character skills and queues (`esi-skills.read_skills.v1`, `esi-skills.read_skillqueue.v1`).
-- Corporation skill plans: define plans/doctrines, see who can fly what and what is missing.
-- Training progress and queue-empty warnings.
+- ✅ **Skill queues** (opt-in per character, `esi-skills.read_skillqueue.v1`, `esi-skills.read_skills.v1`): skill in
+  training with progress, finish time of every queued skill and of the whole queue, paused/empty/ending-soon
+  warnings, attributes and remap availability; own characters, plus a corporation view for directors
+- 💡 Remap optimiser: the attribute remap (yearly or bonus) that finishes the current queue fastest
+- 💡 Corporation skill plans: paste a plan copied from the game, see which members have it trained and what is missing
 
 ### 📝 Assets / inventory
 
@@ -137,6 +150,39 @@ character, so it lives in one module.
 
 - 🚧 Personal wallets per character (`esi-wallet.read_character_wallet.v1`): opt-in transaction import exists (used
   by the mining P&L); journal, balances and a wallet page are still to come.
+- 📝 Wallet page like the corporation wallets: balance per character, journal and market transactions, income /
+  expenses / net per day, week and month, categories and counterparties, and a long-term archive beyond ESI's ~30 days
+- 📝 Opt-in per character on the ESI access page; works for every registered character, including alts outside the
+  corporation; private to the account
+- 💡 Combined view across all of an account's characters, with transfers between your own characters kept out of
+  income and expenses
+
+### 📝 Industry jobs
+
+- Manufacturing, research, copying, invention and reaction jobs with progress, finish time and ready-to-deliver
+  status (opt-in per character, `esi-industry.read_character_jobs.v1`)
+- Several characters per account, including alts outside the corporation; private to the account
+- Corporation jobs for directors and factory managers (`esi-industry.read_corporation_jobs.v1`)
+- 💡 Slot usage per character (manufacturing / science / reactions) and "job finished" notifications
+
+### 🚧 Wormhole navigator
+
+A shared, Pathfinder-style map of the corporation's wormhole chain.
+
+- 🚧 Chain map and system lookup (class, effects, statics), wormhole lifetime and mass tracking
+  ([#32](https://github.com/Theragus/Keystar/pull/32))
+- 💡 Auto-mapping from character locations (`esi-location.read_location.v1`), signature paste, route through the
+  chain to k-space, kills in the chain from zKillboard
+
+### 💡 Jump planner
+
+Route planning for ships with a jump drive.
+
+- Jump range per hull and Jump Drive Calibration level, with a range map around a start system
+- Several ship types: black ops, jump freighters, Rorquals, carriers, dreadnoughts, force auxiliaries, supercarriers
+  and titans, each with its racial isotope fuel
+- Fuel per jump and per route (Jump Fuel Conservation, Jump Freighters skill) with an approximate ISK cost from Jita
+  prices; midpoint stops and an estimate of jump fatigue
 
 ## Platform ideas
 
