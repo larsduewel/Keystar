@@ -6,6 +6,10 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+### Changed
+- **Jump Range ship classes.** Expand ship classes to cover command carriers, supercapitals, force auxiliaries, lancer dreadnoughts and Rorquals.
+- **Travel Check system inputs.** Use the Threat Intel system picker, including keyboard selection, region names and security status.
+
 ## [0.14.0] - 2026-10-05
 
 ### Upgrade notes

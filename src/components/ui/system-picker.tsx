@@ -31,11 +31,17 @@ export function SystemPicker({
   defaultValue = "",
   placeholder,
   className,
+  onSelect,
+  onValueChange,
+  ariaLabel,
 }: {
   name: string;
   defaultValue?: string;
   placeholder?: string;
   className?: string;
+  onSelect?: (option: SystemOption) => void;
+  onValueChange?: (value: string) => void;
+  ariaLabel?: string;
 }) {
   const { t } = useI18n();
   const s = t.common.systemPicker;
@@ -61,6 +67,7 @@ export function SystemPicker({
 
   const pick = (option: SystemOption) => {
     setValue(option[1]);
+    onSelect?.(option);
     setOpen(false);
   };
 
@@ -77,7 +84,10 @@ export function SystemPicker({
       if (matches[active][1] !== value) {
         e.preventDefault();
         pick(matches[active]);
-      } else setOpen(false);
+      } else {
+        onSelect?.(matches[active]);
+        setOpen(false);
+      }
     } else if (e.key === "Escape" && showList) {
       e.preventDefault();
       setOpen(false);
@@ -106,6 +116,7 @@ export function SystemPicker({
     <div className="relative">
       <input
         name={name}
+        aria-label={ariaLabel}
         value={value}
         placeholder={placeholder}
         autoComplete="off"
@@ -119,6 +130,7 @@ export function SystemPicker({
         onBlur={() => setOpen(false)}
         onChange={(e) => {
           setValue(e.target.value);
+          onValueChange?.(e.target.value);
           setActive(0);
           setOpen(true);
         }}

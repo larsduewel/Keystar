@@ -24,8 +24,15 @@ for line in archive.open("mapStargates.jsonl"):
                   dest["stargateID"], pos["x"], pos["y"], pos["z"]])
 (target.parent / "map-gates.json").write_text(json.dumps(gates, separators=(",", ":")), encoding="utf8")
 dogma = {r["_key"]: r for line in archive.open("typeDogma.jsonl") for r in [json.loads(line)]}
+# Resolve the command-carrier representative from its SDE group rather than a fixed hull ID.
+groups = {r["_key"]: r.get("name", {}).get("en", "") for line in archive.open("groups.jsonl") for r in [json.loads(line)]}
+command_ids = [r["_key"] for line in archive.open("types.jsonl") for r in [json.loads(line)]
+               if groups.get(r.get("groupID"), "").lower() in ("command carrier", "command carriers") and r["_key"] in dogma
+               and any(a["attributeID"] == 867 for a in dogma[r["_key"]]["dogmaAttributes"])]
+if not command_ids:
+    raise ValueError("No command carrier jump-drive hull found in the SDE")
 bases = {name: next(a["value"] for a in dogma[type_id]["dogmaAttributes"] if a["attributeID"] == 867)
-         for name, type_id in [("carrier", 23911), ("freighter", 28844), ("blackops", 22436)]}
+         for name, type_id in [("carrier", 23911), ("freighter", 28844), ("blackops", 22436), ("supercapital", 23913), ("commandCarrier", min(command_ids))]}
 bonus = next(a["value"] / 100 for a in dogma[21611]["dogmaAttributes"] if a["attributeID"] == 870)
 restricted = [r["_key"] for line in archive.open("mapSolarSystems.jsonl") for r in [json.loads(line)]
               if r.get("regionID") == 10000070 or r.get("name", {}).get("en") == "Zarzakh"]

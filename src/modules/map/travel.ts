@@ -1,7 +1,8 @@
 import type { MapSystem } from "./model";
 /** Gate id, source system, destination system/gate, and local coordinates in metres. */
 export type MapGate = [number, number, number, number, number, number, number];
-export type JumpShip = "carrier" | "freighter" | "blackops";
+export const JUMP_SHIPS = ["carrier", "commandCarrier", "supercapital", "blackops", "freighter"] as const;
+export type JumpShip = typeof JUMP_SHIPS[number];
 export type JumpRules = { bases: Record<JumpShip, number>; calibrationBonus: number; restricted: number[] };
 export type GateKill = { id: number; time: string; gateId: number; destinationId: number; distanceKm: number | null; shipTypeId: number };
 export type GateCheck = { systemId: number; checkedAt: string; complete: boolean; missingPositions: number; kills: GateKill[] };

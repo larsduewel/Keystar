@@ -46,6 +46,8 @@ describe("jump ranges",()=>{
  const rules=JSON.parse(readFileSync("public/data/map-jump-rules.json","utf8")) as JumpRules;
  it("uses CCP hull ranges and the skill multiplier",()=>{
   expect(jumpRange(rules,"carrier",5)).toBe(7);expect(jumpRange(rules,"freighter",5)).toBe(10);expect(jumpRange(rules,"blackops",5)).toBe(8);
+  expect(jumpRange(rules,"commandCarrier",5)).toBe(7.5);expect(jumpRange(rules,"supercapital",5)).toBe(6);
+  expect(jumpRange(rules,"commandCarrier",0)).toBe(3.75);expect(jumpRange(rules,"supercapital",4)).toBe(5.4);
   expect(jumpRange(rules,"carrier",0)).toBe(3.5);expect(jumpRange(rules,"blackops",4)).toBe(7.2);
  });
  it("computes actual 3D distance and includes the range boundary",()=>{
