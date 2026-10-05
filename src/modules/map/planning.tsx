@@ -70,8 +70,8 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
  </Panel>
  <Panel title={m.jumpTitle} subtitle={m.rangeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2"><SystemSearch label={m.origin} systems={systems} value={source} onPick={s=>{setOrigin(s);if(s)onFocus(s);}}/>
-   <label className="text-xs text-ink-3">{m.ship}<select aria-label={m.ship} value={ship} onChange={e=>setShip(e.target.value as JumpShip)} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{JUMP_SHIPS.map(k=><option key={k} value={k}>{m[k]}{rules ? ` · ${f.number(jumpRange(rules,k,level),1)} ${m.lightYears}` : ""}</option>)}</select></label>
    <label className="text-xs text-ink-3">{m.calibration}<select aria-label={m.calibration} value={level} onChange={e=>setLevel(Number(e.target.value))} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
+   <label className="col-span-2 min-w-0 text-xs text-ink-3">{m.ship}<select aria-label={m.ship} value={ship} onChange={e=>setShip(e.target.value as JumpShip)} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{JUMP_SHIPS.map(k=><option key={k} value={k}>{m[k]}{rules ? ` · ${f.number(jumpRange(rules,k,level),1)} ${m.lightYears}` : ""}</option>)}</select></label>
   </div>
   <button className={`${button} my-3`} disabled={!rules||!source||!!originBlocked} onClick={()=>{if(source)onFocus(source);setShowRange(v=>!v);}}>{showRange?m.hideRange:m.showRange}</button>
   {originBlocked && <p className="text-xs text-warning">{m.originRestricted}</p>}
