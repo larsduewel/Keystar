@@ -7,7 +7,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 ## [Unreleased]
 
 ### Fork updates
-- **Route light particles.** Animate a glowing core with separate fading sparks and a departure pulse between route systems, while keeping the route guide faint. Respect reduced-motion settings.
+
+- **Route light particles.** Animate a glowing core with separate fading sparks and a departure pulse between route systems, while keeping the route guide faint. Respect reduced-motion settings. ([PR #11](https://github.com/larsduewel/Keystar/pull/11))
 - **Map planning beside the map.** Stack Travel Check and Jump Range to the left on desktop. Enter selects the best matching system, including special-space systems. Keep search suggestions above adjacent panels and cap long results lists with viewport-based scrolling.
 
 - **Upstream sync.** Import upstream main through 492118b (including releases 0.11.0–0.13.0), preserving the fork map, Azure deployments and account-based Codex review setup. Generate a combined schema update after the migrations already deployed in this fork.
