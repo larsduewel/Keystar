@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
-- Sync upstream through 2554510, preserving the fork’s map, travel checks, Skyhook windows and Azure deployment. Integrate mobile navigation, Market Orders, Gate Check, help and the remap optimiser with a migration for the fork’s existing database.
+- Sync upstream through 2554510, preserving the fork’s map, travel checks, Skyhook windows and Azure deployment. Integrate mobile navigation, Market Orders, Gate Check, help and the remap optimiser with a migration for the fork’s existing database. ([PR #22](https://github.com/larsduewel/Keystar/pull/22))
 
 ### Added
 
