@@ -8,6 +8,10 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
+- **Route security status.** Show each system’s security status beside its name in Travel Check results. ([PR #19](https://github.com/larsduewel/Keystar/pull/19))
+
+### Changed
+
 - **Gate attacker list.** Show each recorded attacker on a separate ship-and-character row and remove the Focus route button. ([PR #18](https://github.com/larsduewel/Keystar/pull/18))
 
 ## [0.17.0] - 2026-10-07
