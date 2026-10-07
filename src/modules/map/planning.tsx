@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/i18n/client";
 import { SystemPicker } from "@/components/ui/system-picker";
 import { Panel } from "@/components/ui/glass";
@@ -27,6 +27,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
  const [checks,setChecks]=useState<Record<number,GateCheck>>({}),[failed,setFailed]=useState<number[]>([]),[checking,setChecking]=useState(false),[checkVersion,setCheckVersion]=useState(0);
  const [origin,setOrigin]=useState<MapSystem|null>(null),[ship,setShip]=useState<JumpShip>("carrier"),[level,setLevel]=useState(5),[showRange,setShowRange]=useState(!!initialOriginId);
  const byId=useMemo(()=>new Map(systems.map(s=>[s[0],s])),[systems]);
+ const namePolls=useRef(0);
  const graph=useMemo(()=>gateGraph(gates),[gates]);
  const range=rules?jumpRange(rules,ship,level):0;
  const source=origin??systems.find(s=>s[0]===initialOriginId)??selected;
@@ -51,6 +52,14 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
   void Promise.all([worker(),worker()]).then(()=>{if(!controller.signal.aborted)setChecking(false);});
   return ()=>controller.abort();
  },[route,checkVersion]);
+ // Refresh cached evidence while the worker resolves names; do not repeatedly refetch zKillboard.
+ useEffect(()=>{namePolls.current=0;},[route]);
+ useEffect(()=>{
+  const missing=Object.values(checks).some(check=>routeGateKills(check,route).some(k=>(k.attackers??[]).some(a=>!check.characterNames?.[a.characterId]||(a.shipTypeId&&!check.shipNames?.[a.shipTypeId]))));
+  if(!missing||checking||namePolls.current>=12)return;
+  const timer=setTimeout(()=>{namePolls.current++;setCheckVersion(v=>v+1);},15000);
+  return ()=>clearTimeout(timer);
+ },[checks,route,checking]);
  const button="glass-chip rounded-md px-3 py-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40";
  return <div className="grid min-w-0 gap-3">
  <Panel className="relative z-20" title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
