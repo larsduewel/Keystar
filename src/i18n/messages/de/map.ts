@@ -45,7 +45,6 @@ export const map: typeof en = {
  originRestricted: "Sprungantriebe können in diesem System nicht genutzt werden.",
  noOrigin: "Wähle ein Ursprungssystem.",
  withinRange: "In Reichweite",
- viewRoute: "Route fokussieren",
  refreshCheck: "Torevidenz prüfen",
  dataError: "Kartendaten zur Planung konnten nicht geladen werden.",
  retryData: "Erneut versuchen",
