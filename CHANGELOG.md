@@ -10,8 +10,8 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Added
 
-- **Route-gate kill counts and smartbomb evidence.** Show the number of recorded kills at route gates and a bomb icon only for capsule killmails with recorded smartbomb damage. Resolve weapon groups through the shared background cache.
-- **2D/3D map views.** Switch projection from the Universe header while retaining route particles, gate-kill pulses, Skyhook highlights and focus animations. In 2D, drag to pan and right-drag to rotate; jump reach remains based on real 3D distances. Dim non-route systems and labels while Travel Check is active.
+- **Route-gate kill counts and smartbomb evidence.** Show the number of recorded kills at route gates and a bomb icon only for capsule killmails with recorded smartbomb damage. Resolve weapon groups through the shared background cache. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
+- **2D/3D map views.** Switch projection from the Universe header while retaining route particles, gate-kill pulses, Skyhook highlights and focus animations. In 2D, drag to pan and right-drag to rotate; jump reach remains based on real 3D distances. Dim non-route systems and labels while Travel Check is active. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
 - **Skyhook map filter.** Highlight systems with public current or upcoming raiding windows, with a scrollable system/planet list, opening and closing times, and explicit stale or unavailable data. Cache ESI windows and planet names in the worker.
 
 ### Changed
