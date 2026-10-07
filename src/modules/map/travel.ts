@@ -4,8 +4,8 @@ export type MapGate = [number, number, number, number, number, number, number];
 export const JUMP_SHIPS = ["carrier", "commandCarrier", "supercapital", "blackops", "freighter"] as const;
 export type JumpShip = typeof JUMP_SHIPS[number];
 export type JumpRules = { bases: Record<JumpShip, number>; calibrationBonus: number; restricted: number[] };
-export type GateKill = { id: number; time: string; gateId: number; destinationId: number; distanceKm: number | null; shipTypeId: number };
-export type GateCheck = { systemId: number; checkedAt: string; complete: boolean; missingPositions: number; kills: GateKill[] };
+export type GateKill = { id: number; time: string; gateId: number; destinationId: number; distanceKm: number | null; shipTypeId: number; attackers?: { characterId: number; shipTypeId: number | null }[] };
+export type GateCheck = { systemId: number; checkedAt: string; complete: boolean; missingPositions: number; kills: GateKill[]; shipNames?: Record<number,string>; characterNames?: Record<number,string> };
 export type MapOverlay = { route: number[]; risks: Record<number, "red" | "green" | "unknown">; inRange: number[]; range: number | null; originId: number | null };
 export const EMPTY_OVERLAY: MapOverlay = { route: [], risks: {}, inRange: [], range: null, originId: null };
 export function gateGraph(gates: readonly MapGate[]): Map<number, number[]> {
@@ -41,4 +41,12 @@ export function routeRisk(check: GateCheck | undefined, route: number[]): "red" 
  if(!check)return "unknown";
  if(routeGateKills(check,route).length)return "red";
  return check.complete && check.missingPositions===0 ? "green" : "unknown";
+}
+
+/** Latest observed hull per identified pilot, only from the supplied gate evidence. */
+export function observedFleet(kills: GateKill[]): {shipTypeId:number|null;count:number;characterIds:number[]}[] {
+ const pilots=new Map<number,number|null>();
+ for(const kill of [...kills].sort((a,b)=>Date.parse(b.time)-Date.parse(a.time)))for(const a of kill.attackers??[])if(!pilots.has(a.characterId))pilots.set(a.characterId,a.shipTypeId);
+ const groups=new Map<number|null,number[]>();for(const [id,hull] of pilots){const group=groups.get(hull)??[];group.push(id);groups.set(hull,group);}
+ return [...groups].map(([shipTypeId,characterIds])=>({shipTypeId,count:characterIds.length,characterIds:characterIds.sort((a,b)=>a-b)})).sort((a,b)=>b.count-a.count || (a.shipTypeId??Infinity)-(b.shipTypeId??Infinity));
 }

@@ -1,4 +1,5 @@
 export const map = {
+ unknownCharacter: "Unknown character", observedFleet: "Observed attacker ships", unknownShip: "Unknown ship", noAttackers: "No identified attackers recorded.", fleetHint: "Latest hull per pilot in these gate kills · current fleet unknown",
  region: "Region", allRegions: "All regions", regionLabels: "Region names", unknownRegion: "Unknown region",
  universe: "Universe",
  title: "Map", description: "Explore the EVE universe in 3D. Select a system to see its name and security status.",

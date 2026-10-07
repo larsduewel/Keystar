@@ -1,11 +1,12 @@
 "use client";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/i18n/client";
 import { SystemPicker } from "@/components/ui/system-picker";
 import { Panel } from "@/components/ui/glass";
 import type { MapSystem } from "./model";
 import { matchingSystems } from "./search";
-import { JUMP_SHIPS, distanceLy, gateGraph, jumpRange, routeGateKills, routeRisk, shortestRoute, systemsInRange, type GateCheck, type JumpRules, type JumpShip, type MapGate, type MapOverlay } from "./travel";
+import { JUMP_SHIPS, observedFleet, distanceLy, gateGraph, jumpRange, routeGateKills, routeRisk, shortestRoute, systemsInRange, type GateCheck, type JumpRules, type JumpShip, type MapGate, type MapOverlay } from "./travel";
 
 function SystemSearch({label,systems,value,onPick}:{label:string;systems:MapSystem[];value:MapSystem|null;onPick:(s:MapSystem|null)=>void}) {
  const { f }=useI18n();
@@ -17,7 +18,7 @@ function SystemSearch({label,systems,value,onPick}:{label:string;systems:MapSyst
  </div>;
 }
 
-export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOverlay}:{initialOriginId?:number|null;systems:MapSystem[];selected:MapSystem|null;onFocus:(s:MapSystem)=>void;onOverlay:(o:MapOverlay)=>void}) {
+export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRoute,onOverlay}:{initialOriginId?:number|null;systems:MapSystem[];selected:MapSystem|null;onFocus:(s:MapSystem)=>void;onRoute:(route:number[])=>void;onOverlay:(o:MapOverlay)=>void}) {
  const {t,f}=useI18n();const m=t.map;
  const [gates,setGates]=useState<MapGate[]>([]),[rules,setRules]=useState<JumpRules|null>(null);
  const [dataError,setDataError]=useState(false),[attempt,setAttempt]=useState(0);
@@ -54,15 +55,16 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onOve
  return <div className="grid min-w-0 gap-3">
  <Panel className="relative z-20" title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2">{([{name:"start",label:m.start,pick:setStart},{name:"end",label:m.end,pick:setEnd}] as const).map(field=><div key={field.name} className="min-w-0"><span className="mb-1 block text-xs text-ink-3">{field.label}</span><SystemPicker name={field.name} ariaLabel={field.label} className="w-full" onValueChange={text=>field.pick(systems.find(s=>s[1].toLowerCase()===text.trim().toLowerCase())??null)} onSelect={option=>field.pick(byId.get(option[0])??null)}/></div>)}</div>
-  <div className="my-3 flex flex-wrap items-center gap-2"><button className={button} disabled={!start||!end||!gates.length} onClick={()=>{if(!start||!end)return;const path=shortestRoute(graph,start[0],end[0]);setRouteError(!path);setChecking(!!path);setChecks({});setFailed([]);setRoute(path??[]);if(path)onFocus(start);}}>{m.plan}</button>{route.length>0 && <><span className="text-xs text-ink-2">{route.length-1} {m.jumps}</span><button className={button} disabled={checking} onClick={()=>{setChecking(true);setChecks({});setFailed([]);setCheckVersion(v=>v+1);}}>{m.refreshCheck}</button></>}</div>
+  <div className="my-3 flex flex-wrap items-center gap-2"><button className={button} disabled={!start||!end||!gates.length} onClick={()=>{if(!start||!end)return;const path=shortestRoute(graph,start[0],end[0]);setRouteError(!path);setChecking(!!path);setChecks({});setFailed([]);setRoute(path??[]);if(path)onRoute(path);}}>{m.plan}</button>{route.length>0 && <><span className="text-xs text-ink-2">{route.length-1} {m.jumps}</span><button className={button} onClick={()=>onRoute(route)}>{m.viewRoute}</button><button className={button} disabled={checking} onClick={()=>{setChecking(true);setChecks({});setFailed([]);setCheckVersion(v=>v+1);}}>{m.refreshCheck}</button></>}</div>
   {dataError && <button className="text-xs text-warning" onClick={()=>setAttempt(v=>v+1)}>{m.dataError} · {m.retryData}</button>}
   {routeError && <p className="text-xs text-warning">{m.noRoute}</p>}
   {checking && <p role="status" className="mb-2 text-xs text-ink-3">{m.checking} {Object.keys(checks).length+failed.length}/{route.length}</p>}
   {route.length>0 && <ol className="glass-inset max-h-[min(16rem,30vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg p-2 [scrollbar-gutter:stable]">{route.map((id,index)=>{
-   const check=checks[id],risk=routeRisk(check,route),kills=check?routeGateKills(check,route):[];
+   const check=checks[id],risk=routeRisk(check,route),kills=check?routeGateKills(check,route):[],fleet=observedFleet(kills);
    return <li key={id} className={`rounded-md p-2 text-xs ${risk==="red"?"bg-critical/10":risk==="green"?"bg-good/10":"bg-surface-contrast/5"}`}>
     <div className="flex flex-wrap justify-between gap-2"><button onClick={()=>{const s=byId.get(id);if(s)onFocus(s);}} className="font-medium text-ink">{index+1}. {byId.get(id)?.[1]??id}</button><span className={risk==="red"?"text-critical-text":risk==="green"?"text-good-text":"text-ink-3"}>{risk==="red"?m.nearGate:risk==="green"?m.clear:failed.includes(id)?m.checkFailed:check?m.unknown:m.notChecked}</span></div>
     {check && <p className="mt-1 text-2xs text-ink-3">{m.checked}: {f.relativeTime(check.checkedAt)}</p>}
+    {kills.length>0 && <div className="mt-2 border-t border-surface-contrast/10 pt-2"><h4 className="font-medium text-ink-2">{m.observedFleet}</h4><div className="mt-1 flex flex-wrap gap-1">{fleet.map(ship=><span key={ship.shipTypeId??"unknown"} className="glass-chip flex max-w-full flex-wrap items-center gap-1 rounded px-1.5 py-1 text-2xs text-ink-2">{ship.shipTypeId&&<Image unoptimized src={`https://images.evetech.net/types/${ship.shipTypeId}/icon?size=32`} alt="" width={16} height={16}/>} {f.integer(ship.count)}× {ship.shipTypeId?check?.shipNames?.[ship.shipTypeId]??`${m.unknownShip} (${ship.shipTypeId})`:m.unknownShip}<span className="basis-full break-words text-ink-3">{ship.characterIds.map((id,index)=><span key={id}>{index>0&&", "}<a href={`https://zkillboard.com/character/${id}/`} target="_blank" rel="noreferrer" className="hover:text-accent hover:underline">{check?.characterNames?.[id]??`${m.unknownCharacter} (${id})`}</a></span>)}</span></span>)}</div>{!fleet.length&&<p className="text-2xs text-ink-3">{m.noAttackers}</p>}<p className="mt-1 text-2xs text-ink-3">{m.fleetHint}</p></div>}
     {kills.map(k=><a key={k.id} href={`https://zkillboard.com/kill/${k.id}/`} target="_blank" rel="noreferrer" className="mt-1 block text-accent hover:underline">{m.killmail} {k.id} · {f.relativeTime(k.time)} · {m.gateTo} {byId.get(k.destinationId)?.[1]??k.destinationId} · {k.distanceKm===null?m.resolvedGate:`${f.number(k.distanceKm,1)} km`}</a>)}
    </li>;
   })}</ol>}

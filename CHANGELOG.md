@@ -6,6 +6,10 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+### Added
+
+- **Route overview and attacker composition.** Frame the entire travel route and orbit it slowly. Show deduplicated attacker ship counts and character names from recent route-gate killmails, with explicit unknown ships and current-fleet uncertainty.
+
 ## [0.16.0] - 2026-10-06
 
 ### Added

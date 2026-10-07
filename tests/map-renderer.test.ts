@@ -75,4 +75,19 @@ it("fits a selected region independently of distant systems in all space", () =>
  const a=hits.find(h=>h.system[0]===1)!, b=hits.find(h=>h.system[0]===2)!;
  expect(b.x-a.x).toBeCloseTo(560);expect(a.x).toBeGreaterThan(0);expect(b.x).toBeLessThan(1000);
  renderer.destroy();
+});it("centers and fits the entire route independently of a selected origin and distant systems", () => {
+ let callback: FrameRequestCallback = () => {};
+ vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{callback=cb;return 1;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"green"}));
+ vi.stubGlobal("ResizeObserver",class {observe(){} disconnect(){}});vi.stubGlobal("MutationObserver",class {observe(){} disconnect(){}});
+ vi.stubGlobal("Path2D",class {rect(){}moveTo(){}lineTo(){}});
+ const ctx={measureText:()=>({width:60}),setTransform(){},clearRect(){},fill(){},fillText(){},beginPath(){},arc(){},stroke(){}};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ let hits:{system:MapSystem;x:number;y:number}[]=[];
+ const renderer=createMapRenderer(canvas,[[1,"A",.8,-6,0,0,100],[2,"B",.8,6,0,0,100],[3,"Far",.8,1459,0,0,101]],{camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:1,query:"",labels:false,focusRoute:[1,2],format:String,onHits:rows=>{hits=rows;}});
+ callback(0);
+ const a=hits.find(h=>h.system[0]===1)!, b=hits.find(h=>h.system[0]===2)!;
+ expect(b.x-a.x).toBeCloseTo(560);expect(a.x).toBeGreaterThan(0);expect(b.x).toBeLessThan(1000);
+ renderer.destroy();
 });
