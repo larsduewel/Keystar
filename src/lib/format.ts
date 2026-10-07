@@ -77,7 +77,7 @@ export interface Formatter {
   percent(value: number, digits?: number): string;
   unitPrice(value: number): string;
   formatMetric(metric: Metric, value: number): string;
-  relativeTime(date: Date | string | null | undefined, now?: Date): string;
+  relativeTime(date: Date | string | null | undefined, now?: Date, style?: Intl.RelativeTimeFormatOptions["style"]): string;
   /** YYYY-MM-DD → "02 Oct" / "02. Okt.". */
   shortDate(date: string): string;
   /** YYYY-MM-DD (or a timestamp, taken in EVE time) → "02 Oct 2026" / "02.10.2026". */
@@ -127,12 +127,12 @@ export function createFormatter(locale: Locale): Formatter {
     percent: (value, digits = 1) => `${fixed(value * 100, digits)}${rules.percentSuffix}`,
     unitPrice: (value) => (value >= 1000 ? `${compact(value)} ISK` : `${fixed(value, 2)} ISK`),
     formatMetric: (metric, value) => (metric === "value" ? isk(value) : metric === "volume" ? volume(value) : compact(value)),
-    relativeTime(date, now = new Date()) {
+    relativeTime(date, now = new Date(), style = "long") {
       if (!date) return rules.never;
       const d = typeof date === "string" ? new Date(date) : date;
       const diff = (d.getTime() - now.getTime()) / 1000;
       const abs = Math.abs(diff);
-      const rtf = new Intl.RelativeTimeFormat(rules.relative, { numeric: "auto" });
+      const rtf = new Intl.RelativeTimeFormat(rules.relative, { numeric: "auto", style });
       if (abs < 45) return diff < 0 ? rules.justNow : rules.inAFewSeconds;
       if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
       if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");

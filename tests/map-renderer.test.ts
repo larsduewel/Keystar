@@ -91,3 +91,26 @@ it("fits a selected region independently of distant systems in all space", () =>
  expect(b.x-a.x).toBeCloseTo(560);expect(a.x).toBeGreaterThan(0);expect(b.x).toBeLessThan(1000);
  renderer.destroy();
 });
+it.each([false,true])("marks only red route waypoints and respects reduced motion (%s)",reduced=>{
+ let callback:FrameRequestCallback=()=>{};
+ const raf=vi.fn((cb:FrameRequestCallback)=>{callback=cb;return 1;});
+ vi.stubGlobal("requestAnimationFrame",raf);vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1,matchMedia:()=>({matches:reduced})});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"red"}));
+ vi.stubGlobal("ResizeObserver",class {observe(){}disconnect(){}});vi.stubGlobal("MutationObserver",class {observe(){}disconnect(){}});
+ vi.stubGlobal("Path2D",class {rect(){}moveTo(){}lineTo(){}});
+ const ctx={measureText:()=>({width:60}),setTransform(){},clearRect(){},fill(){},fillText(){},beginPath(){},arc:vi.fn(),stroke(){},save(){},restore(){},createRadialGradient:vi.fn((...args:number[])=>({radius:args[5],addColorStop:vi.fn()}))};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ let overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"red",2:"red"}} as typeof EMPTY_OVERLAY;
+ const renderer=createMapRenderer(canvas,[[1,"Route",.8,0,0,0],[2,"Other",.8,1,0,0]],{overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:null,query:"",labels:false,format:String,onHits:vi.fn()});
+ callback(0);
+ expect(ctx.createRadialGradient).toHaveBeenCalledTimes(1);expect(raf).toHaveBeenCalledTimes(reduced?1:2);
+ const firstRadius=ctx.createRadialGradient.mock.calls[0][5];
+ renderer.schedule();callback(1100);expect(ctx.createRadialGradient).toHaveBeenCalledTimes(2);
+ const secondRadius=ctx.createRadialGradient.mock.calls[1][5];
+ if(reduced)expect(secondRadius).toBe(firstRadius);else expect(secondRadius).toBeGreaterThan(firstRadius);
+ overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"green"}};renderer.schedule();callback(1200);
+ expect(ctx.createRadialGradient).toHaveBeenCalledTimes(2);
+ overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"unknown"}};renderer.schedule();callback(1300);
+ expect(ctx.createRadialGradient).toHaveBeenCalledTimes(2);renderer.destroy();
+});
