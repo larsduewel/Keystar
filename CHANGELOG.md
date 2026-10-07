@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
-- **Gate-kill waypoint pulse.** Add a red spherical pulse to route waypoints with recorded gate kills and shorten the result labels and killmail links, omitting IDs and abbreviating relative times. Reduced-motion mode shows a static halo.
+- **Gate-kill waypoint pulse.** Add a red spherical pulse to route waypoints with recorded gate kills and shorten the result labels and killmail links, omitting IDs and abbreviating relative times. Reduced-motion mode shows a static halo. ([PR #20](https://github.com/larsduewel/Keystar/pull/20))
 - **Route security status.** Show each system’s security status beside its name in Travel Check results. ([PR #19](https://github.com/larsduewel/Keystar/pull/19))
 
 ### Changed
