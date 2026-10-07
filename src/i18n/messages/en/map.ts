@@ -44,7 +44,6 @@ export const map = {
  originRestricted: "Jump drives cannot be used from this system.",
  noOrigin: "Select an origin system.",
  withinRange: "Within range",
- viewRoute: "Focus route",
  refreshCheck: "Check gate evidence",
  dataError: "Map planning data could not be loaded.",
  retryData: "Retry",
