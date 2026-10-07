@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "next dev",
-    "dev:worker": "node --env-file-if-exists=.env --import=tsx --watch src/worker/index.ts",
+    "dev:worker": "node --env-file=.env --import=tsx --watch src/worker/index.ts",
     "build": "next build && pnpm build:worker",
     "build:worker": "node scripts/build-worker.mjs",
     "start": "next start",
