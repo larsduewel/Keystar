@@ -7,8 +7,9 @@ import { assertPermission } from "@/core/auth/dal";
 import { disableOptionalScope, enableOptionalScope } from "@/core/auth/scope-switch";
 import { esiTokens, getDb, industryJobs, type Db } from "@/core/db";
 import { forgetCharacterEsiCache } from "@/core/esi";
+import { scopesToSwitchOff } from "@/core/modules/registry";
 import { ok, refused, type ActionResult } from "@/lib/action-result";
-import { INDUSTRY_PERMISSIONS, INDUSTRY_SCOPES } from "@/modules/industry/module";
+import { INDUSTRY_MANAGE_HREF, INDUSTRY_PERMISSIONS, INDUSTRY_SCOPES } from "@/modules/industry/module";
 
 export type IndustryAccessError = "forbidden" | "notOwned" | "notHeld";
 
@@ -29,7 +30,7 @@ async function lockOwnedCharacter(tx: Tx, characterId: number, userId: string): 
 /**
  * Switches industry access (both industry scopes together) off or back on in Keystar without an EVE login; see
  * core/auth/scope-switch.ts. Switching on only works while the token still holds both scopes, otherwise the page
- * links to the EVE login instead.
+ * links to the EVE login instead. Switching off keeps the structure scope while market access still uses it.
  */
 export async function setIndustryAccess(characterId: number, enabled: boolean): Promise<ActionResult<IndustryAccessError>> {
   const user = await assertPermission(INDUSTRY_PERMISSIONS.viewOwn).catch(() => null);
@@ -38,14 +39,15 @@ export async function setIndustryAccess(characterId: number, enabled: boolean): 
   try {
     await getDb().transaction(async (tx) => {
       await lockOwnedCharacter(tx, characterId, user.id);
-      await tx.select({ id: esiTokens.characterId }).from(esiTokens).where(eq(esiTokens.characterId, characterId)).for("update");
+      const [token] = await tx.select({ scopes: esiTokens.scopes }).from(esiTokens).where(eq(esiTokens.characterId, characterId)).for("update");
+      const scopes = enabled ? [...INDUSTRY_SCOPES] : scopesToSwitchOff(INDUSTRY_MANAGE_HREF, token?.scopes ?? []);
       const outcomes = [];
-      for (const scope of INDUSTRY_SCOPES) {
+      for (const scope of scopes) {
         outcomes.push(enabled ? await enableOptionalScope(characterId, scope, tx) : await disableOptionalScope(characterId, scope, tx));
       }
       // On: both scopes or neither. Off: a partly enabled character only holds one of them.
       if (enabled ? outcomes.some((o) => o !== "ok") : outcomes.every((o) => o !== "ok")) throw new NotHeld();
-      for (const scope of INDUSTRY_SCOPES) {
+      for (const scope of scopes) {
         await auditInTx(tx, {
           actorUserId: user.id,
           actorName: user.main?.name,
@@ -80,7 +82,9 @@ export async function deleteIndustryData(characterId: number): Promise<ActionRes
       await lockOwnedCharacter(tx, characterId, user.id);
       // The token lock waits for a sync that is writing, which then sees access off and won't write again.
       const [token] = await tx.select({ scopes: esiTokens.scopes }).from(esiTokens).where(eq(esiTokens.characterId, characterId)).for("update");
-      if (INDUSTRY_SCOPES.some((s) => token?.scopes.includes(s))) throw new StillEnabled();
+      // A structure scope that market access still uses doesn't count: it reads no industry jobs.
+      const granted = token?.scopes ?? [];
+      if (scopesToSwitchOff(INDUSTRY_MANAGE_HREF, granted).some((s) => granted.includes(s))) throw new StillEnabled();
       await tx.delete(industryJobs).where(eq(industryJobs.characterId, characterId));
       // The cached ESI copy is the same data, and would answer the next sync with "not modified".
       await forgetCharacterEsiCache(tx, characterId, `/characters/${characterId}/industry/`);

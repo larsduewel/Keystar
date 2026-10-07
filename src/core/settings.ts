@@ -67,6 +67,14 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<Settings
   return (parsed?.success ? parsed.data : SETTING_DEFAULTS[key]) as Settings[K];
 }
 
+/**
+ * Checks form input against a setting's schema, so an action can refuse it with
+ * an error code before it writes anything (`setSetting` throws on invalid values).
+ */
+export function isSettingValue<K extends SettingKey>(key: K, value: unknown): value is Settings[K] {
+  return settingSchemas[key].safeParse(value).success;
+}
+
 /** Pass `tx` to save the setting together with its audit entry (see `auditInTx`). */
 export async function setSetting<K extends SettingKey>(
   key: K,

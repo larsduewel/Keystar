@@ -1,7 +1,7 @@
 /**
  * Seeds a self-contained demo corporation (users of every role, ~120 days of
  * mining, two moon refineries, prices, a killboard, past fleets, threat-intel
- * scans, a mining P&L, skill queues and industry jobs) so Keystar can be explored without EVE SSO
+ * scans, a month of gate camps, a mining P&L, skill queues, industry jobs and market orders) so Keystar can be explored without EVE SSO
  * credentials. Requires KEYSTAR_DEMO_MODE=true to log in as demo users.
  *
  *   pnpm demo:seed            # refuses if real (non-demo) users exist
@@ -34,18 +34,21 @@ import {
 import { encryptToken } from "@/core/crypto";
 import { env } from "@/core/env";
 import { classifyOre, type OreClass } from "@/core/eve/ore";
-import { characterScopes, corporationScopes } from "@/core/modules/registry";
+import { corporationScopes } from "@/core/modules/registry";
 import type { Role } from "@/core/rbac/roles";
 import { setSetting } from "@/core/settings";
 import { KEYSTAR_VERSION } from "@/core/version";
 import { mulberry32 } from "@/lib/random";
 import { FLEET_SCOPE } from "@/modules/fleet/logic";
+import { MINING_LEDGER_SCOPE } from "@/modules/mining/module";
 import { generateSituationReport } from "@/modules/killboard/report/generate";
 import { runMigrations } from "@/scripts/migrate";
 import staticData from "./demo-data/eve-static.json";
 import { seedCorpWallet } from "./demo-data/corp-wallet";
 import { seedFleets } from "./demo-data/fleet";
+import { seedGatecheck } from "./demo-data/gatecheck";
 import { seedIndustry } from "./demo-data/industry";
+import { seedMarket } from "./demo-data/market";
 import { seedIntel } from "./demo-data/intel";
 import { seedKillboard } from "./demo-data/killboard";
 import { seedMiningPnl } from "./demo-data/pnl";
@@ -199,7 +202,7 @@ async function main() {
     mining_pnl_characters, mining_pnl_price_rules, mining_pnl_tx_overrides, mining_pnl_fee_overrides, mining_pnl_entries,
     corp_wallet_divisions, corp_wallet_balance_history, corp_wallet_journal, corp_wallet_transactions,
     corp_wallet_sync_state, mail_messages, mail_labels, mail_lists, skills_queue, skills_character_skills, skills_character, skills_type_attributes,
-    industry_jobs, industry_locations
+    industry_jobs, industry_locations, skills_implants, skills_implant_attributes, gatecheck_kills, gatecheck_feed, market_orders
     RESTART IDENTITY CASCADE`);
 
   // --- Static EVE data --------------------------------------------------
@@ -231,8 +234,9 @@ async function main() {
   let nextId = DEMO_CHARACTER_BASE + 1;
   const demoUserIds: Record<string, string> = {};
   const allChars: (DemoChar & { characterId: number; userId: string; role: Role })[] = [];
-  const memberScopes = characterScopes();
   const corpScopes = corporationScopes();
+  // Characters whose token shares the mining ledger (opt-in): only they get a ledger sync.
+  const sharesMining = new Set<number>();
 
   for (const [index, u] of DEMO_USERS.entries()) {
     const [user] = await db
@@ -255,11 +259,17 @@ async function main() {
       if (ci === 0) await db.update(users).set({ mainCharacterId: characterId }).where(sql`${users.id} = ${user.id}`);
 
       const isLeadership = u.role === "admin" || u.role === "director";
-      // Leadership mains also run fleets, so they have the opt-in fleet scope.
-      let scopes = isLeadership && ci === 0 ? [...corpScopes, FLEET_SCOPE] : memberScopes;
+      // Members share their mining ledger (opt-in); leadership mains also run fleets, so they have the fleet scope.
+      let scopes = isLeadership && ci === 0 ? [...corpScopes, MINING_LEDGER_SCOPE, FLEET_SCOPE] : [MINING_LEDGER_SCOPE];
+      let disabledScopes: string[] = [];
       let status: "active" | "invalid" = "active";
       let lastError: string | null = null;
-      if (index === 5) scopes = scopes.filter((s) => !s.includes("mining")); // a member missing the mining scope
+      if (index === 5) {
+        // A member who switched the mining ledger off: the token still holds it, the history stays until deleted.
+        scopes = scopes.filter((s) => s !== MINING_LEDGER_SCOPE);
+        disabledScopes = [MINING_LEDGER_SCOPE];
+      }
+      if (scopes.includes(MINING_LEDGER_SCOPE)) sharesMining.add(characterId);
       if (c.name === "Vasko Hollowpoint") {
         status = "invalid";
         lastError = "SSO token request failed: Invalid refresh token. Token missing/expired.";
@@ -268,6 +278,7 @@ async function main() {
         characterId,
         refreshTokenEnc: encryptToken("demo-refresh-token"),
         scopes,
+        disabledScopes,
         status,
         lastError,
         lastRefreshedAt: new Date(Date.now() - rand() * 3600_000),
@@ -459,7 +470,7 @@ async function main() {
       lastError: "No linked character with Station_Manager role could access this data (ESI forbidden (missing scope or in-game role): /corporations/98765432/structures)",
       consecutiveFailures: 3,
     },
-    ...allChars.map((c) => ({
+    ...allChars.filter((c) => sharesMining.has(c.characterId)).map((c) => ({
       jobKey: "mining.character-ledger",
       ownerType: "character" as const,
       ownerId: c.characterId,
@@ -504,6 +515,8 @@ async function main() {
     now: new Date(),
   });
 
+  const gatecheck = await seedGatecheck(db, { rand, now: new Date() });
+
   const fleetCount = await seedFleets(db, {
     pilots: combatPilots.map((p) => p.characterId),
     systems: staticData.systems,
@@ -527,6 +540,9 @@ async function main() {
   // --- Industry jobs (a few characters build, research and invent) -----------
   const industryCount = await seedIndustry(db, { characters: allChars, now: new Date() });
 
+  // --- Market orders (a few characters trade in stations and structures) ------
+  const orderCount = await seedMarket(db, { characters: allChars, now: new Date() });
+
   await setSetting("corp.homeCorporationId", HOME_CORP.corporationId);
   await setSetting("demo.users", demoUserIds);
   await setSetting("setup.completedAt", new Date().toISOString());
@@ -548,8 +564,8 @@ async function main() {
 
   console.log(
     `Seeded ${DEMO_USERS.length} users, ${allChars.length} characters, ${personalRows.length} personal and ${observerRows.length} observer ledger rows, ` +
-      `${killboard.killmails} killmails, ${fleetCount} fleets, ${pnl.transactions} wallet transactions, ${pnl.windows} ` +
-      `activity windows, ${corpWallet.entries} corporation journal entries, ${mails} mail rows, ${queued} queued skills, ${industryCount} industry jobs, a ${report.source} situation report and a threat intel scan of ${intel.pilots} pilots.`,
+      `${killboard.killmails} killmails, ${gatecheck.kills} gate check kills, ${fleetCount} fleets, ${pnl.transactions} wallet transactions, ${pnl.windows} ` +
+      `activity windows, ${corpWallet.entries} corporation journal entries, ${mails} mail rows, ${queued} queued skills, ${industryCount} industry jobs, ${orderCount} market orders, a ${report.source} situation report and a threat intel scan of ${intel.pilots} pilots.`,
   );
   console.log("Start the app with KEYSTAR_DEMO_MODE=true and open /login to sign in as any demo role.");
   await closeDb();

@@ -28,6 +28,8 @@ export interface CurrentUser {
   /** Main character first, then alphabetical. */
   characters: CurrentUserCharacter[];
   characterIds: number[];
+  /** Last version this account was shown the welcome tour or What's new for (`users.seen_version`). */
+  seenVersion: string | null;
   permissions: string[];
   can: (permission: string) => boolean;
   canAny: (...permissions: string[]) => boolean;
@@ -66,6 +68,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     main,
     characters: chars,
     characterIds: chars.map((c) => c.characterId),
+    seenVersion: user.seenVersion,
     permissions: [...granted].sort(),
     can: (p) => granted.has(p),
     canAny: (...ps) => ps.some((p) => granted.has(p)),

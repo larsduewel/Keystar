@@ -1,13 +1,14 @@
 "use client";
 
 import { RefreshCw, Sparkles } from "lucide-react";
-import { useFormStatus } from "react-dom";
+import { ActionForm, useFormPending } from "@/components/ui/action-form";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
+import type { ActionResult } from "@/lib/action-result";
 
 function Submit({ label, icon }: { label: string; icon: "sparkles" | "refresh" }) {
   const { t } = useI18n();
-  const { pending } = useFormStatus();
+  const pending = useFormPending();
   const Icon = icon === "sparkles" ? Sparkles : RefreshCw;
   return (
     <Button size="sm" variant="ghost" type="submit" disabled={pending}>
@@ -17,33 +18,22 @@ function Submit({ label, icon }: { label: string; icon: "sparkles" | "refresh" }
   );
 }
 
-export function RewriteBriefingButton({ scanId, action }: { scanId: string; action: (formData: FormData) => Promise<void> }) {
+export function RewriteBriefingButton({ action }: { action: () => Promise<ActionResult> }) {
   const { t } = useI18n();
+  const m = t.intel.toast;
   return (
-    <form action={action}>
-      <input type="hidden" name="scanId" value={scanId} />
+    <ActionForm action={action} success={m.briefingWritten} failed={m.writeFailed} errors={m.errors}>
       <Submit label={t.intel.buttons.rewriteBriefing} icon="refresh" />
-    </form>
+    </ActionForm>
   );
 }
 
-export function WriteDossierButton({
-  scanId,
-  characterId,
-  action,
-  again,
-}: {
-  scanId: string;
-  characterId: number;
-  action: (formData: FormData) => Promise<void>;
-  again: boolean;
-}) {
+export function WriteDossierButton({ action, again }: { action: () => Promise<ActionResult>; again: boolean }) {
   const { t } = useI18n();
+  const m = t.intel.toast;
   return (
-    <form action={action}>
-      <input type="hidden" name="scanId" value={scanId} />
-      <input type="hidden" name="characterId" value={characterId} />
+    <ActionForm action={action} success={m.dossierWritten} failed={m.writeFailed} errors={m.errors}>
       <Submit label={again ? t.intel.buttons.writeAgain : t.intel.buttons.writeDossier} icon="sparkles" />
-    </form>
+    </ActionForm>
   );
 }

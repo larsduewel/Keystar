@@ -22,7 +22,8 @@ Keystar is one TypeScript codebase that runs as two processes against one Postgr
 
 - The **app** never calls authenticated ESI routes on page loads; pages read from Postgres. It only talks to EVE
   during sign-in and for public lookups a user asks for (the ore field estimator and the appraisal resolving and
-  pricing item types they haven't seen before, a threat intel scan resolving pasted names and affiliations).
+  pricing item types they haven't seen before, a threat intel scan resolving pasted names and affiliations, a gate
+  check naming the pilots and ships it shows).
 - The **worker** owns all background ESI traffic and token refreshes, and also pulls public killmails and pilot
   statistics from zKillboard and (optionally) asks the Claude API to write the killboard's weekly situation report
   and threat intel briefings. Dossiers and d-scan reads are written when a user asks for them.
@@ -32,7 +33,7 @@ Keystar is one TypeScript codebase that runs as two processes against one Postgr
 ```
 src/
   app/                 Next.js routes
-    (app)/             signed-in area (sidebar shell): dashboard, mining, industry, characters, admin
+    (app)/             signed-in area (sidebar shell): dashboard (_dashboard/ holds its panels), mining, industry, market, characters, admin
     auth/              SSO login / callback / logout / demo routes
     setup/             first-start walkthrough for the first admin
     login/, join/      public pages
@@ -42,6 +43,7 @@ src/
     db/                Drizzle client and core schemas (core, eve, sync)
     esi/               ESI client, token refresh, DB-backed response cache
     eve/               EVE data: resolver (names/types/systems), prices, ore classes, image URLs
+    help/              help dialog data, welcome tour / What's new selection, release highlights registry
     rbac/              roles and permissions
     sync/              job types, scheduler, core jobs
     modules/           module contract and registry
@@ -52,7 +54,12 @@ src/
     killboard/         zKillboard client and sync, combat aggregates, situation report (Claude or template), UI
     intel/             threat intel: paste parser, scans, zKillboard worker, scoring, standings, history with us,
                        d-scan matching, briefings and dossiers (Claude or template), UI
+    gatecheck/         gate check: kills near stargates from the live feed, routes (EVE's autopilot weights),
+                       route check, camp estimates, UI
+    map/               3D universe map, travel check and jump ranges (static data in public/data)
     trade/             appraisal: paste parser, name resolution, Jita pricing, saved shareable snapshots
+    market/            opt-in market orders of the viewer's own characters: schema, sync job, UI (station and
+                       structure names shared with industry)
     wallet/            opt-in character wallet transactions (raw data used by the mining P&L); corp/: corporation
                        wallet archive (balances, journal, transactions), classification, finances pages' queries
     social/            opt-in EVE mail (read-only): mail sync, EVE HTML parser, link resolution, mail UI
@@ -68,8 +75,13 @@ docker/                entrypoint, Caddyfile
 1. `/auth/login?intent=…` creates a PKCE pair and a random `state`, stores them in an encrypted, short-lived
    cookie and redirects to `login.eveonline.com/v2/oauth/authorize`.
    - `login` — identity only, no scopes
-   - `join` — sign in and grant member scopes in one go (the `/join` link)
-   - `link` / `link-corp` — add a character (member scopes / plus corporation scopes) to the signed-in account
+   - `join` — register from the `/join` link; like `login`, no scopes
+   - `link` / `link-corp` — add a character to the signed-in account (no scopes / the corporation scopes), plus any
+     opt-in scopes named in `with=`
+
+   Every character scope is opt-in (enforced by `tests/optional-scopes.test.ts`), so registering and linking only
+   prove who the pilot is; a character without a token is a normal state, not a problem (`esiHealth()` in
+   `src/core/modules/registry.ts` tells it apart from a revoked token).
 2. `/auth/callback` exchanges the code, validates the JWT (signature via CCP's JWKS, issuer, audience contains the
    client id **and** `"EVE Online"`, expiry) and calls `provisionFromSso()`.
 3. Provisioning creates or finds the user, links the character, stores the encrypted refresh token, applies the role
@@ -97,7 +109,10 @@ Switching an optional scope off happens in Keystar, because EVE can't remove a s
 `src/core/auth/scope-switch.ts` moves it from `esi_tokens.scopes` (what Keystar uses, and what every query and the
 job planner read) to `esi_tokens.disabled_scopes` (still in the token, unused). Token refreshes keep it off, and
 switching it back on needs no login while the token holds it. My Characters notes such scopes. Re-authorising
-requests only the scopes in use, so the new token drops them, and every SSO consent clears `disabled_scopes`.
+requests only the scopes in use, so the new token drops them, and every SSO consent clears `disabled_scopes`. A
+re-authorisation that requests no scope at all (the character's last opt-in access was switched off or dropped)
+deletes the character's token and revokes its refresh token with CCP; any other login without scopes (signing in,
+`/join`, a plain "Link a character" with a character already on the account) leaves an existing token alone.
 
 After an SSO round trip the callback confirms the outcome (character linked, re-authorised, access changed) or
 explains a failed link with a one-shot `ks_flash` cookie (`src/core/flash.ts`), which `FlashToasts` in the app
@@ -201,20 +216,24 @@ Current jobs:
 | `mining.corporation-observers`   | 1 h      | Moon-refinery observer ledgers (Accountant)                |
 | `mining.corporation-structures`  | 6 h      | Refinery names and locations (Station Manager)             |
 | `industry.character-jobs`        | 5 min    | Industry jobs of each character (incl. finished ones), names their stations and structures |
+| `market.character-orders`        | 20 min   | Open market orders of each character and its order history (90 days), names their stations and structures |
 | `killboard.zkill-sync`           | 1 h      | Home corporation kills/losses from zKillboard (no token)   |
-| `killboard.live-feed`            | 10 s     | zKillboard's live feed (R2Z2): home-corporation killmails within seconds, for the live notifications |
+| `killboard.live-feed`            | 10 s     | zKillboard's live feed (R2Z2): home-corporation killmails within seconds, for the live notifications; every kill near a stargate for the gate check |
 | `killboard.situation-report`     | 1 h      | Writes the weekly situation report once a week has closed  |
 | `intel.scan-worker`              | 2 s      | zKillboard work for threat intel scans (idles at 1 min; woken by new scans) |
 | `intel.briefings`                | 1 min    | Briefings for scans that became ready (woken by the scan worker) |
 | `intel.housekeeping`             | 6 h      | Retention of killmail digests, pilot profiles and scans    |
 | `intel.corporation-contacts`     | 15 min   | Home corporation contacts (standings), any member's token  |
 | `intel.alliance-contacts`        | 15 min   | Home alliance contacts (standings), any member's token     |
+| `trade.housekeeping`             | 6 h      | Deletes appraisals older than a year, old rate-limit rows  |
+| `gatecheck.housekeeping`         | 6 h      | Retention of the gate check's kills (60 days at gates, 7 days elsewhere) |
 | `wallet.character-transactions`  | 1 h      | Market transactions of characters that opted in to wallets |
 | `wallet.corporation-wallets`     | 1 h      | Corporation balances, journal and transactions, all divisions (Accountant / Junior Accountant) |
 | `wallet.corporation-divisions`   | 6 h      | Custom wallet division names (Director)                    |
 | `social.character-mail`          | 5 min    | EVE mail, labels and mailing lists of characters that opted in to mail |
 | `skills.queue`                   | 15 min   | Skill queue of characters that share their skills; static skill attributes and ranks |
 | `skills.character`               | 1 h      | Trained skills, skill points and attributes of characters that share their skills |
+| `skills.implants`                | 1 h      | Active-clone implants and their attribute bonuses, for characters that share their skills |
 
 ## System info and support package
 
@@ -262,6 +281,43 @@ add one is described in docs/modules.md.
   minute), so a notification can arrive later. There is no service worker or Web Push: with no Keystar tab open,
   nothing is announced.
 - Tabs claim each event in a shared localStorage record under a Web Lock, so one browser announces it once.
+
+## Help, welcome tour and What's new
+
+The **?** button in the top bar (or the `?` key outside a text field) opens the help dialog
+(`src/components/help/`): "This page", "How Keystar works", "Scopes and EVE access", "Your data and security" and
+"Who sees what". The app layout builds its data on the server (`buildHelpData` in `src/core/help/data.ts`) from the
+module manifests and the settings, so it can't drift from what Keystar enforces:
+
+- "This page" is the `help` text of the sidebar page the path belongs to (the longest matching `href`, so
+  `/industry/settings` explains Industry Jobs), with the role it needs (`minRoleFor`: the lowest role whose
+  permissions, overrides included, reach one of the item's `anyPermission`) and `ownDataOnly`.
+- "Scopes" lists `allScopeRequirements()` grouped as asked from everyone, optional per character (by `manageHref`)
+  and corporation access (with their in-game roles), with the scopes' `reason` texts.
+- "Who sees what" is every sidebar page with its minimum role and whether the viewer may open it, and "Your data"
+  says who else sees a member's data by the effective role of the permission that shows it (`DATA_VISIBILITY`).
+  Retention periods come from the modules' constants.
+
+**Opening by itself.** `users.seen_version` is the newest version an account was shown something for; it is only
+ever raised (`shouldRecordSeen`). `onboarding()` (`src/core/help/onboarding.ts`, pure) decides what the layout opens
+once: null (a new account, or one from before this column) gets the **welcome tour** (the help topics in order,
+between a welcome and a "get started" step); an older version gets **What's new** for every release in between;
+the same or a newer version (a downgrade) gets nothing. When it opens, or when there was nothing to show for the
+viewer, the client calls `markVersionSeen()`, which stores the running version, never one the client names.
+
+**What's new** shows a release's highlights (at most four cards, newest release first, "and N more") and a link to
+its GitHub release (`SOURCE_URL/releases/tag/vX`, or the release list when it covers several releases). Highlights
+are curated in the release PR (docs/releasing.md): icons, links and permissions in `RELEASES`
+(`src/core/help/releases.ts`), titles and texts in the `whatsNew.releases` dictionaries, keyed the same way so the
+typecheck catches a missing translation. A highlight is only shown to viewers with one of its `anyPermission`. A
+release's `upgrade` text (the short form of its CHANGELOG "Upgrade notes") is shown to whoever may manage the settings,
+as "Action needed", and on the welcome tour's first step too, since an existing account gets the tour (not What's new)
+after the update that adds `seen_version`. The sidebar's version link opens What's new when the running release has
+highlights, and links to the release notes otherwise.
+
+**"New" dots.** The sidebar marks the pages of the newest release's highlights (`navNews`) with a dot until the
+page is opened in that browser (`ks_nav_seen` in localStorage, `src/components/shell/nav-news.ts`). The dot only
+appears after hydration, so server and client render the same.
 
 ## EVE mail
 
@@ -323,7 +379,13 @@ character (enabled from the mail page). The page only ever shows the signed-in a
   orders can't be fetched keeps its previous values and counts as failed in the job summary; the rest are still
   written. On a rate limit the run stops fetching, writes what it has and retries when the limit lifts.
 
-ESI keeps 30 days of ledger history; Keystar keeps everything it has synced.
+The personal ledger is opt-in per character (Mining → Access, `/mining/settings`): `mining.character-ledger` is only
+planned for tokens holding the scope, and re-checks it before calling ESI and again under a share lock on the token
+row before writing, so switching the ledger off stops reading at once. The history stays (also in corporation
+figures) until the pilot deletes it on the same page (`deleteMiningData`, only while the ledger is off): the
+character's ledger rows, its mining activity and the cached ESI copy go; moon-drill records stay with the corporation.
+
+ESI keeps 30 days of ledger history; Keystar keeps everything it has synced until a pilot deletes their own.
 
 ## Mining P&L
 
@@ -421,9 +483,20 @@ the owner deletes them.
   (total and unallocated SP, the five attributes, bonus remaps and the yearly remap date).
 - **Static data**: `skills_type_attributes` holds each queued skill's primary and secondary attribute (dogma
   attribute ids 164–168) and rank, read from the `dogma_attributes` of `/universe/types/{id}`.
-- **Planned on top of it**: a remap optimiser (a skill trains at primary + secondary / 2 SP per minute and a level
-  needs rank × that level's base SP, so queue, attributes and `skills_type_attributes` are all it needs; implants
-  would add `esi-clones.read_implants.v1`), and corporation skill plans checked against `skills_character_skills`.
+- **Implants**: `esi-clones.read_implants.v1` is part of skill sharing (`SKILLS_SCOPES`): "Share skills" requests
+  it, and Keystar switches it on and off with the skills scopes. Being shared only takes the queue and skills scopes
+  (`SKILLS_CORE_SCOPES`), so characters that shared before implants were added stay shared and are asked to
+  re-authorise. `skills.implants` replaces `skills_implants` with the active clone's implants;
+  `skills_implant_attributes` caches each implant's attribute bonuses (dogma 175–179, zeros for implants without
+  one), read before the implant names so a name lookup failure can't hold them up.
+- **Remap optimiser** (`/skills/remap`, `src/modules/skills/remap.ts`, pure): a skill trains at primary + secondary
+  / 2 SP per minute. ESI's attributes include implant bonuses, so the base is the ESI attributes minus implants. The
+  SP still to train is summed per primary/secondary pair, and every legal remap (2,885: 17–27 per attribute, 99 in
+  total) is timed with the implants on top; ties keep the current attributes, then the closest remap. When the base
+  isn't a legal remap (unknown implants or a booster), nothing is recommended: unknown implants change which remap is
+  fastest, not only the times. A queue shorter than 180 days after the remap (or as it trains now, without a
+  recommendation) gets a warning, since the yearly remap only returns after 365 days.
+- **Planned on top of it**: corporation skill plans checked against `skills_character_skills`.
   ESI has no skill-plan endpoint, so plans would be pasted from the in-game "copy to clipboard" text and resolved
   with `/universe/ids`.
 
@@ -440,6 +513,9 @@ the owner deletes them.
   pilot, corporation tickers and regions) are resolved right away. A missing number below the published pointer is
   skipped as a gap; a position older than 20 h (files are kept for at least 24 h) or for another corporation starts
   over at the pointer, and the hourly sweep fills anything in between. A 403/429 keeps it away for 10 minutes.
+  Starting over, it reads `START_BACKLOG` (2,500) files back from the pointer, a few hours of New Eden, so the gate
+  check knows recent camps at once. The same read feeds the gate check (see below), so the job also runs without a
+  home corporation.
 - **Live notifications**: for users with `killboard.view`, the top bar polls `/api/killboard/live` every 15 s and
   shows a toast for each kill or loss stored after its cursor (`first_seen_at` to the microsecond plus the killmail
   id, since one insert stores many rows with the same timestamp; killmails older than 3 h are never announced, so
@@ -464,6 +540,39 @@ the owner deletes them.
   (`**bold**`, `{+good}`, `{-bad}`, `{@Pilot}`) rendered as React text — model output is never rendered as HTML.
   Reports are stored with the facts they were written from (`killboard_reports`).
 
+## Gate check
+
+`/gatecheck` (Combat; `gatecheck.use`, every role down to guest, since everything it shows is public) plans a
+stargate route and checks it gate by gate. Nothing on the page calls zKillboard.
+
+- **Data**: `killboard.live-feed` already reads every killmail in New Eden from R2Z2; it hands each batch to
+  `recordFeedKillmails` (`src/modules/gatecheck/ingest.ts`), which keeps the ones in known-space systems with
+  stargates in `gatecheck_kills`: the stargate within 150 km of the victim's position (`gate_id`, null away from the
+  gates; without a position, zKillboard's `locationID` if it is one of the system's gates), the victim, zKillboard's
+  `npc` flag, whether CONCORD is on the mail (a suicide gank), and the player attackers (at most 100, by damage) as
+  aligned arrays of character, corporation, alliance, hull and weapon. Hull and weapon types are named through the
+  resolver, so tags can be told from their inventory groups. `gatecheck_feed` records since when the feed has been
+  read without a gap and when it last caught up: without a catch-up in the last 3 minutes a quiet gate shows as
+  "unknown", after 15 minutes the feed counts as offline. Kills at gates are kept 60 days, others 7.
+- **Routes** (`route.ts`, pure): Dijkstra over the static stargate network (`public/data/map-gates.json`) with EVE's
+  autopilot weights (`developers.eveonline.com/docs/guides/route-calculation`): every system entered costs 1 on
+  "shortest"; on "safer" high-sec costs 0.9, low-sec e^(0.15 × 50) and null-sec twice that ("less secure" swaps high
+  and low). Avoided systems are left out (never the start or destination); Zarzakh is never passed through, since
+  its emanation lock keeps you at the gate you came in by.
+- **Check** (`check.ts`, pure): per system the gate you arrive by and the gate you leave by; kills there in the last two
+  hours are "route" kills, the rest of the system's kills are listed apart. Tags (`tags.ts`):
+  smartbomb (a weapon in the Smart Bomb group), interdictor, HIC, gank (CONCORD on the mail), hot drop (Black Ops,
+  capitals) and pod. Status: camp (a player kill at a route gate in the last 30 minutes, or three within the hour),
+  recent, activity elsewhere in the system, quiet, or unknown while the feed is behind.
+- **Camp estimate** (`predict.ts`, pure) for the time each gate is reached (leaving now, about a minute a jump): history
+  (on how many of the last up to 30 days there were kills at these gates within an hour of that time of day,
+  smoothed as (days + ½) / (N + 1)), live (the newest route-gate kill, half-life 45 minutes to the arrival), and
+  regulars (pilots with kills at these gates on two or more days, seen killing within 5 jumps in the last two hours
+  anywhere but at these gates; half-life 60 minutes). They combine as independent chances; under 3 days of history
+  the history part is left out. The page shows the parts, the busiest hours, the regulars and the groups behind most
+  kills.
+- The map's travel check (`/api/map/gate-check`) reads the same table instead of zKillboard.
+
 ## Threat intel
 
 A scan is a pasted list of pilots (local member list, fleet composition, chat lines, names) and an optional d-scan,
@@ -474,7 +583,12 @@ saved under an unguessable id like an appraisal. Only the normalised names are s
   corporation and alliance (own corp/alliance always friendly; otherwise the most specific contact wins, the
   corporation's list before the alliance's); and **history with us** from the killboard tables: kills on us,
   losses to us and the hulls flown against us, plus fights (our killmails with any pasted pilot, clustered by system
-  and a 30-minute gap) with what they brought and who else was there.
+  and a 30-minute gap) with what they brought and who else was there. D-scan types we don't know yet are fetched from
+  ESI (`GET /universe/types/{id}`) within limits, because a pasted made-up id costs a 404 from the per-IP error budget
+  that pauses all ESI calls once drained: at most 50 lookups per paste (most common types first), at most 20 pastes
+  with lookups per user in 10 minutes (`intel_dscan_lookups`, reserved in a locked transaction), none once the shared
+  client reports fewer than 50 errors left, and ids ESI answered 404 for are not asked again for 6 hours. Ships still
+  unknown are left out; known ones always show.
 - **The worker** (`intel.scan-worker`) works through `intel_queue`, one row per pilot shared by every scan, in
   stages: zKillboard statistics for every pilot first (`/api/stats/characterID/`), then each pilot's newest 200
   killmails, highest quick score first, then older pages only until 30 days are covered (at most 3 pages; a stored
@@ -520,10 +634,14 @@ saved under an unguessable id like an appraisal. Only the normalised names are s
 
 - `src/modules/trade/appraisal/parse.ts` turns a paste into candidate (name, quantity) pairs per line: tab
   separated inventory/contract/survey copies (English or German numbers), d-scan, EFT, killmail lines and free text
-  ("x 10", "10x", "10 Name", "Name 10"). Ambiguous lines yield several candidates in order of preference.
+  ("x 10", "10x", "10 Name", "Name 10"). Ambiguous lines yield several candidates in order of preference. A quantity
+  above `MAX_QUANTITY` (10¹²) is not read as a quantity.
 - Names resolve against `eve_types`, then ESI `POST /universe/ids` (case-insensitive exact matches); new types are
   stored through the resolver. Prices are the Jita 4-4 `type_values`; types without a value, or older than two
   hours, are priced live with the same code as the hourly price job, which then keeps them fresh for 14 days after
   the last appraisal that asked for them. An appraisal is refused if any of them can't be priced.
 - An appraisal is a snapshot (items, unit prices, totals, unrecognised lines, input) in `appraisals`, opened by an
-  unguessable id. "Appraise again" creates a new snapshot at current prices.
+  unguessable id. "Appraise again" creates a new snapshot at current prices. A user can start
+  `APPRAISAL_RATE_LIMIT` appraisals per ten minutes (counted in `appraisal_attempts`, so failed, empty and deleted
+  ones count too); `trade.housekeeping` deletes them after
+  `APPRAISAL_RETENTION_DAYS` (a year), and their share links stop working.

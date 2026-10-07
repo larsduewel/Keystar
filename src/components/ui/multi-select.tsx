@@ -105,7 +105,8 @@ export function MultiSelect({
         <div className="glass-inset field-focus flex items-center gap-2 rounded-lg px-3">
           <Search className="size-3.5 text-ink-3" aria-hidden />
           <input
-            autoFocus
+            // Not on touch screens: the keyboard would cover the list it filters.
+            autoFocus={typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.common.multiSelect.search(label)}

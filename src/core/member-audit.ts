@@ -8,7 +8,10 @@ export interface MemberAuditStats {
   roster: number;
   registered: number;
   unregistered: number;
-  /** Registered characters whose token is missing, revoked or lacks a required scope. */
+  /**
+   * Registered characters whose token is revoked or lacks a required scope. A character without a token only counts
+   * while some scope is required of every member (none is: every character scope is opt-in).
+   */
   esiTrouble: number;
   /** Rows matching the current search and filter. */
   matched: number;
@@ -49,7 +52,7 @@ function auditCte(home: number, requiredScopes: readonly string[]) {
              (r.character_id IS NOT NULL) AS in_roster,
              (c.character_id IS NOT NULL) AS registered,
              c.user_id, mc.name AS main_name, t.status, t.scopes,
-             (c.character_id IS NOT NULL AND (t.status IS DISTINCT FROM 'active'
+             (c.character_id IS NOT NULL AND (t.status IS NOT DISTINCT FROM 'invalid'
                OR NOT (COALESCE(t.scopes, '{}') @> ${pgTextArray(requiredScopes)}))) AS esi_trouble
       FROM roster r
       FULL OUTER JOIN corp_chars c ON c.character_id = r.character_id

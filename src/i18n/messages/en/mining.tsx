@@ -28,7 +28,8 @@ export const mining = {
       },
     },
     scopes: {
-      characterMining: "Reads your personal mining ledger (all ore, ice, gas and moon mining, last 30 days).",
+      characterMining: "Reads your personal mining ledger: all ore, ice, gas and moon mining of the last 30 days (opt-in).",
+      characterMiningLabel: "Mining ledger access",
       corporationMining: "Reads the moon-drill ledgers of corporation refineries.",
       structures: "Names refineries on the Moon Drills page.",
     },
@@ -36,6 +37,18 @@ export const mining = {
       characterLedger: "Personal mining ledger",
       observers: "Moon-drill ledgers",
       structures: "Refinery names",
+    },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      overview:
+        "Mining totals for the chosen period: ISK value, volume, a daily chart, top miners, ores and systems. With corporation access you can switch between the whole corporation and your own characters; otherwise you see only yours. Each pilot chooses on the Access page which characters share their personal ledger; it syncs every 15 minutes and moon drills hourly. ESI keeps 30 days, Keystar everything after that.",
+      ledger:
+        "Every entry behind the Mining Overview, grouped by day: one row per character, ore and system (or refinery) with units, volume and ISK value. The filters work as on the overview; with the export permission you can download the filtered rows as CSV.",
+      observers:
+        "Moon mining recorded by the corporation's moon drills, per refinery: value, volume, pilots and ores, including pilots who never registered with Keystar or are outside the corporation. It needs a character with the in-game Accountant or Director role linked with corporation access; synced hourly.",
+      estimator:
+        "Paste a survey scanner result to value an asteroid belt or moon chunk by ore and grade, priced with Keystar's price source next to the scanner's own estimate. Enter your fleet's yield in m³/s to see how long clearing it takes. The scan isn't saved.",
+      pnl: "Your own mining profit and loss: income from the ore you mine (or from your wallet sales) minus the wallet purchases you count and costs you add by hand. Only you see it, whatever your role. Wallet import is optional per character; turn it on, choose how income is counted and set ore prices on the Settings tab.",
     },
   },
 
@@ -99,6 +112,8 @@ export const mining = {
   },
 
   exportCsv: "Export CSV",
+  /** Button to the Mining access page. */
+  access: "Access",
 
   filters: {
     members: "Members",
@@ -134,9 +149,13 @@ export const mining = {
     table: "Table",
     noMining: "No mining",
     total: "Total",
+    allResources: "All resources",
+    showOres: (resource: string) => `Show the ores in ${resource}`,
+    otherOres: (count: number) => `Other (${plural(count, "ore", "ores")})`,
   },
 
   breakdowns: {
+    oresOf: (resource: string) => `${resource} · by type`,
     characters: (count: number) => plural(count, "char", "chars"),
     notRegistered: "not registered",
     moonByRarity: "Moon ore by rarity",
@@ -159,8 +178,8 @@ export const mining = {
     ledger: "Ledger",
     empty: {
       title: "No mining data yet",
-      action: "Manage characters",
-      body: "Link your characters with the mining ledger scope. The worker syncs personal ledgers every 15 minutes and moon drills hourly; ESI keeps the last 30 days, Keystar keeps everything from then on.",
+      action: "Mining access",
+      body: "Sharing the mining ledger is opt-in: switch it on for your characters on the Mining access page. The worker syncs personal ledgers every 15 minutes and moon drills hourly; ESI keeps the last 30 days, Keystar keeps everything from then on.",
     },
     /** Comparison period for the stat tiles ("vs prior 30d"). */
     priorPeriod: (days: number) => `prior ${n(days)}d`,
@@ -195,7 +214,10 @@ export const mining = {
       title: "Data coverage",
       subtitle: "How complete these numbers are",
       tracked: "Characters with mining ledger access",
-      missingScope: "Characters missing the mining scope",
+      notEnabled: "Characters not sharing their ledger",
+      notEnabledHint: "Switch the mining ledger on for these characters on the Mining access page.",
+      notEnabledCorpHint:
+        "Sharing the personal mining ledger is opt-in per character. Moon mining at corporation refineries still shows through the moon drills.",
       invalidTokens: "Revoked or expired tokens",
       unregistered: "Corp members not registered",
       lastLedgerSync: "Last personal ledger sync",
@@ -307,6 +329,46 @@ export const mining = {
       scanner: "Scanner",
       keystar: "Keystar",
       share: "Share",
+    },
+  },
+
+  /** Mining access: which characters share their personal mining ledger (opt-in). */
+  settings: {
+    metaTitle: "Mining access",
+    description: "Choose for each character whether Keystar may read its personal mining ledger.",
+    title: "Mining ledger per character",
+    subtitle: "Enabling re-authorises the character with EVE and adds the mining ledger scope.",
+    on: "Enabled",
+    off: "Off",
+    revoked: "Token revoked",
+    enable: "Share mining ledger",
+    stop: "Switch off",
+    reauthorize: "Re-authorise",
+    demo: "Not available in demo mode",
+    lastSync: (when: string) => `Last update ${when}`,
+    firstSync: "The first update runs within a few minutes.",
+    nothing: "Nothing stored.",
+    kept: (from: string, to: string) => `Ledger from ${from} to ${to} is still stored.`,
+    deleteData: "Delete mining history",
+    deleteDataHint: "Removes this character's stored personal mining ledger and measured mining activity from Keystar.",
+    deleteDataConfirm: (name: string) =>
+      `Delete the stored mining history of ${name}? ESI only keeps the last 30 days, so anything older can't be fetched again.`,
+    toast: {
+      deleted: (name: string) => `Stored mining history of ${name} deleted`,
+      failed: (name: string) => `Couldn't delete the mining history of ${name}`,
+      errors: {
+        forbidden: "You no longer have access to mining in Keystar.",
+        notOwned: "That character isn't linked to your account any more.",
+        stillEnabled: "Switch the mining ledger off for this character first.",
+        unknown: "Something went wrong. Reload the page and try again.",
+      },
+    },
+    notes: {
+      scopes:
+        "Keystar reads the character's mining ledger every 15 minutes. It counts towards the Mining Overview, the Ledger and your Mining P&L, and, for directors and viewers, towards the corporation's mining figures.",
+      stop: "Switching off stops the reading in Keystar at once; the stored history stays (also in corporation figures) until you delete it. Re-authorise the character on My Characters to remove the scope from its EVE token too.",
+      observers:
+        "Moon mining at corporation refineries is recorded by the moon drills whether you share your ledger or not; deleting your history doesn't remove those records.",
     },
   },
 };

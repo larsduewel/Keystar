@@ -19,7 +19,7 @@ export const dashboard: typeof en = {
     registeredOnly: (registered: number) => `${n(registered)} registriert`,
     esiAccess: "Dein ESI-Zugriff",
     esiComplete: (healthy: number, total: number) =>
-      `${n(healthy)} von ${n(total)} ${total === 1 ? "Charakter" : "Charakteren"} vollständig`,
+      `${n(healthy)} von ${n(total)} ${total === 1 ? "Charakter" : "Charakteren"} in Ordnung`,
     syncWorker: "Sync-Worker",
     workerOnline: "Online",
     workerOffline: "Kein Lebenszeichen",
@@ -35,7 +35,7 @@ export const dashboard: typeof en = {
     corpMining: "Corporation-Mining · 30 Tage",
     ownMining: "Dein Mining · 30 Tage",
     characters: "Deine Charaktere",
-    esiComplete: "ESI vollständig",
+    esiComplete: "Keine ESI-Probleme",
     needAttention: (count: number) => `${n(count)} mit Handlungsbedarf`,
     backgroundSync: "Hintergrund-Sync",
     jobs: (count: number) => `${n(count)} ${count === 1 ? "Job" : "Jobs"}`,
@@ -59,7 +59,7 @@ export const dashboard: typeof en = {
     miningOverview: "Mining-Übersicht",
     gettingStarted: "Erste Schritte",
     gettingStartedBody:
-      "Verknüpfe deine Charaktere und erteile ESI-Zugriff, während ein Direktor dein Konto freischaltet.",
+      "Verknüpfe deine Charaktere, während ein Direktor dein Konto freischaltet. Optionalen ESI-Zugriff, etwa auf dein Mining-Ledger, schaltest du pro Charakter auf der Seite der jeweiligen Funktion ein.",
     manageCharacters: "Charaktere verwalten",
     mvp: "MVP · letzte 30 Tage",
     allPilots: "Alle Piloten",
@@ -69,6 +69,8 @@ export const dashboard: typeof en = {
     manage: "Verwalten",
     tokenRevoked: "Widerrufen",
     tokenScopes: "Scopes",
+    /** No ESI token: nothing was granted, which is fine. */
+    noAccess: "Kein ESI",
   },
   roadmap: {
     title: "Geplant",

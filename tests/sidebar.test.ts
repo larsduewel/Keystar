@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSidebarCollapsed } from "@/components/shell/sidebar-config";
+import { closedNavSections, isSidebarCollapsed, serializeClosedNavSections } from "@/components/shell/sidebar-config";
 import { versionLabel } from "@/core/version";
 
 describe("sidebar preference", () => {
@@ -8,6 +8,13 @@ describe("sidebar preference", () => {
     expect(isSidebarCollapsed("expanded")).toBe(false);
     expect(isSidebarCollapsed(undefined)).toBe(false);
     expect(isSidebarCollapsed("COLLAPSED")).toBe(false);
+  });
+
+  it("round-trips folded sections and drops anything that isn't a section id", () => {
+    expect(closedNavSections(serializeClosedNavSections(["industry", "combat"]))).toEqual(["industry", "combat"]);
+    expect(closedNavSections("industry..trade.industry.<script>")).toEqual(["industry", "trade"]);
+    expect(closedNavSections("")).toEqual([]);
+    expect(closedNavSections(undefined)).toEqual([]);
   });
 });
 

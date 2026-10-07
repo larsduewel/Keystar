@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useFormStatus } from "react-dom";
+import { useFormPending } from "@/components/ui/action-form";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 
-/** Submit button that dims while its form's server action runs. */
+/** Submit button that dims while its form's action runs. */
 export function SubmitButton({
   children,
   variant = "glass",
@@ -20,7 +20,7 @@ export function SubmitButton({
   title?: string;
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const pending = useFormPending();
   return (
     <Button type="submit" variant={variant} size={size} title={title} disabled={pending} className={cn(pending && "opacity-60", className)}>
       {children}
@@ -42,7 +42,7 @@ export function AutoSubmitSelect({
   children: ReactNode;
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const pending = useFormPending();
   return (
     <select
       name={name}
@@ -59,7 +59,7 @@ export function AutoSubmitSelect({
 
 /** On/off switch that submits its form (the action flips the value). */
 export function SwitchButton({ on, label }: { on: boolean; label: string }) {
-  const { pending } = useFormStatus();
+  const pending = useFormPending();
   const { t } = useI18n();
   return (
     <button

@@ -8,6 +8,12 @@ export const social: typeof en = {
   module: {
     navSection: "Soziales",
     nav: { mail: "EVE-Mail" },
+    help: {
+      mail:
+        "Lies die EVE-Mails deiner eigenen Charaktere mit Ordnern, Labels und Suche; nur du kannst sie sehen, und Keystar sendet, " +
+        "löscht oder markiert im Spiel nichts als gelesen. Aktiviere Mail-Zugriff pro Charakter im Bereich „Charaktere“ auf dieser " +
+        "Seite: Der erste Import holt etwa die neuesten 1.000 Mails, danach wird alle fünf Minuten nach neuen gesucht.",
+    },
     alerts: { mail: { label: "EVE-Mail", hint: "Wenn einer deiner Charaktere mit Mail-Zugriff eine Mail bekommt" } },
     permissionGroup: "Soziales",
     permissions: {

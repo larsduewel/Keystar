@@ -92,6 +92,11 @@ const ROLES: Record<Role, (value: number) => string> = {
 export const intel = {
   module: {
     navItem: "Threat Intel",
+    /** "This page" help for the nav item (NavItem.help), one to three sentences. */
+    help:
+      "Paste local, a fleet or a few names (optionally with a d-scan) to see who the pilots are, their standings, fights with us " +
+      "and a threat score from zKillboard. Each scan gets a link anyone with Threat Intel access can open; briefings are written " +
+      "by Claude if the server has an API key, otherwise from a template.",
     permissionGroup: "Threat intel",
     permissions: {
       use: {
@@ -273,6 +278,23 @@ export const intel = {
     askClaude: "Ask Claude",
     summarize: "Summarize",
     reading: "Reading…",
+  },
+  /** Toasts for the scan page's buttons (error codes: `IntelActionError`). */
+  toast: {
+    deleted: "Scan deleted",
+    deleteFailed: "Couldn't delete the scan",
+    profiling: (pilots: number) => `Profiling ${count(pilots, "more pilot", "more pilots")}`,
+    profileFailed: "Couldn't queue the pilots",
+    briefingWritten: "Briefing rewritten",
+    dossierWritten: "Dossier written",
+    dscanRead: "D-scan read",
+    writeFailed: "Couldn't write it",
+    errors: {
+      forbidden: "You don't have permission to do that any more.",
+      notFound: "This scan or pilot no longer exists.",
+      notAllowed: "Only the scan's creator or an intel manager can delete it.",
+      unknown: "Something went wrong. Reload the page and try again.",
+    },
   },
   progress: {
     stats: (pilots: number) => `Reading zKillboard statistics: ${count(pilots, "pilot", "pilots")} to go`,

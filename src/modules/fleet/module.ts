@@ -45,7 +45,15 @@ export const fleetModule: KeystarModule = {
       id: "combat",
       label: (t) => t.killboard.module.navSection,
       order: 15,
-      items: [{ href: "/fleet", label: (t) => t.fleet.module.nav.fleet, icon: Radar, anyPermission: [FLEET_PERMISSIONS.view] }],
+      items: [
+        {
+          href: "/fleet",
+          label: (t) => t.fleet.module.nav.fleet,
+          icon: Radar,
+          help: (t) => t.fleet.module.help.fleet,
+          anyPermission: [FLEET_PERMISSIONS.view],
+        },
+      ],
     },
   ],
 };

@@ -10,14 +10,17 @@ import {
 import type { JobDefinition, PriceInterestProvider } from "@/core/sync/types";
 import type { Messages } from "@/i18n/messages";
 import { fleetJobs } from "./fleet/jobs";
+import { gatecheckJobs } from "./gatecheck/jobs";
 import { industrySyncJobs } from "./industry/jobs";
 import { intelJobs } from "./intel/jobs";
 import { killboardJobs } from "./killboard/jobs";
 import { mapNamesJob } from "./map/jobs";
 import { mapSkyhooksJob } from "./map/skyhook-job";
+import { marketJobs } from "./market/jobs";
 import { miningJobs, miningPriceInterest } from "./mining/jobs";
 import { skillsJobs } from "./skills/jobs";
 import { socialJobs } from "./social/jobs";
+import { tradeJobs } from "./trade/jobs";
 import { walletJobs } from "./wallet/jobs";
 
 /**
@@ -44,6 +47,9 @@ export const JOBS: JobDefinition[] = [
   ...walletJobs,
   ...socialJobs,
   ...skillsJobs,
+  ...tradeJobs,
+  ...gatecheckJobs,
+  ...marketJobs,
 ];
 
 const JOBS_BY_KEY = new Map(JOBS.map((j) => [j.key, j]));

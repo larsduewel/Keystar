@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { FORMATTERS } from "@/lib/format";
 
 const n = FORMATTERS.en.integer;
@@ -8,12 +9,14 @@ export const characters = {
   header: {
     eyebrow: "Account",
     title: "My Characters",
-    description: "Link every character you play. Keystar only reads data through the ESI scopes listed here.",
+    description:
+      "Link every character you play. Linking only confirms who the character is: Keystar reads data only through the ESI access listed here, which you switch on per character.",
     link: "Link a character",
   },
   card: {
     main: "Main",
-    noToken: "No ESI token",
+    /** No token: nothing granted, which is fine (every ESI scope is opt-in). */
+    noToken: "No ESI access",
     tokenRevoked: "Token revoked",
     scopesMissing: (count: number) => `${n(count)} scope${count > 1 ? "s" : ""} missing`,
     esiActive: "ESI active",
@@ -82,7 +85,14 @@ export const characters = {
   /** Toasts after coming back from the EVE login. */
   sso: {
     linked: (name: string) => `${name} linked`,
-    linkedDetail: "Background syncs start within a minute.",
+    linkedDetail: "Switch on optional access, such as the mining ledger, on the feature's page; syncs start within a minute.",
+    /** A plain link (no scopes) with a character that is already on the account. */
+    alreadyLinked: (name: string) => `${name} is already linked`,
+    alreadyLinkedDetail: "Nothing changed. Switch on optional access, such as the mining ledger, on the feature's page.",
+    /** A login that granted no scope removed the character's old token. */
+    accessRemoved: (name: string) => `${name} no longer shares any ESI access`,
+    accessRemovedDetail:
+      "Its old token was deleted and revoked with CCP. Switch optional access back on, such as the mining ledger, on the feature's page.",
     reauthorized: (name: string) => `${name} re-authorised`,
     corpGranted: (name: string) => `Corporation access granted for ${name}`,
     scopesChanged: (name: string) => `Access updated for ${name}`,
@@ -116,11 +126,19 @@ export const characters = {
     subtitle: "What Keystar stores",
     encrypted: "Refresh tokens are encrypted with AES-256-GCM before they touch the database.",
     readOnly: "Only read scopes are requested; Keystar cannot act in game.",
-    removal: "Removing a character deletes its token and revokes it with CCP. Mining history stays with the corp.",
+    removal:
+      "Removing a character deletes its token and revokes it with CCP. Its mining history stays with the corp unless you delete it first (Mining → Access).",
+    mining:
+      "Mining ledger access is optional and per character (Mining → Access). Synced ledger entries count towards the corporation's mining figures; you can delete them once access is off.",
     wallet:
       "Wallet access is optional and per character (Mining P&L → Settings). Imported wallet transactions are only ever shown to you, and are deleted when you remove the character.",
     mail: "Mail access is optional and per character (EVE Mail). Imported mail is only ever shown to you, and is deleted when you remove the character.",
-    revoke:
-      "Optional access can be switched off here in Keystar any time; re-authorising then removes it from the token. To revoke Keystar entirely, use Third-Party Applications on the EVE Online website.",
+    /** `link` renders the link to EVE's authorised apps page. */
+    revoke: (link: (text: string) => ReactNode) => (
+      <>
+        Optional access can be switched off here in Keystar any time; re-authorising then removes it from the token. To
+        revoke Keystar entirely, use {link("Authorized Apps")} on the EVE developers site.
+      </>
+    ),
   },
 };

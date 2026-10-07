@@ -62,7 +62,7 @@ export async function MvpCard({ pilot, period, size = "lg" }: { pilot: PilotRow;
     </div>
   );
   const stats = (
-    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
       <Stat label={t.killboard.terms.kills} value={f.integer(pilot.kills)} />
       <Stat label={t.killboard.terms.finalBlows} value={f.integer(pilot.finalBlows)} />
       <Stat label={t.killboard.terms.solo} value={f.integer(pilot.solo)} />

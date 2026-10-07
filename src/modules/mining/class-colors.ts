@@ -4,7 +4,9 @@ import type { OreClass } from "@/core/eve/ore";
  * Chart colours, as CSS variables so each theme has its own validated steps
  * (values and results in globals.css). Categorical slots on the dark glass
  * surface: adjacent CVD ΔE ≥ 8.4, normal-vision ΔE ≥ 19.8, all ≥ 3:1; on the
- * light page: CVD ΔE ≥ 9.0, normal ΔE ≥ 17.6, all ≥ 3.6:1. Moon rarity is
+ * light page: CVD ΔE ≥ 9.0, normal ΔE ≥ 17.6, all ≥ 3.6:1. The two extra slots of
+ * the per-ore view (`ORE_SERIES_COLORS`) were validated with the class hues:
+ * dark normal ΔE ≥ 19.3 and ≥ 3.5:1, light unchanged. Moon rarity is
  * ordinal (R4 → R64), so it uses one blue ramp instead of new hues —
  * validated with --ordinal in both themes. Income/expense colours of the P&L
  * charts are a separate polarity pair (`pnl/colors.ts`).
@@ -31,6 +33,22 @@ export function chartClassOf(oreClass: OreClass): ChartClass {
   if (oreClass === "ore" || oreClass === "ice" || oreClass === "gas") return oreClass;
   return "other";
 }
+
+/**
+ * Categorical slots for the ores inside one class (the daily chart's per-ore
+ * view): the class hues in their validated order, then two more slots
+ * validated with them, and grey for the folded rest.
+ */
+export const ORE_SERIES_COLORS = [
+  "var(--series-moon)",
+  "var(--series-ore)",
+  "var(--series-ice)",
+  "var(--series-gas)",
+  "var(--series-5)",
+  "var(--series-6)",
+] as const;
+
+export const ORE_SERIES_OTHER_COLOR = "var(--series-other)";
 
 /**
  * Ordinal ramp for moon rarity: rarer = more salient (lighter on the dark

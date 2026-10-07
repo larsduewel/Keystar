@@ -1,8 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { eveGroups, eveTypes, getDb, type Db } from "@/core/db";
+import { and, count, eq, gt, inArray, sql } from "drizzle-orm";
+import { eveGroups, eveTypes, getDb, intelDscanLookups, type Db } from "@/core/db";
 import { countDscan } from "@/core/eve/dscan";
 import { ensureTypes } from "@/core/eve/resolver";
 import { env } from "@/core/env";
+import { DSCAN_ERROR_HEADROOM, DSCAN_LOOKUP_LIMIT, DSCAN_LOOKUP_WINDOW_MS, DSCAN_MAX_LOOKUPS } from "./constants";
 import { hullClass, SHIP_GROUPS, type HullClass } from "./hulls";
 import { DAY_MS } from "./score/decay";
 import type { DscanEntry, PilotProfile, Standing } from "./types";
@@ -19,8 +20,37 @@ const SHIP_CATEGORY = 6;
 const CLASS_FACTOR = 0.25;
 const MIN_EVIDENCE = 0.15;
 
-/** Ships on a pasted d-scan (pods left out), with their groups. */
-export async function dscanShips(text: string, db: Db = getDb()): Promise<{ ships: DscanEntry[]; objects: number; lines: number }> {
+/** Serialises lookup reservations so parallel pastes cannot all see the last free slot. */
+const LOOKUP_LOCK = 727_278;
+
+/**
+ * Records a d-scan paste that needs ESI type lookups, or returns false when
+ * the user has used up DSCAN_LOOKUP_LIMIT in the window.
+ */
+export async function reserveDscanLookup(userId: string, now = new Date(), db: Db = getDb()): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOOKUP_LOCK}, hashtext(${userId}))`);
+    const [recent] = await tx
+      .select({ n: count() })
+      .from(intelDscanLookups)
+      .where(and(eq(intelDscanLookups.userId, userId), gt(intelDscanLookups.createdAt, new Date(now.getTime() - DSCAN_LOOKUP_WINDOW_MS))));
+    if ((recent?.n ?? 0) >= DSCAN_LOOKUP_LIMIT) return false;
+    await tx.insert(intelDscanLookups).values({ userId, createdAt: now });
+    return true;
+  });
+}
+
+/**
+ * Ships on a pasted d-scan (pods left out), with their groups. Types we don't
+ * know yet are looked up on ESI within limits (per paste, per user, and the
+ * shared error budget); a paste of made-up ids must not pause ESI for everyone.
+ * Ships that stay unresolved are left out.
+ */
+export async function dscanShips(
+  text: string,
+  opts: { userId: string; now?: Date; db?: Db },
+): Promise<{ ships: DscanEntry[]; objects: number; lines: number }> {
+  const db = opts.db ?? getDb();
   const { entries, lines } = countDscan(text);
   if (!entries.length) return { ships: [], objects: 0, lines };
   const ids = entries.map((e) => e.typeId);
@@ -34,9 +64,10 @@ export async function dscanShips(text: string, db: Db = getDb()): Promise<{ ship
   if (!env().KEYSTAR_DEMO_MODE) {
     const knownAll = await db.select({ id: eveTypes.typeId }).from(eveTypes).where(inArray(eveTypes.typeId, ids));
     const known = new Set(knownAll.map((k) => k.id));
+    // Entries come most common first, so the cap keeps the types that matter most.
     const unknown = ids.filter((id) => !known.has(id));
-    if (unknown.length) {
-      await ensureTypes(unknown);
+    if (unknown.length && (await reserveDscanLookup(opts.userId, opts.now, db))) {
+      await ensureTypes(unknown, { maxLookups: DSCAN_MAX_LOOKUPS, errorHeadroom: DSCAN_ERROR_HEADROOM });
       ships = await load();
     }
   }

@@ -33,3 +33,5 @@ larger, comment on the issue so work isn't duplicated.
   `package.json` alone ([docs/releasing.md](docs/releasing.md)).
 - If the pull request fixes or implements an issue, say so in its description with one closing keyword per issue
   (`Closes #14`).
+- New pull requests start from the [template](.github/pull_request_template.md): what changes and why, how you tested
+  it beyond CI, and the changelog and upgrade notes.

@@ -77,6 +77,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
     {kills.map(k=><a key={k.id} href={`https://zkillboard.com/kill/${k.id}/`} target="_blank" rel="noreferrer" className="mt-1 block text-accent hover:underline">{f.relativeTime(k.time,undefined,"narrow")} · {m.gateTo} {byId.get(k.destinationId)?.[1]??k.destinationId} · {k.distanceKm===null?m.resolvedGate:`${f.number(k.distanceKm,1)} km`}</a>)}
    </li>;
   })}</ol>}
+  {route.length>0 && start && end && <a href={`/gatecheck?${new URLSearchParams({from:start[1],to:end[1]})}`} className="mt-3 inline-block text-xs text-accent hover:underline">{m.openGatecheck}</a>}
   <p className="mt-3 text-2xs text-ink-3">{m.evidenceHint}</p>
  </Panel>
  <Panel className="shrink-0" title={m.jumpTitle} subtitle={m.rangeHint} bodyClassName="px-3 pb-3">

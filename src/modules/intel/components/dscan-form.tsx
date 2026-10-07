@@ -3,9 +3,11 @@
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Radar } from "lucide-react";
 import { useFormStatus } from "react-dom";
+import { ActionForm, useFormPending } from "@/components/ui/action-form";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
 import type { ScanFormState } from "@/app/(app)/intel/actions";
+import type { ActionResult } from "@/lib/action-result";
 
 function Submit({ label }: { label: string }) {
   const { t } = useI18n();
@@ -48,18 +50,19 @@ export function DscanForm({
   );
 }
 
-export function ReadDscanButton({ scanId, action, claude }: { scanId: string; action: (formData: FormData) => Promise<void>; claude: boolean }) {
+export function ReadDscanButton({ action, claude }: { action: () => Promise<ActionResult>; claude: boolean }) {
+  const { t } = useI18n();
+  const m = t.intel.toast;
   return (
-    <form action={action}>
-      <input type="hidden" name="scanId" value={scanId} />
+    <ActionForm action={action} success={m.dscanRead} failed={m.writeFailed} errors={m.errors}>
       <ReadSubmit claude={claude} />
-    </form>
+    </ActionForm>
   );
 }
 
 function ReadSubmit({ claude }: { claude: boolean }) {
   const { t } = useI18n();
-  const { pending } = useFormStatus();
+  const pending = useFormPending();
   return (
     <Button size="sm" variant="ghost" type="submit" disabled={pending}>
       {pending ? t.intel.buttons.reading : claude ? t.intel.buttons.askClaude : t.intel.buttons.summarize}

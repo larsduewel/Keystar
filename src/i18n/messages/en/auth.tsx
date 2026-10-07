@@ -16,11 +16,13 @@ export const auth = {
     },
     genericError: "Something went wrong.",
     signIn: "Log in with EVE Online",
-    register: "New here? Register & grant ESI access",
-    privacy: (site: ReactNode) => (
+    register: "New here? Register",
+    /** `link` renders the link to EVE's authorised apps page. */
+    privacy: (link: (text: string) => ReactNode) => (
       <>
-        Signing in only proves who you are — no ESI access is requested. Tokens are requested separately, are encrypted
-        at rest, and you can revoke them any time at {site}.
+        Signing in and registering only prove who you are — no ESI access is requested. Optional access is switched on
+        per character later, its tokens are encrypted at rest, and you can revoke them any time in{" "}
+        {link("Authorized Apps")} on the EVE developers site.
       </>
     ),
     setupTitle: "Server setup needed",
@@ -33,8 +35,6 @@ export const auth = {
     ),
     setupFirstPilot: "Sign in — the first pilot becomes admin and is guided through the remaining setup.",
     demoTitle: "Demo mode — sign in as",
-    trademark:
-      "EVE Online and the EVE logo are the registered trademarks of CCP hf. Keystar is a fan-made tool not affiliated with CCP.",
     license: "Keystar is free software under the AGPL-3.0",
     sourceCode: "Source code",
   },
@@ -44,7 +44,8 @@ export const auth = {
     titleWithCorp: (corp: string) => `Join ${corp} on Keystar`,
     title: "Register your characters",
     intro:
-      "Log in with each character you want to register. Keystar will request read-only access to the following ESI data. Nothing can be changed in game, and you can revoke access at any time.",
+      "Registering only confirms who you are: Keystar asks EVE for no access to your data. Afterwards you choose for each character what Keystar may read. Access is read-only, nothing can be changed in game, and you can switch it off at any time.",
+    optional: "Optional, per character, after you register",
     link: "Link a character with EVE Online",
     register: "Register with EVE Online",
     alts: (page: ReactNode) => <>Have alts? After registering, open {page} and link each one.</>,

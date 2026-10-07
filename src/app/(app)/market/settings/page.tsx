@@ -1,0 +1,129 @@
+import { KeyRound, Store, Trash2 } from "lucide-react";
+import { PageHeader } from "@/components/shell/page-header";
+import { ActionForm } from "@/components/ui/action-form";
+import { StatusBadge } from "@/components/ui/badge";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Portrait } from "@/components/ui/eve-image";
+import { Glass, Panel } from "@/components/ui/glass";
+import { requirePermission } from "@/core/auth/dal";
+import { env } from "@/core/env";
+import { reauthorizeHref } from "@/core/modules/registry";
+import { getI18n } from "@/i18n/server";
+import { MARKET_MANAGE_HREF, MARKET_PERMISSIONS, MARKET_SCOPES } from "@/modules/market/module";
+import { getMarketAccess } from "@/modules/market/queries";
+import { deleteMarketData, setMarketAccess } from "../actions";
+
+export async function generateMetadata() {
+  const { t } = await getI18n();
+  return { title: t.market.settings.metaTitle };
+}
+
+export default async function MarketSettingsPage() {
+  const user = await requirePermission(MARKET_PERMISSIONS.viewOwn);
+  const { t, f } = await getI18n();
+  const m = t.market.settings;
+  const sw = t.characters.scopeSwitch;
+  const demo = env().KEYSTAR_DEMO_MODE;
+  const access = await getMarketAccess(user.id);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader eyebrow={t.trade.module.navSection} title={m.metaTitle} description={m.description} />
+
+      <Panel title={m.title} subtitle={m.subtitle}>
+        <div className="space-y-3">
+          {access.map((a) => {
+            const enable = reauthorizeHref(a.grantedScopes, {
+              add: MARKET_SCOPES,
+              returnTo: MARKET_MANAGE_HREF,
+              characterId: a.characterId,
+            });
+            const anyGranted = a.granted || a.partial;
+            return (
+              <Glass key={a.characterId} className="flex flex-wrap items-center gap-4 rounded-2xl px-4 py-3">
+                <Portrait id={a.characterId} size={44} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-ink">{a.name}</span>
+                    {a.tokenStatus === "invalid" ? (
+                      <StatusBadge status="error" label={m.revoked} />
+                    ) : a.granted ? (
+                      <StatusBadge status={a.lastStatus === "error" ? "warning" : "ok"} label={m.on} />
+                    ) : a.partial ? (
+                      <StatusBadge status="warning" label={m.partial} />
+                    ) : (
+                      <StatusBadge status="pending" label={m.off} />
+                    )}
+                  </div>
+                  <p className="text-xs text-ink-3">
+                    {anyGranted
+                      ? a.lastSuccessAt
+                        ? m.lastSync(f.relativeTime(a.lastSuccessAt))
+                        : m.firstSync
+                      : a.hasData
+                        ? m.kept
+                        : m.nothing}
+                    {anyGranted && a.lastStatus === "error" && a.lastError ? ` · ${a.lastError}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {anyGranted || a.switchedOff ? (
+                    // In Keystar only: the token keeps the scopes until the character is re-authorised.
+                    <ActionForm
+                      action={setMarketAccess.bind(null, a.characterId, !anyGranted)}
+                      success={anyGranted ? sw.off(m.accessLabel, a.name) : sw.on(m.accessLabel, a.name)}
+                      successDetail={anyGranted ? sw.offDetail : undefined}
+                      failed={sw.failed(m.accessLabel, a.name)}
+                      errors={sw.errors}
+                    >
+                      {anyGranted ? (
+                        <Button type="submit" size="sm" variant="ghost">
+                          {m.stop}
+                        </Button>
+                      ) : (
+                        <Button type="submit" size="sm" variant="primary">
+                          <Store className="size-3.5" aria-hidden /> {m.enable}
+                        </Button>
+                      )}
+                    </ActionForm>
+                  ) : demo ? (
+                    <Button size="sm" disabled title={m.demo}>
+                      <KeyRound className="size-3.5" aria-hidden /> {m.enable}
+                    </Button>
+                  ) : (
+                    <ButtonLink href={enable} size="sm" variant="primary">
+                      <Store className="size-3.5" aria-hidden /> {m.enable}
+                    </ButtonLink>
+                  )}
+                  {/* A revoked token, or one holding only one of the scopes, needs the EVE login to get both. */}
+                  {anyGranted && (a.tokenStatus === "invalid" || a.partial) && !demo && (
+                    <ButtonLink href={enable} size="sm" variant="primary">
+                      <KeyRound className="size-3.5" aria-hidden /> {m.reauthorize}
+                    </ButtonLink>
+                  )}
+                  {!anyGranted && a.hasData && (
+                    <ActionForm
+                      action={deleteMarketData.bind(null, a.characterId)}
+                      success={m.toast.deleted(a.name)}
+                      failed={m.toast.failed(a.name)}
+                      errors={m.toast.errors}
+                    >
+                      <Button type="submit" size="sm" variant="danger" title={m.deleteDataHint}>
+                        <Trash2 className="size-3.5" aria-hidden /> {m.deleteData}
+                      </Button>
+                    </ActionForm>
+                  )}
+                </div>
+              </Glass>
+            );
+          })}
+        </div>
+        <ul className="mt-4 list-disc space-y-1 pl-4 text-xs text-ink-3">
+          <li>{m.notes.scopes}</li>
+          <li>{m.notes.stop}</li>
+          <li>{m.notes.shared}</li>
+        </ul>
+      </Panel>
+    </div>
+  );
+}

@@ -79,6 +79,42 @@ export const pnl: typeof en = {
   typeFallback: (id: number) => `Typ ${id}`,
   characterFallback: (id: number) => `Charakter ${id}`,
   switch: { on: "An", off: "Aus" },
+  toast: {
+    failed: "Die Änderung konnte nicht gespeichert werden",
+    errors: {
+      forbidden: "Du hast keinen Zugriff mehr auf die Mining-GuV.",
+      notOwned: "Dieser Charakter ist nicht mehr mit deinem Konto verknüpft.",
+      notFound: "Diesen Eintrag gibt es nicht mehr. Lade die Seite neu.",
+      invalidRate: "Gib einen Anteil zwischen 1 und 1000 % ein.",
+      invalidSource: "Wähle, wie Einnahmen gezählt werden.",
+      invalidPrice: "Gib die ISK ein, die du pro Einheit bekommst, z. B. 18,5.",
+      invalidDate: "Gib ein gültiges Datum ein.",
+      invalidRange: "Das Enddatum liegt vor dem Startdatum.",
+      invalidAmount: "Gib einen Betrag in ISK ein, z. B. 2,1b oder 450.000.000.",
+      invalidCategory: "Wähle eine der aufgeführten Kategorien.",
+      invalidSpread: "Wähle einen der aufgeführten Zeiträume.",
+      unknownType: "Keystar kennt dieses Erz nicht. Lade die Seite neu.",
+      salesTaxFollowsSale: "Die Verkaufssteuer zählt mit ihrem Verkauf: Übernimm den Verkauf im Tab „Einnahmen“ oder schließe ihn dort aus.",
+      unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+    },
+    incomeSource: {
+      mined: "Einnahmen zählen jetzt den Wert des abgebauten Erzes",
+      sales: "Einnahmen zählen jetzt deine Wallet-Verkäufe",
+    },
+    incomeRate: "Anteil an der Bewertung gespeichert",
+    autoCount: (name: string, on: boolean) =>
+      on ? `Erkannte Käufe von ${name} zählen jetzt automatisch` : `Erkannte Käufe von ${name} werden wieder nur vorgeschlagen`,
+    autoCountSales: (name: string, on: boolean) =>
+      on ? `Erkannte Verkäufe von ${name} zählen jetzt automatisch` : `Erkannte Verkäufe von ${name} werden wieder nur vorgeschlagen`,
+    priceAdded: "Erzpreis hinzugefügt",
+    priceDeleted: "Erzpreis gelöscht",
+    priceApplied: (ore: string, price: string) => `${ore} ist jetzt mit ${price} ISK pro Einheit bepreist`,
+    purchasesIncluded: (count: number) => `${plural(count, "Kauf", "Käufe")} übernommen`,
+    salesIncluded: (count: number) => `${plural(count, "Verkauf", "Verkäufe")} übernommen`,
+    feesIncluded: (count: number) => `${plural(count, "Maklergebühr", "Maklergebühren")} übernommen`,
+    costAdded: "Kosten erfasst",
+    costDeleted: "Kosten gelöscht",
+  },
 
   chart: {
     legend: "Legende",
@@ -97,7 +133,7 @@ export const pnl: typeof en = {
     empty: {
       title: "Für diesen Zeitraum gibt es nichts anzuzeigen",
       action: "GuV-Einstellungen",
-      body: "Einnahmen stammen aus den Mining-Ledgern deiner Charaktere (Sync alle 15 Minuten). Ausgaben stammen aus Wallet-Käufen, die du übernimmst, und aus manuellen Einträgen. Der Wallet-Import ist optional und bleibt aus, bis du ihn pro Charakter einschaltest.",
+      body: "Einnahmen stammen aus den Mining-Ledgern deiner Charaktere (Sync alle 15 Minuten, sobald du sie unter Mining-Zugriff einschaltest). Ausgaben stammen aus Wallet-Käufen, die du übernimmst, und aus manuellen Einträgen. Der Wallet-Import ist optional und bleibt aus, bis du ihn pro Charakter einschaltest.",
     },
     tiles: {
       net: (from: string, to: string) => `Gewinn · ${from} – ${to}`,
@@ -360,7 +396,10 @@ export const pnl: typeof en = {
       nothing: "Nichts importiert",
       activitySince: (date: string) => `Mining-Aktivität gemessen seit ${date}`,
       activityNext: "Die Mining-Aktivität wird ab dem nächsten Ledger-Sync gemessen",
-      activityNone: "Kein Zugriff aufs Mining-Ledger: Aktivität kann nicht gemessen werden",
+      /** `link` renders the link to the Mining access page. */
+      activityNone: (link: (text: string) => ReactNode) => (
+        <>Das Mining-Ledger ist aus, daher kann keine Aktivität gemessen werden. Schalte es unter {link("Mining-Zugriff")} ein.</>
+      ),
       autoCount: "Erkannte Käufe automatisch zählen",
       autoCountSales: "Erkannte Verkäufe automatisch zählen",
       enable: "Wallet-Import einschalten",

@@ -14,7 +14,8 @@ import type { Settings } from "@/core/settings";
 export interface ScopeRequirement {
   scope: string;
   /**
-   * `character`: requested from every member when they link a character.
+   * `character`: the character's own data. Must be `optional` (enforced by
+   * tests/optional-scopes.test.ts): registering and linking request no scopes.
    * `corporation`: only requested when a director/officer links a character
    * for corporation data; usually needs an in-game corp role as well.
    */
@@ -40,6 +41,13 @@ export interface NavItem {
   href: string;
   label: Msg;
   icon: LucideIcon;
+  /**
+   * What the page is for, in one to three sentences: the help dialog's "This page" topic
+   * (and its pages nested below `href`, such as a settings page).
+   */
+  help: Msg;
+  /** The page only ever shows the viewer's own data (mail, P&L): no role can see anyone else's. */
+  ownDataOnly?: true;
   /** Visible if the user has any of these permissions (omit = always visible). */
   anyPermission?: string[];
 }

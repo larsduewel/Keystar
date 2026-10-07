@@ -8,6 +8,13 @@ export const trade = {
   module: {
     navSection: "Trade",
     nav: { appraisal: "Appraisal" },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      appraisal:
+        "Paste cargo, a contract, a fitting, a d-scan or an item list to value it at Jita 4-4 buy and sell prices from ESI, " +
+        "optionally at a percentage of Jita. Each appraisal is kept for a year with a link anyone with appraisal access can open; " +
+        "you can appraise it again at today's prices or delete your own.",
+    },
     permissionGroup: "Trade",
     permissions: {
       appraisal: {
@@ -15,6 +22,7 @@ export const trade = {
         description: "Appraise items at Jita prices and open appraisal links shared by others.",
       },
     },
+    jobs: { housekeeping: "Appraisal housekeeping" },
   },
   appraisal: {
     metaTitle: "Appraisal",
@@ -101,6 +109,7 @@ Nanite Repair Paste x 50
     tooManyTypes: (types: number, max: number) =>
       `That paste contains ${n(types)} different items; appraise at most ${n(max)} at a time.`,
     esiUnavailable: "EVE's ESI is unavailable right now, so the items couldn't be identified or priced. Nothing was saved; try again in a few minutes.",
+    rateLimited: "That is a lot of appraisals in a short time. Try again in a few minutes.",
     noItems: "No known items found. Paste item names from EVE (inventory, contract, fitting, d-scan or a list).",
   },
 };

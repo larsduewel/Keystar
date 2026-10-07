@@ -7,6 +7,7 @@ import { writeBriefing } from "./ai/generate";
 import {
   DIGEST_KEEP_NEWEST,
   DIGEST_RETENTION_DAYS,
+  DSCAN_LOOKUP_WINDOW_MS,
   PILOT_RETENTION_DAYS,
   RESCORE_WINDOW_MS,
   SCAN_RETENTION_DAYS,
@@ -67,7 +68,7 @@ export const briefingJob: JobDefinition = {
   },
 };
 
-/** Retention: old killmail digests, pilots nobody scanned for months, old scans. */
+/** Retention: old killmail digests, pilots nobody scanned for months, old scans, d-scan lookups outside the rate window. */
 export const intelHousekeepingJob: JobDefinition = {
   key: "intel.housekeeping",
   label: (t) => t.intel.module.jobs.housekeeping,
@@ -99,6 +100,7 @@ export const intelHousekeepingJob: JobDefinition = {
           SELECT 1 FROM intel_scan_pilots sp JOIN intel_scans s ON s.id = sp.scan_id
           WHERE sp.character_id = q.character_id AND s.created_at > now() - make_interval(secs => ${RESCORE_WINDOW_MS / 1000}))`);
     await db.execute(sql`DELETE FROM intel_ai_notes WHERE scan_id IS NULL AND created_at < now() - interval '90 days'`);
+    await db.execute(sql`DELETE FROM intel_dscan_lookups WHERE created_at < now() - make_interval(secs => ${DSCAN_LOOKUP_WINDOW_MS / 1000})`);
     return {
       summary: `Pruned ${digest.count ?? 0} killmail digests, ${pilots.count ?? 0} pilots, ${scans.count ?? 0} scans, ${queue.count ?? 0} stale queue rows`,
     };

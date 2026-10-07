@@ -7,6 +7,12 @@ const count = (value: number, one: string, many: string) => `${n(value)} ${value
 export const fleet: typeof en = {
   module: {
     nav: { fleet: "Live-Flotte" },
+    help: {
+      fleet:
+        "Vom Flottenboss geteilte Flotten, alle 15 Sekunden aus dem ESI gelesen: Mitglieder, Schiffe, Wings und Squads sowie " +
+        "Beitritte und Abgänge, dazu eine Liste vergangener Flotten. Um deine Flotte zu teilen, aktiviere Flottenzugriff für den " +
+        "Charakter, der Flottenboss ist, und starte das Tracking; es endet von selbst, wenn dieser Charakter die Flotte verlässt.",
+    },
     permissionGroup: "Flotte",
     permissions: {
       view: { label: "Flotten ansehen", description: "Von Flottenbossen geteilte Live-Flotten und vergangene Flotten sehen." },

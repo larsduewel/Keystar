@@ -32,6 +32,17 @@ export const wallet: typeof en = {
       corporationWallet: "Corporation-Wallet",
       journal: "Corp-Wallet-Journal",
     },
+    help: {
+      corporationWallet:
+        "Kontostände, Einnahmen und Ausgaben der Wallet-Divisionen der Heimat-Corporation für den gewählten Zeitraum, pro Tag, " +
+        "Woche oder Monat; ISK, die zwischen Divisionen verschoben werden, gelten als Umbuchung, nicht als Einnahme. Keystar " +
+        "importiert das Journal stündlich über einen Charakter mit der Ingame-Rolle Accountant oder Junior Accountant und bewahrt " +
+        "es über die 30 Tage hinaus auf, die ESI liefert.",
+      journal:
+        "Alle Einträge der Corporation-Wallets, neueste zuerst, filterbar nach Zeitraum, Division, Kategorie und danach, ob es " +
+        "Einnahmen, Ausgaben oder Umbuchungen sind. Die Einträge stammen aus demselben stündlichen Import wie die " +
+        "Corporation-Wallet und bleiben dauerhaft erhalten, während ESI nur die letzten 30 Tage liefert.",
+    },
   },
 
   corp: {

@@ -66,6 +66,7 @@ export default async function SkillsSettingsPage() {
                         ? m.kept
                         : m.nothing}
                     {anyGranted && a.lastStatus === "error" && a.lastError ? ` · ${a.lastError}` : ""}
+                    {a.granted ? ` · ${a.implantsGranted ? m.implants.shared : m.implants.missing}` : ""}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -97,7 +98,7 @@ export default async function SkillsSettingsPage() {
                       <GraduationCap className="size-3.5" aria-hidden /> {m.enable}
                     </ButtonLink>
                   )}
-                  {anyGranted && a.tokenStatus === "invalid" && !demo && (
+                  {anyGranted && (a.tokenStatus === "invalid" || (a.granted && !a.implantsGranted)) && !demo && (
                     <ButtonLink href={enable} size="sm" variant="primary">
                       <KeyRound className="size-3.5" aria-hidden /> {m.reauthorize}
                     </ButtonLink>
@@ -121,6 +122,7 @@ export default async function SkillsSettingsPage() {
         </div>
         <ul className="mt-4 list-disc space-y-1 pl-4 text-xs text-ink-3">
           <li>{m.notes.corp}</li>
+          <li>{m.notes.implants}</li>
           <li>{m.notes.stop}</li>
         </ul>
       </Panel>

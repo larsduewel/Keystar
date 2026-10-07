@@ -67,7 +67,7 @@ export default async function ScanPage({ params }: PageProps<"/intel/[id]">) {
       read={dscanRead}
       pilotNames={pilotNames}
       form={<DscanForm scanId={scan.id} action={setDscan} replace={!!scan.dscan} />}
-      actions={canAi && dscanRows?.length ? <ReadDscanButton scanId={scan.id} action={readDscan} claude={claudeConfigured()} /> : undefined}
+      actions={canAi && dscanRows?.length ? <ReadDscanButton action={readDscan.bind(null, scan.id)} claude={claudeConfigured()} /> : undefined}
     />
   );
 
@@ -82,11 +82,11 @@ export default async function ScanPage({ params }: PageProps<"/intel/[id]">) {
             <ButtonLink href="/intel" size="sm">
               <ArrowLeft className="size-4" aria-hidden /> {text.newScan}
             </ButtonLink>
-            {(scan.status === "ready" || briefing || scan.briefingStatus === "pending") && <BriefingControl scanId={scan.id} action={canAi && scan.status === "ready" ? rewriteBriefing : undefined}>
+            {(scan.status === "ready" || briefing || scan.briefingStatus === "pending") && <BriefingControl action={canAi && scan.status === "ready" ? rewriteBriefing.bind(null, scan.id) : undefined}>
               <BriefingPanel note={briefing} pending={scan.briefingStatus === "pending"} scanId={scan.id} pilotNames={pilotNames} claudeHint={claudeHint} />
             </BriefingControl>}
             <DscanDropdown supplied={!!scan.dscan}>{dscanPanel}</DscanDropdown>
-            {canDelete && <DeleteScanButton scanId={scan.id} action={deleteScan} />}
+            {canDelete && <DeleteScanButton action={deleteScan.bind(null, scan.id)} />}
           </>
         }
       />
@@ -110,7 +110,7 @@ export default async function ScanPage({ params }: PageProps<"/intel/[id]">) {
       <Panel
         title={text.pilotsTitle}
         subtitle={others.length ? undefined : text.allFriendly}
-        actions={unprofiled > 0 ? <ProfileRemainingButton scanId={scan.id} count={unprofiled} action={profileScanPilots} /> : undefined}
+        actions={unprofiled > 0 ? <ProfileRemainingButton count={unprofiled} action={profileScanPilots.bind(null, scan.id)} /> : undefined}
       >
         <div className="grid auto-rows-fr items-stretch gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {others.map((r) => (

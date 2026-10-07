@@ -61,6 +61,8 @@ export const skillsCharacter = pgTable("skills_character", {
   accruedRemapCooldownDate: timestamp("accrued_remap_cooldown_date", { withTimezone: true }),
   queueSyncedAt: timestamp("queue_synced_at", { withTimezone: true }),
   skillsSyncedAt: timestamp("skills_synced_at", { withTimezone: true }),
+  /** Last implants sync; null means implants were never read (not the same as "no implants"). */
+  implantsSyncedAt: timestamp("implants_synced_at", { withTimezone: true }),
 });
 
 /**
@@ -73,5 +75,33 @@ export const skillsTypeAttributes = pgTable("skills_type_attributes", {
   primaryAttribute: integer("primary_attribute").notNull(),
   secondaryAttribute: integer("secondary_attribute").notNull(),
   rank: integer("rank").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Implants in the active clone (GET /characters/{id}/implants), replaced on every sync. ESI's attributes include their
+ * bonuses, so the remap optimiser subtracts them to get the remappable base attributes.
+ */
+export const skillsImplants = pgTable(
+  "skills_implants",
+  {
+    characterId: bigint("character_id", { mode: "number" }).notNull(),
+    typeId: integer("type_id").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.characterId, t.typeId] })],
+);
+
+/**
+ * Attribute bonuses of implant types, from the dogma attributes of GET /universe/types/{id} (charismaBonus …
+ * willpowerBonus). Implants without attribute bonuses get a row of zeros so they aren't fetched again.
+ */
+export const skillsImplantAttributes = pgTable("skills_implant_attributes", {
+  typeId: integer("type_id").primaryKey(),
+  charisma: smallint("charisma").notNull().default(0),
+  intelligence: smallint("intelligence").notNull().default(0),
+  memory: smallint("memory").notNull().default(0),
+  perception: smallint("perception").notNull().default(0),
+  willpower: smallint("willpower").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

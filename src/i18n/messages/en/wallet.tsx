@@ -35,6 +35,17 @@ export const wallet = {
       corporationWallet: "Corporation wallet",
       journal: "Corp wallet journal",
     },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      corporationWallet:
+        "Balances, income and expenses of the home corporation's wallet divisions for the period you pick, by day, week or month; " +
+        "ISK moved between divisions counts as a transfer, not income. Keystar imports the journal every hour through a character " +
+        "with the in-game Accountant or Junior Accountant role and keeps it beyond the 30 days ESI returns.",
+      journal:
+        "Every entry of the corporation wallets, newest first, filtered by period, division, category and whether it is income, " +
+        "an expense or a transfer. The entries come from the same hourly import as Corporation wallet and are kept for good, " +
+        "while ESI only returns the last 30 days.",
+    },
   },
 
   corp: {

@@ -66,6 +66,21 @@ export const intelScans = pgTable(
   ],
 );
 
+/**
+ * One row per d-scan paste that needed ESI type lookups, for the per-user
+ * limit on those lookups (bogus type ids spend the shared ESI error budget).
+ * Pruned by intel.housekeeping.
+ */
+export const intelDscanLookups = pgTable(
+  "intel_dscan_lookups",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("intel_dscan_lookups_user_idx").on(t.userId, t.createdAt)],
+);
+
 /** Pilots of a scan with their affiliation at scan time and their score in the scan's context. */
 export const intelScanPilots = pgTable(
   "intel_scan_pilots",

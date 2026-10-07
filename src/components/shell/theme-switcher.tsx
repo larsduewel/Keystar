@@ -24,7 +24,7 @@ function ThemeButton() {
     >
       <Icon className="size-3.5" aria-hidden />
       {/* Icon only on the collapsed sidebar rail; the label stays the accessible name. */}
-      <span className="group-data-[sidebar=collapsed]/shell:sr-only">{light ? t.shell.theme.light : t.shell.theme.dark}</span>
+      <span className="md:group-data-[sidebar=collapsed]/shell:sr-only">{light ? t.shell.theme.light : t.shell.theme.dark}</span>
     </button>
   );
 }

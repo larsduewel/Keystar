@@ -20,6 +20,7 @@ import {
   users,
   walletFees,
   industryJobs,
+  marketOrders,
   walletTransactions,
 } from "@/core/db";
 import { forgetCharacterEsiCache } from "@/core/esi";
@@ -58,7 +59,8 @@ export async function syncCharacterNow(characterId: number): Promise<ActionResul
 
 /**
  * Unlinks a character, deletes its token and revokes it at CCP. Mining history
- * is kept; the character's imported wallet transactions and mail are deleted.
+ * is kept; the character's imported wallet transactions, mail, industry jobs and
+ * market orders are deleted.
  */
 export async function removeCharacter(characterId: number): Promise<ActionResult<CharacterActionError>> {
   const user = await ownedCharacter(characterId);
@@ -71,10 +73,11 @@ export async function removeCharacter(characterId: number): Promise<ActionResult
       .delete(characters)
       .where(and(eq(characters.characterId, characterId), eq(characters.userId, user.id)))
       .returning({ characterId: characters.characterId });
-    // Industry jobs have no owner column: delete them only if this account's link was the one removed, so a
-    // character that changed hands meanwhile keeps its new owner's jobs.
+    // Industry jobs and market orders have no owner column: delete them only if this account's link was the one
+    // removed, so a character that changed hands meanwhile keeps its new owner's jobs and orders.
     if (removed.length) {
       await tx.delete(industryJobs).where(eq(industryJobs.characterId, characterId));
+      await tx.delete(marketOrders).where(eq(marketOrders.characterId, characterId));
       await forgetCharacterEsiCache(tx, characterId);
       await tx
         .update(syncJobs)

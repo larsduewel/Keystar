@@ -124,14 +124,14 @@ export const admin: typeof en = {
       body: (settings: string) => `Lege die Heimat-Corporation unter „${settings}“ fest, um ihre Mitglieder zu prüfen.`,
     },
     description:
-      "Gleiche die Mitgliederliste der Corporation im Spiel mit den in Keystar registrierten Charakteren ab und hake bei fehlendem ESI-Zugriff nach.",
+      "Gleiche die Mitgliederliste der Corporation im Spiel mit den in Keystar registrierten Charakteren ab und erkenne widerrufenen ESI-Zugriff.",
     stats: {
       roster: "Mitgliederliste im Spiel",
       rosterHint: "Braucht ein Token für die Mitgliederliste",
       registered: "Registriert",
       ofRoster: (share: string) => `${share} der Mitgliederliste`,
       notRegistered: "Nicht registriert",
-      missingEsi: "ESI fehlt oder widerrufen",
+      missingEsi: "ESI-Probleme",
     },
     columns: { character: "Charakter", status: "Status", account: "Konto", esi: "ESI" },
     characterFallback: (id: string) => `Charakter ${id}`,
@@ -147,7 +147,7 @@ export const admin: typeof en = {
         roster: "in der Mitgliederliste im Spiel",
         registered: "registriert",
         unregistered: "nicht registriert",
-        esi: "mit fehlendem oder widerrufenem ESI",
+        esi: "mit ESI-Problemen",
       },
     },
     results: (count: number, filter: string | null, q: string | null, account: string | null) =>
@@ -166,15 +166,16 @@ export const admin: typeof en = {
     },
     esi: {
       tokenRevoked: "Token widerrufen",
-      noToken: "Kein Token",
+      /** Nothing granted, which is fine: every ESI scope is opt-in. */
+      noToken: "Kein ESI-Zugriff",
       missing: (count: number) => `${n(count)} fehlen`,
-      complete: "Vollständig",
+      complete: "Aktiv",
     },
     request: {
-      title: "ESI-Zugriff anfordern",
+      title: "Registrierungslink",
       subtitle: "Teile diesen Link mit den Mitgliedern",
       body: (page: string) =>
-        `Die Seite erklärt genau, welche Scopes angefragt werden und warum, und führt das Mitglied dann durch EVE SSO. Alts lassen sich danach unter „${page}“ verknüpfen.`,
+        `Die Seite erklärt, was Keystar liest, und führt das Mitglied dann durch EVE SSO. Die Registrierung bestätigt nur, wer es ist; optionaler Zugriff wie das Mining-Ledger wird danach pro Charakter eingeschaltet. Alts lassen sich unter „${page}“ verknüpfen.`,
     },
     rosterUnavailable: {
       title: "Mitgliederliste nicht verfügbar",
@@ -268,6 +269,7 @@ export const admin: typeof en = {
     errors: {
       forbidden: "Du darfst die Einstellungen nicht mehr ändern.",
       invalidCorporation: "Die Heimat-Corporation muss eine numerische Corporation-ID sein, z. B. 98765432.",
+      invalidValuation: "Wähle Preisquelle und Preisdatum aus den Listen. Lade die Seite neu, falls sie veraltet wirken.",
       unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und prüfe, welche Änderungen übernommen wurden.",
     },
     home: {

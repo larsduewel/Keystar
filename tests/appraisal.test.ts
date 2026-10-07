@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignTypes, candidateNames, countItemLines, MAX_LINES, parseAppraisalInput, parseQuantity } from "@/modules/trade/appraisal/parse";
+import { assignTypes, candidateNames, countItemLines, MAX_LINES, MAX_QUANTITY, parseAppraisalInput, parseQuantity } from "@/modules/trade/appraisal/parse";
 import { appraisalId } from "@/modules/trade/appraisal/appraise";
 import { splitPrice, totalsOf } from "@/modules/trade/appraisal/types";
 
@@ -17,6 +17,16 @@ describe("appraisal quantities", () => {
     expect(parseQuantity("10.0")).toBe(10);
     expect(parseQuantity("abc")).toBeNull();
     expect(parseQuantity("")).toBeNull();
+  });
+
+  it("refuses quantities above MAX_QUANTITY instead of returning Infinity", () => {
+    expect(parseQuantity(String(MAX_QUANTITY))).toBe(MAX_QUANTITY);
+    expect(parseQuantity(String(MAX_QUANTITY + 1))).toBeNull();
+    expect(parseQuantity("9".repeat(400))).toBeNull();
+    expect(parseQuantity(`1${",000".repeat(120)}`)).toBeNull();
+    expect(parseQuantity(`${"9".repeat(400)}.5`)).toBeNull();
+    // The line can still be read as a name, never as Infinity × Tritanium.
+    expect(first(`Tritanium x ${"9".repeat(400)}`)[0].quantity).toBe(1);
   });
 });
 

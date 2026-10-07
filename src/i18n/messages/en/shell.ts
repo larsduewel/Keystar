@@ -19,7 +19,7 @@ export const shell = {
   theme: {
     light: "Light", dark: "Dark", toLight: "Switch to light mode", toDark: "Switch to dark mode",
   },
-  sidebar: { collapse: "Collapse sidebar", expand: "Expand sidebar" },
+  sidebar: { collapse: "Collapse sidebar", expand: "Expand sidebar", openMenu: "Open menu", closeMenu: "Close menu" },
   language: {
     label: "Language",
     change: "Change language",

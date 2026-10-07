@@ -5,12 +5,14 @@ import {
   eveTypes,
   skillsCharacter,
   skillsCharacterSkills,
+  skillsImplantAttributes,
+  skillsImplants,
   skillsQueue,
   skillsTypeAttributes,
   syncJobs,
   type Db,
 } from "@/core/db";
-import { SKILLS_SCOPES } from "@/modules/skills/module";
+import { SKILLS_CORE_SCOPES, SKILLS_SCOPES } from "@/modules/skills/module";
 import { ATTRIBUTE_IDS, type AttributeName } from "@/modules/skills/queue";
 
 /** Real skills (ids, groups, attributes and ranks as ESI lists them). */
@@ -32,7 +34,22 @@ const SKILLS = [
   { typeId: 3426, name: "CPU Management", groupId: 1216, primary: "intelligence", secondary: "memory", rank: 1 },
   { typeId: 3449, name: "Navigation", groupId: 275, primary: "intelligence", secondary: "perception", rank: 1 },
   { typeId: 3455, name: "Warp Drive Operation", groupId: 275, primary: "intelligence", secondary: "perception", rank: 1 },
+  { typeId: 20342, name: "Advanced Spaceship Command", groupId: 257, primary: "perception", secondary: "willpower", rank: 5 },
+  { typeId: 20533, name: "Capital Ships", groupId: 257, primary: "perception", secondary: "willpower", rank: 14 },
+  { typeId: 24311, name: "Amarr Carrier", groupId: 257, primary: "perception", secondary: "willpower", rank: 14 },
+  { typeId: 3456, name: "Jump Drive Operation", groupId: 275, primary: "intelligence", secondary: "perception", rank: 5 },
+  { typeId: 21611, name: "Jump Drive Calibration", groupId: 275, primary: "intelligence", secondary: "perception", rank: 9 },
 ] as const;
+
+/** Real attribute implants (+4 each), for the remap optimiser. */
+const IMPLANTS = [
+  { typeId: 10216, name: "Ocular Filter - Standard", attribute: "perception" },
+  { typeId: 10208, name: "Memory Augmentation - Standard", attribute: "memory" },
+  { typeId: 10212, name: "Neural Boost - Standard", attribute: "willpower" },
+  { typeId: 10221, name: "Cybernetic Subprocessor - Standard", attribute: "intelligence" },
+  { typeId: 10225, name: "Social Adaptation Chip - Standard", attribute: "charisma" },
+] as const;
+const IMPLANT_BONUS = 4;
 
 const GROUPS = [
   { groupId: 1218, name: "Resource Processing", categoryId: 16 },
@@ -41,6 +58,7 @@ const GROUPS = [
   { groupId: 255, name: "Gunnery", categoryId: 16 },
   { groupId: 1216, name: "Engineering", categoryId: 16 },
   { groupId: 275, name: "Navigation", categoryId: 16 },
+  { groupId: 745, name: "Cyber Learning", categoryId: 20 },
 ];
 
 /** Skill points of level 0..5 at rank 1. */
@@ -53,11 +71,15 @@ type Profile =
   | { kind: "paused"; queue: [SkillName, number][]; progress: number }
   | { kind: "empty" };
 
-const MINER: Attributes = { charisma: 19, intelligence: 24, memory: 27, perception: 20, willpower: 20 };
-const PILOT: Attributes = { charisma: 17, intelligence: 20, memory: 20, perception: 27, willpower: 26 };
+/** Base attributes after a remap: 17–27 each, 99 in total. */
+const MINER: Attributes = { charisma: 17, intelligence: 21, memory: 27, perception: 17, willpower: 17 };
+const PILOT: Attributes = { charisma: 17, intelligence: 17, memory: 17, perception: 27, willpower: 21 };
 
-/** Which demo characters share their skills, and what they train. Others keep sharing off. */
-const PROFILES: Record<string, { attributes: Attributes; profile: Profile }> = {
+/**
+ * Which demo characters share their skills, and what they train. Others keep sharing off. `attributes` are the base
+ * attributes; characters with `implants` also share them and get the +4 set on top.
+ */
+const PROFILES: Record<string, { attributes: Attributes; profile: Profile; implants?: boolean }> = {
   "Aria Vexmoor": {
     attributes: MINER,
     profile: {
@@ -79,7 +101,25 @@ const PROFILES: Record<string, { attributes: Attributes; profile: Profile }> = {
   "Ishani Deepcore": { attributes: MINER, profile: { kind: "paused", progress: 0.4, queue: [["Astrogeology", 4], ["Mining", 5]] } },
   "Zahra Imren": {
     attributes: PILOT,
-    profile: { kind: "training", progress: 0.8, queue: [["Spaceship Command", 5], ["CPU Management", 5], ["Power Grid Management", 5]] },
+    implants: true,
+    // A capital pilot's long queue: over 180 days, so the remap advice comes without the short-queue warning.
+    profile: {
+      kind: "training",
+      progress: 0.8,
+      queue: [
+        ["Spaceship Command", 5],
+        ["Advanced Spaceship Command", 5],
+        ["Jump Drive Operation", 5],
+        ["Capital Ships", 4],
+        ["Jump Drive Calibration", 4],
+        ["Capital Ships", 5],
+        ["Amarr Carrier", 4],
+        ["Jump Drive Calibration", 5],
+        ["Amarr Carrier", 5],
+        ["CPU Management", 5],
+        ["Power Grid Management", 5],
+      ],
+    },
   },
 };
 
@@ -88,8 +128,24 @@ export async function seedSkills(db: Db, opts: { characters: { characterId: numb
   await db.insert(eveGroups).values(GROUPS).onConflictDoNothing();
   await db
     .insert(eveTypes)
-    .values(SKILLS.map((s) => ({ typeId: s.typeId, name: s.name, groupId: s.groupId, volume: 0.01, published: true })))
+    .values([
+      ...SKILLS.map((s) => ({ typeId: s.typeId, name: s.name, groupId: s.groupId, volume: 0.01, published: true })),
+      ...IMPLANTS.map((i) => ({ typeId: i.typeId, name: i.name, groupId: 745, volume: 1, published: true })),
+    ])
     .onConflictDoNothing();
+  await db
+    .insert(skillsImplantAttributes)
+    .values(
+      IMPLANTS.map((i) => ({
+        typeId: i.typeId,
+        charisma: 0,
+        intelligence: 0,
+        memory: 0,
+        perception: 0,
+        willpower: 0,
+        [i.attribute]: IMPLANT_BONUS,
+      })),
+    );
   await db.insert(skillsTypeAttributes).values(
     SKILLS.map((s) => ({
       typeId: s.typeId,
@@ -105,12 +161,19 @@ export async function seedSkills(db: Db, opts: { characters: { characterId: numb
   for (const c of opts.characters) {
     const entry = PROFILES[c.name];
     if (!entry) continue;
-    const { attributes, profile } = entry;
+    const { profile } = entry;
+    // ESI reports attributes with the implant bonuses included.
+    const attributes: Attributes = entry.implants
+      ? (Object.fromEntries(Object.entries(entry.attributes).map(([k, v]) => [k, v + IMPLANT_BONUS])) as Attributes)
+      : entry.attributes;
     const queue = profile.kind === "empty" ? [] : profile.queue;
 
     // Trained skills: every skill one level below what is queued, the rest at IV.
     const trained = new Map<number, number>(SKILLS.map((s) => [s.typeId, 4]));
-    for (const [name, level] of queue) trained.set(byName.get(name)!.typeId, level - 1);
+    for (const [name, level] of queue) {
+      const id = byName.get(name)!.typeId;
+      trained.set(id, Math.min(trained.get(id)!, level - 1));
+    }
     const skillRows = SKILLS.map((s) => ({
       characterId: c.characterId,
       skillId: s.typeId,
@@ -161,20 +224,30 @@ export async function seedSkills(db: Db, opts: { characters: { characterId: numb
       accruedRemapCooldownDate: new Date(now + (c.name === "Tovan Rhask" ? -5 : 165) * 86400_000),
       queueSyncedAt: new Date(now - 6 * 60_000),
       skillsSyncedAt: new Date(now - 20 * 60_000),
+      implantsSyncedAt: entry.implants ? new Date(now - 20 * 60_000) : null,
     });
-    for (const scope of SKILLS_SCOPES) {
+    if (entry.implants) {
+      await db.insert(skillsImplants).values(IMPLANTS.map((i) => ({ characterId: c.characterId, typeId: i.typeId })));
+    }
+    // Characters without implants shared before implants were part of sharing.
+    for (const scope of entry.implants ? SKILLS_SCOPES : SKILLS_CORE_SCOPES) {
       await db
         .update(esiTokens)
         .set({ scopes: sql`array_append(${esiTokens.scopes}, ${scope})` })
         .where(sql`${esiTokens.characterId} = ${c.characterId}`);
     }
     await db.insert(syncJobs).values(
-      (["skills.queue", "skills.character"] as const).map((jobKey) => ({
+      [...(["skills.queue", "skills.character"] as const), ...(entry.implants ? (["skills.implants"] as const) : [])].map((jobKey) => ({
         jobKey,
         ownerType: "character" as const,
         ownerId: c.characterId,
         lastStatus: "ok" as const,
-        lastSummary: jobKey === "skills.queue" ? `${rows.length} queued skills` : `${skillRows.length} trained skills`,
+        lastSummary:
+          jobKey === "skills.queue"
+            ? `${rows.length} queued skills`
+            : jobKey === "skills.implants"
+              ? `${IMPLANTS.length} implants`
+              : `${skillRows.length} trained skills`,
         lastRunAt: new Date(now - 6 * 60_000),
         lastSuccessAt: new Date(now - 6 * 60_000),
         nextRunAt: new Date(now + 9 * 60_000),

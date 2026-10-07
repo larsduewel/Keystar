@@ -57,7 +57,16 @@ export const industryModule: KeystarModule = {
       id: "industry",
       label: (t) => t.mining.module.navSection,
       order: 10,
-      items: [{ href: "/industry", label: (t) => t.industry.module.nav.jobs, icon: Factory, anyPermission: [INDUSTRY_PERMISSIONS.viewOwn] }],
+      items: [
+        {
+          href: "/industry",
+          label: (t) => t.industry.module.nav.jobs,
+          icon: Factory,
+          help: (t) => t.industry.module.help.jobs,
+          ownDataOnly: true,
+          anyPermission: [INDUSTRY_PERMISSIONS.viewOwn],
+        },
+      ],
     },
   ],
 };

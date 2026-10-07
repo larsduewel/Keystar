@@ -11,7 +11,7 @@ import { requirePermission } from "@/core/auth/dal";
 import { outsideGuestIds } from "@/core/auth/manage-users";
 import { getDb } from "@/core/db";
 import { memberAuditHref } from "@/core/member-audit-filters";
-import { characterScopes } from "@/core/modules/registry";
+import { characterScopes, esiHealth } from "@/core/modules/registry";
 import { getSettings } from "@/core/settings";
 import { assignableRoles, canManageRole, isRole, ROLES, type Role } from "@/core/rbac/roles";
 import { getI18n } from "@/i18n/server";
@@ -200,12 +200,13 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
                 </tr>
               )}
               {shown.map((u) => {
-                const tokenProblem = (c: UserRow["characters"][number]) =>
-                  c.status === "invalid" || !c.scopes || required.some((s) => !c.scopes!.includes(s));
-                const invalid = u.characters.filter((c) => c.status === "invalid").length;
-                const missing = u.characters.filter((c) => !c.scopes || required.some((s) => !c.scopes!.includes(s))).length;
+                // No token is fine (every scope is opt-in); a revoked token or a missing required scope isn't.
+                const charHealth = u.characters.map((c) => ({ c, h: esiHealth(c, required) }));
+                const invalid = charHealth.filter((x) => x.h === "revoked").length;
+                const missing = charHealth.filter((x) => x.h === "missing").length;
                 // The member audit only lists home corporation characters.
-                const auditable = home !== null && u.characters.some((c) => c.corporation_id === home && tokenProblem(c));
+                const auditable =
+                  home !== null && charHealth.some((x) => x.c.corporation_id === home && (x.h === "revoked" || x.h === "missing"));
                 const own = u.id === actor.id;
                 const canChange = manageable(u);
                 const tokenTrouble = !u.is_disabled && (invalid > 0 || missing > 0);

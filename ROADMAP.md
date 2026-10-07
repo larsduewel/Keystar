@@ -30,6 +30,7 @@ Status: ✅ done · 🚧 in progress · 📝 planned · 💡 idea
 ## Mining
 
 - ✅ Personal mining ledgers and corporation moon-observer ledgers, de-duplicated
+- ✅ Personal mining ledger opt-in per character (Mining → Access), with deletion of the stored history
 - ✅ Filters: date range, members, ore class, ore type, system, data source
 - ✅ Daily value / volume / units, resource mix, moon rarity, top miners (pilots or characters), ore and system breakdowns
 - ✅ Valuation from Jita 4-4 buy/sell/split or ESI average, current or historical prices
@@ -99,6 +100,13 @@ Status: ✅ done · 🚧 in progress · 📝 planned · 💡 idea
 
 - ✅ **Appraisal**: paste cargo, contracts, fits, d-scans or lists; Jita 4-4 buy/sell/split, volume, percentage
   price, shareable links, "appraise again" at current prices
+- ✅ **Market orders** of your own characters (`esi-markets.read_character_orders.v1`): open buy and sell orders with
+  price, remaining quantity, station or structure, issue date and expiry, closed orders of the last 90 days, totals
+  for selling, buying and escrow, orders about to expire; opt-in per character on the Market access page
+- 💡 Market orders: compare each order with the best price at its location (outbid / undercut), order slots per
+  character from the trade skills
+- 💡 Corporation market orders (`esi-markets.read_corporation_orders.v1`, Accountant / Trader) for directors
+- 💡 Live alert when an order is filled or about to expire
 - 💡 More markets (Amarr, Dodixie, Rens, Hek) and a market selector
 - 💡 Corp buyback: a configured percentage per item group, contract instructions for members
 
@@ -138,7 +146,8 @@ character, so it lives in one module.
 - ✅ **Skill queues** (opt-in per character, `esi-skills.read_skillqueue.v1`, `esi-skills.read_skills.v1`): skill in
   training with progress, finish time of every queued skill and of the whole queue, paused/empty/ending-soon
   warnings, attributes and remap availability; own characters, plus a corporation view for directors
-- 💡 Remap optimiser: the attribute remap (yearly or bonus) that finishes the current queue fastest
+- ✅ **Remap optimiser** (`esi-clones.read_implants.v1` with skill sharing, for implants): the attribute remap that finishes the
+  current queue fastest, time saved, remap availability, and a warning for queues shorter than 180 days
 - 💡 Corporation skill plans: paste a plan copied from the game, see which members have it trained and what is missing
 
 ### 📝 Assets / inventory
@@ -194,3 +203,13 @@ Route planning for ships with a jump drive.
 ## Universe map
 
 - ✅ Interactive 3D map under Combat with system search, names and security status from CCP static data.
+
+## Gate check
+
+- ✅ Route planning (shortest, safer, less secure, avoided systems) with kills at every gate on the route, live from
+  zKillboard's feed, tagged smartbombs, interdictors, HICs, gankers, hot drops and pod kills
+- ✅ Camp estimates for the time you reach each gate: history by time of day, live camps, regular campers seen nearby
+- 💡 Ansiblex jump bridges and Thera/Turnur wormhole connections (EVE Scout) as route options
+- 💡 Backfill of camp history from EVE Ref's daily killmail archives, so estimates are useful from day one
+- 💡 System traffic from ESI (`/universe/system_jumps`) to weigh kills against how busy a system is
+- 💡 A live alert when a camp appears on a saved route

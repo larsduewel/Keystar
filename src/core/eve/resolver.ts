@@ -81,23 +81,62 @@ interface EsiType {
 }
 
 /**
+ * Type ids ESI recently answered 404 for, with when to try again. Every 404
+ * spends the per-IP error budget that pauses all ESI calls once drained, so
+ * pasted junk ids (d-scans, appraisals) are not looked up over and over.
+ */
+const unknownTypes = new Map<number, number>();
+const UNKNOWN_TYPE_TTL_MS = 6 * 3600_000;
+const MAX_UNKNOWN_TYPES = 10_000;
+
+function isUnknownType(typeId: number, now: number): boolean {
+  const until = unknownTypes.get(typeId);
+  if (until === undefined) return false;
+  if (until > now) return true;
+  unknownTypes.delete(typeId);
+  return false;
+}
+
+function rememberUnknownType(typeId: number, now: number): void {
+  unknownTypes.delete(typeId);
+  unknownTypes.set(typeId, now + UNKNOWN_TYPE_TTL_MS);
+  // Maps iterate in insertion order: drop the oldest entry.
+  if (unknownTypes.size > MAX_UNKNOWN_TYPES) unknownTypes.delete(unknownTypes.keys().next().value!);
+}
+
+export interface EnsureTypesOptions {
+  /** Look up at most this many types on ESI (the rest stay unresolved). */
+  maxLookups?: number;
+  /**
+   * Stop starting lookups once the shared client reports fewer errors left
+   * than this, so user input cannot drain the budget the jobs depend on.
+   */
+  errorHeadroom?: number;
+}
+
+/**
  * Ensures type rows exist (with group/category). For raw ores, ice and gas it
  * also links the "Compressed …" variant from the same group for price fallback.
  */
-export async function ensureTypes(typeIds: Iterable<number>): Promise<void> {
+export async function ensureTypes(typeIds: Iterable<number>, opts: EnsureTypesOptions = {}): Promise<void> {
   const wanted = unique(typeIds);
   if (!wanted.length) return;
   const db = getDb();
   const known = await db.select({ id: eveTypes.typeId }).from(eveTypes).where(inArray(eveTypes.typeId, wanted));
   const knownSet = new Set(known.map((r) => r.id));
-  const missing = wanted.filter((id) => !knownSet.has(id));
+  const now = Date.now();
+  const missing = wanted.filter((id) => !knownSet.has(id) && !isUnknownType(id, now)).slice(0, opts.maxLookups);
   if (!missing.length) return;
 
   const fetched: EsiType[] = [];
+  const esi = getEsi();
   await mapLimit(missing, 6, async (typeId) => {
+    const remain = esi.stats().errorLimitRemain;
+    if (opts.errorHeadroom !== undefined && remain !== null && remain < opts.errorHeadroom) return;
     try {
-      fetched.push((await getEsi().get<EsiType>(`/universe/types/${typeId}`)).data);
+      fetched.push((await esi.get<EsiType>(`/universe/types/${typeId}`)).data);
     } catch (err) {
+      if (err instanceof EsiError && err.status === 404) rememberUnknownType(typeId, Date.now());
       log.warn("Could not resolve type", { typeId, error: (err as Error).message });
     }
   });

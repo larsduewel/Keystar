@@ -25,6 +25,9 @@ export const industry: typeof en = {
     nav: {
       jobs: "Industriejobs",
     },
+    help: {
+      jobs: "Die Industriejobs deiner eigenen Charaktere (Produktion, Forschung, Kopieren, Erfindung, Reaktionen) mit Fortschritt, Endzeit und Installationskosten. Auf der Zugriffsseite wählst du, welche Charaktere ihre Jobs teilen; Keystar liest sie alle fünf Minuten, und nur du siehst sie.",
+    },
   },
 
   metaTitle: "Industriejobs",

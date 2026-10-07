@@ -8,6 +8,13 @@ export const trade: typeof en = {
   module: {
     navSection: "Handel",
     nav: { appraisal: "Bewertung" },
+    help: {
+      appraisal:
+        "Füge Fracht, einen Vertrag, ein Fitting, einen D-Scan oder eine Gegenstandsliste ein, um den Wert zu Kauf- und " +
+        "Verkaufspreisen in Jita 4-4 aus dem ESI zu sehen, auf Wunsch zu einem Prozentsatz von Jita. Jede Bewertung bleibt ein Jahr lang erhalten, " +
+        "mit einem Link, den alle mit Zugriff auf Bewertungen öffnen können; du kannst sie zu heutigen Preisen neu bewerten oder " +
+        "deine eigenen löschen.",
+    },
     permissionGroup: "Handel",
     permissions: {
       appraisal: {
@@ -15,6 +22,7 @@ export const trade: typeof en = {
         description: "Gegenstände zu Jita-Preisen bewerten und von anderen geteilte Bewertungen öffnen.",
       },
     },
+    jobs: { housekeeping: "Bewertungen: Aufräumen" },
   },
   appraisal: {
     metaTitle: "Bewertung",
@@ -97,6 +105,7 @@ Nanite Repair Paste x 50
       `Der eingefügte Text enthält ${n(types)} verschiedene Gegenstände; bewerte höchstens ${n(max)} auf einmal.`,
     esiUnavailable:
       "EVEs ESI ist gerade nicht erreichbar, daher konnten die Gegenstände nicht erkannt oder bewertet werden. Nichts wurde gespeichert; versuche es in ein paar Minuten erneut.",
+    rateLimited: "Das sind viele Bewertungen in kurzer Zeit. Versuche es in ein paar Minuten erneut.",
     noItems:
       "Keine bekannten Gegenstände gefunden. Füge Gegenstandsnamen aus EVE ein (Inventar, Vertrag, Fitting, D-Scan oder Liste).",
   },
