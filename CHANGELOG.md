@@ -14,12 +14,12 @@ Add the optional `esi-clones.read_implants.v1` and `esi-markets.read_character_o
 
 ### Fixed
 
-- **Gate-feed timestamps.** Serialize timestamps before updating the live gate-feed cursor, preventing database errors during subsequent batches.
-- **Local worker configuration.** Load the local .env file when starting the development worker, so cached map data refreshes with the configured database and ESI settings.
+- **Gate-feed timestamps.** Serialize timestamps before updating the live gate-feed cursor, preventing database errors during subsequent batches. ([PR #23](https://github.com/larsduewel/Keystar/pull/23))
+- **Local worker configuration.** Load the local .env file when starting the development worker, so cached map data refreshes with the configured database and ESI settings. ([PR #23](https://github.com/larsduewel/Keystar/pull/23))
 
 ### Changed
 
-- **Skyhook panel position.** Show Skyhook raiding windows below Travel Check and above Jump Range in the left map column, with a scrollable results list.
+- **Skyhook panel position.** Show Skyhook raiding windows below Travel Check and above Jump Range in the left map column, with a scrollable results list. ([PR #23](https://github.com/larsduewel/Keystar/pull/23))
 
 ### Changed
 
