@@ -1,5 +1,6 @@
 import type { map as en } from "../en/map";
 export const map: typeof en = {
+ resolveNames: "Schiffs- und Charakternamen der Karte", unknownCharacter: "Unbekannter Charakter", observedFleet: "Beobachtete Angreiferschiffe", unknownShip: "Unbekanntes Schiff", noAttackers: "Keine identifizierten Angreifer erfasst.", fleetHint: "Letztes Schiff je Pilot in diesen Gate-Kills · aktuelle Flotte unbekannt",
  region: "Region", allRegions: "Alle Regionen", regionLabels: "Regionsnamen", unknownRegion: "Unbekannte Region",
  universe: "Universum",
  title: "Karte", description: "Erkunde das EVE-Universum in 3D. Wähle ein System für Name und Sicherheitsstatus.",

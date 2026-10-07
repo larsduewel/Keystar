@@ -27,6 +27,7 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
   camera.current = typeof update === "function" ? update(camera.current) : update;
   redraw.current();
  };
+ const [focusRoute,setFocusRoute] = useState<number[]>([]);
  const [overlay, setOverlay] = useState(EMPTY_OVERLAY);
  const overlayRef = useRef(EMPTY_OVERLAY);
  useEffect(() => { overlayRef.current = overlay; redraw.current(); }, [overlay]);
@@ -59,37 +60,37 @@ export function UniverseMap({initialSystemId=null}:{initialSystemId?:number|null
   const el = canvas.current; if (!el || !visible.length) return;
   const renderer = createMapRenderer(el, visible, {
    overlay: () => overlayRef.current, camera: () => camera.current, dragging: () => !!drag.current?.moved,
-   selected: selected?.[0] ?? null, query, labels, regions, regionId, regionLabels, distanceUnit: m.lightYears, format: value => f.number(value, 1),
+   focusRoute, selected: selected?.[0] ?? null, query, labels, regions, regionId, regionLabels, distanceUnit: m.lightYears, format: value => f.number(value, 1),
    onHits: points => { hits.current = points; },
   });
   redraw.current = renderer.schedule;
   renderer.schedule();
   return () => { renderer.destroy(); redraw.current = () => {}; };
- }, [visible, selected, query, labels, regions, regionId, regionLabels, f, m.lightYears]);
+ }, [visible, focusRoute, selected, query, labels, regions, regionId, regionLabels, f, m.lightYears]);
  useEffect(() => {
-  if (!selected || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if ((!selected && !focusRoute.length) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const start = performance.now(), yaw = camera.current.yaw;
   const rotate = (now: number) => {
-   const elapsed = Math.min((now - start) / 1000, 4);
-   camera.current.yaw = yaw + .3 * (1 - Math.exp(-elapsed));
+   const elapsed = focusRoute.length ? (now-start)/1000 : Math.min((now - start) / 1000, 4);
+   camera.current.yaw = yaw + (focusRoute.length ? elapsed*.035 : .3 * (1 - Math.exp(-elapsed)));
    redraw.current();
-   if (elapsed < 4) rotationFrame.current = requestAnimationFrame(rotate);
+   if (focusRoute.length || elapsed < 4) rotationFrame.current = requestAnimationFrame(rotate);
    else rotationFrame.current = 0;
   };
   rotationFrame.current = requestAnimationFrame(rotate);
   return () => { cancelAnimationFrame(rotationFrame.current); rotationFrame.current = 0; };
- }, [selected]);
+ }, [selected,focusRoute]);
  const button = "glass-chip rounded-md px-3 py-1.5 text-xs text-ink-2 hover:text-ink transition-colors";
- const choose = (s: MapSystem) => { stopRotation(); setSpace(systemSpace(s[0])); setSelected(s); setRegionId(s[6]??null); setCamera(c => ({...c,zoom:Math.max(c.zoom,5),panX:0,panY:0})); };
- return <div className="grid items-start gap-3 lg:grid-cols-[minmax(19.5rem,23.5rem)_minmax(0,1fr)]"><MapPlanning initialOriginId={initialSystemId} systems={systems} selected={selected} onFocus={choose} onOverlay={setOverlay}/><Panel title={m.universe} subtitle={m.controls} actions={<span className="text-xs font-semibold tabular-nums text-ink-2">{f.integer(visible.length)} {m.systems}</span>} bodyClassName="px-3 pb-3">
+ const choose = (s: MapSystem) => { stopRotation(); setFocusRoute([]); setSpace(systemSpace(s[0])); setSelected(s); setRegionId(s[6]??null); setCamera(c => ({...c,zoom:Math.max(c.zoom,5),panX:0,panY:0})); };
+ return <div className="grid items-start gap-3 lg:grid-cols-[minmax(19.5rem,23.5rem)_minmax(0,1fr)]"><MapPlanning initialOriginId={initialSystemId} systems={systems} selected={selected} onFocus={choose} onRoute={path=>{stopRotation();setFocusRoute([...path]);setSelected(null);setRegionId(null);setQuery("");setSpace("known");setCamera({yaw:0,pitch:.6,zoom:1,panX:0,panY:0});}} onOverlay={setOverlay}/><Panel title={m.universe} subtitle={m.controls} actions={<span className="text-xs font-semibold tabular-nums text-ink-2">{f.integer(visible.length)} {m.systems}</span>} bodyClassName="px-3 pb-3">
   <div className="mb-3 flex flex-wrap items-center gap-2">
    <input aria-label={m.search} placeholder={m.search} value={query} list="map-system-search" onChange={e => {setQuery(e.target.value);const match=systems.find(s=>s[1].toLowerCase()===e.target.value.trim().toLowerCase());if(match)choose(match);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();const match=matchingSystems(systems,query,1)[0];if(match){setQuery(match[1]);choose(match);}}}} className="glass-inset min-w-48 rounded-md px-3 py-2 text-xs text-ink"/>
    <datalist id="map-system-search">{query.trim()&&matchingSystems(systems,query,20).map(s=><option key={s[0]} value={s[1]}/>)}</datalist>
-   <select aria-label={m.systems} value={space} onChange={e => {stopRotation();setQuery("");setSpace(e.target.value);setSelected(null);setRegionId(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}} className="glass-inset rounded-md px-3 py-2 text-xs text-ink"><option value="known">{m.known}</option><option value="wormholes">{m.wormholes}</option><option value="all">{m.all}</option></select>
-   <select aria-label={m.region} value={regionId??""} onChange={e=>{stopRotation();setQuery("");setRegionId(e.target.value?Number(e.target.value):null);setSelected(null);setCamera({yaw:0,pitch:.6,zoom:e.target.value?1:1.4,panX:0,panY:0});}} className="glass-inset max-w-full rounded-md px-3 py-2 text-xs text-ink"><option value="">{m.allRegions}</option>{regions.filter(r=>visibleRegionIds.has(r[0])).map(r=><option key={r[0]} value={r[0]}>{r[1]}</option>)}</select>
-   <button className={button} onClick={() => {stopRotation();setQuery("");setSelected(null);setRegionId(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}}>{m.reset}</button>
-   <button className={button} aria-label={m.zoomIn} onClick={() => setCamera(c => ({...c,zoom:Math.min(100,c.zoom*1.4)}))}>+</button>
-   <button className={button} aria-label={m.zoomOut} onClick={() => setCamera(c => ({...c,zoom:Math.max(.3,c.zoom/1.4)}))}>−</button>
+   <select aria-label={m.systems} value={space} onChange={e => {stopRotation();setFocusRoute([]);setQuery("");setSpace(e.target.value);setSelected(null);setRegionId(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}} className="glass-inset rounded-md px-3 py-2 text-xs text-ink"><option value="known">{m.known}</option><option value="wormholes">{m.wormholes}</option><option value="all">{m.all}</option></select>
+   <select aria-label={m.region} value={regionId??""} onChange={e=>{stopRotation();setFocusRoute([]);setQuery("");setRegionId(e.target.value?Number(e.target.value):null);setSelected(null);setCamera({yaw:0,pitch:.6,zoom:e.target.value?1:1.4,panX:0,panY:0});}} className="glass-inset max-w-full rounded-md px-3 py-2 text-xs text-ink"><option value="">{m.allRegions}</option>{regions.filter(r=>visibleRegionIds.has(r[0])).map(r=><option key={r[0]} value={r[0]}>{r[1]}</option>)}</select>
+   <button className={button} onClick={() => {stopRotation();setFocusRoute([]);setQuery("");setSelected(null);setRegionId(null);setCamera({yaw:0,pitch:.6,zoom:1.4,panX:0,panY:0});}}>{m.reset}</button>
+   <button className={button} aria-label={m.zoomIn} onClick={() => {stopRotation();setCamera(c => ({...c,zoom:Math.min(100,c.zoom*1.4)}));}}>+</button>
+   <button className={button} aria-label={m.zoomOut} onClick={() => {stopRotation();setCamera(c => ({...c,zoom:Math.max(.3,c.zoom/1.4)}));}}>−</button>
    <label className="flex items-center gap-2 text-xs text-ink-2"><input type="checkbox" checked={regionLabels} onChange={e=>setRegionLabels(e.target.checked)}/>{m.regionLabels}</label>
    <label className="flex items-center gap-2 text-xs text-ink-2"><input type="checkbox" checked={labels} onChange={e => setLabels(e.target.checked)}/>{m.labels}</label>
   </div>

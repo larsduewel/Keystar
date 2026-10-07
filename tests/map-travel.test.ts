@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { gateEvidence } from "../src/modules/map/gate-evidence";
-import { distanceLy, gateGraph, jumpRange, routeRisk, shortestRoute, systemsInRange, type JumpRules, type MapGate } from "../src/modules/map/travel";
+import { observedFleet, distanceLy, gateGraph, jumpRange, routeRisk, shortestRoute, systemsInRange, type JumpRules, type MapGate } from "../src/modules/map/travel";
 import type { MapSystem } from "../src/modules/map/model";
 import type { ZkillKillmail } from "../src/modules/killboard/zkill";
 const now=new Date("2026-10-03T12:00:00Z");
@@ -54,4 +54,13 @@ describe("jump ranges",()=>{
   const origin:MapSystem=[30000001,"Origin",0,0,0,0],near:MapSystem=[30000002,"Near",0,3,4,0],far:MapSystem=[30000003,"Far",0,3,4,1],wh:MapSystem=[31000001,"WH",-1,0,0,0];
   expect(distanceLy(origin,near)).toBe(5);expect(systemsInRange([origin,near,far,wh],origin,5)).toEqual([near]);expect(systemsInRange([near],wh,10)).toEqual([]);
  });
+});
+
+it("counts each identified attacker once using their latest gate-kill hull",()=>{
+ const older=kill(10,0,"2026-10-03T10:30:00Z"), newer=kill(11,0);
+ older.attackers=[{character_id:1,ship_type_id:587,damage_done:1,final_blow:false}];
+ newer.attackers=[{character_id:1,ship_type_id:588,damage_done:1,final_blow:false},{character_id:2,ship_type_id:588,damage_done:1,final_blow:false},{character_id:3,damage_done:1,final_blow:false},{ship_type_id:587,damage_done:1,final_blow:false}];
+ const evidence=gateEvidence(1,gates,[older,newer],now,true);
+ expect(observedFleet(evidence.kills)).toEqual([{shipTypeId:588,count:2,characterIds:[1,2]},{shipTypeId:null,count:1,characterIds:[3]}]);
+ expect(observedFleet([])).toEqual([]);
 });

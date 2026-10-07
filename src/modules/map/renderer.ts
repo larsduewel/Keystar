@@ -7,7 +7,7 @@ type Options = {
  overlay?: () => MapOverlay;
  camera: () => { yaw: number; pitch: number; zoom: number; panX?: number; panY?: number };
  dragging: () => boolean; selected: number | null; query: string; labels: boolean;
- regions?: MapRegion[]; regionId?: number|null; regionLabels?: boolean;
+ focusRoute?: number[]; regions?: MapRegion[]; regionId?: number|null; regionLabels?: boolean;
  distanceUnit?: string;
  format: (value: number) => string; onHits: (hits: Hit[]) => void;
 };
@@ -18,10 +18,13 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
  if (!ctx) return { schedule() {}, destroy() {} };
  const min = [Infinity,Infinity,Infinity], max = [-Infinity,-Infinity,-Infinity];
  for (const s of systems) for (let i=0;i<3;i++) { min[i]=Math.min(min[i],s[i+3] as number); max[i]=Math.max(max[i],s[i+3] as number); }
+ const routeFocus = new Set(options.focusRoute ?? []);
+ const routeSystems = systems.filter(s=>routeFocus.has(s[0]));
  const focus = systems.find(s => s[0]===options.selected);
  const regionSystems = options.regionId ? systems.filter(s=>s[6]===options.regionId) : [];
- const center = focus ? focus.slice(3,6) as number[] : regionSystems.length ? [3,4,5].map(axis=>regionSystems.reduce((sum,s)=>sum+(s[axis] as number),0)/regionSystems.length) : min.map((v,i)=>(v+max[i])/2);
- const range = !focus && regionSystems.length ? Math.max(1, ...regionSystems.map(s=>2*Math.hypot(s[3]-center[0],s[4]-center[1],s[5]-center[2]))) : Math.max(...max.map((v,i)=>v-min[i]),1);
+ const routeCenter = routeSystems.length ? [3,4,5].map(axis=>(Math.min(...routeSystems.map(s=>s[axis] as number))+Math.max(...routeSystems.map(s=>s[axis] as number)))/2) : null;
+ const center = routeCenter ?? (focus ? focus.slice(3,6) as number[] : regionSystems.length ? [3,4,5].map(axis=>regionSystems.reduce((sum,s)=>sum+(s[axis] as number),0)/regionSystems.length) : min.map((v,i)=>(v+max[i])/2));
+ const range = routeCenter ? Math.max(1,...routeSystems.map(s=>2*Math.hypot(s[3]-center[0],s[4]-center[1],s[5]-center[2]))) : !focus && regionSystems.length ? Math.max(1, ...regionSystems.map(s=>2*Math.hypot(s[3]-center[0],s[4]-center[1],s[5]-center[2]))) : Math.max(...max.map((v,i)=>v-min[i]),1);
  let lastOverlay: MapOverlay | undefined;
  let route = new Set<number>(), inRange = new Set<number>();
  let routeKey = "", beamStarted = 0;

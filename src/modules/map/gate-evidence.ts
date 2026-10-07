@@ -18,7 +18,7 @@ export function gateEvidence(systemId: number, gates: MapGate[], killmails: Zkil
    distance=closest;
    if(closest>GATE_RADIUS_METRES)continue;
   } else if(!located) {result.missingPositions++;continue;}
-  if(nearest)result.kills.push({id:km.killmail_id,time:km.killmail_time,gateId:nearest[0],destinationId:nearest[2],distanceKm:distance===null?null:distance/1000,shipTypeId:km.victim.ship_type_id});
+  if(nearest)result.kills.push({id:km.killmail_id,time:km.killmail_time,gateId:nearest[0],destinationId:nearest[2],distanceKm:distance===null?null:distance/1000,shipTypeId:km.victim.ship_type_id,attackers:km.attackers.filter(a=>a.character_id).map(a=>({characterId:a.character_id!,shipTypeId:a.ship_type_id??null}))});
  }
  result.kills.sort((a,b)=>Date.parse(b.time)-Date.parse(a.time));return result;
 }
