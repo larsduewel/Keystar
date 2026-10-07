@@ -204,12 +204,13 @@ export const liveFeedJob: JobDefinition = {
     let gateKills = 0;
     const out = await readLiveFeed(db, corporationId, state, {
       backlog: START_BACKLOG,
-      // A gate check failure must not hold up the killboard's notifications.
+      // Fail the job if a batch cannot be stored, so its sequence is retried.
       observe: async (killmails, batch) => {
         try {
           gateKills += await recordFeedKillmails(db, killmails, { restarted: batch.restarted && batch.first, caughtUp: batch.last && batch.caughtUp });
         } catch (err) {
           log.warn("Gate check could not store killmails", { error: errorMessage(err) });
+          throw err;
         }
       },
     });

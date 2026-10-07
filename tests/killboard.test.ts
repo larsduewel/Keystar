@@ -275,6 +275,24 @@ describe("zKillboard live feed (R2Z2)", () => {
     expect(resumeSequence({ corporationId: 100, sequence: 5, updatedAt: "2026-10-03T11:59:50Z" }, null, now)).toBeNull();
   });
 
+  it("rejects unstored observer batches without returning an advanced cursor", async () => {
+    const f = feed({ 10: entry(1), 11: entry(2) }, 11);
+    const failure = new Error("temporary database failure");
+    const state = { sequence: 10, updatedAt: "2026-10-03T11:59:50Z" };
+    await expect(readLiveFeed({} as never, null, state, {
+      r2z2: f.r2z2,
+      observe: async () => { throw failure; },
+      now,
+    })).rejects.toBe(failure);
+    expect(state.sequence).toBe(10);
+    const seen: number[] = [];
+    await readLiveFeed({} as never, null, state, {
+      r2z2: f.r2z2,
+      observe: async (kms) => { seen.push(...kms.map((k) => k.killmail_id)); },
+      now,
+    });
+    expect(seen).toEqual([1, 2]);
+  });
   it("starts a backlog before the pointer when starting over, and tells the observer", async () => {
     const f = feed({ 18: entry(1), 19: entry(2), 20: entry(3) }, 20);
     let restarted: boolean | null = null;
