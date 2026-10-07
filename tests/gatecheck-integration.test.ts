@@ -112,7 +112,7 @@ describe.skipIf(!enabled)("gate check integration", async () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("checks a route through a smartbomb camp, and the map's travel check reads the same kills", async () => {
+  it("checks the live-feed route and preserves the map’s cached killmail evidence", async () => {
     await recordFeedKillmails(db(), [km(1, 12), km(2, 11)], {
       restarted: true,
       caughtUp: true,
@@ -127,12 +127,18 @@ describe.skipIf(!enabled)("gate check integration", async () => {
     expect(result!.names.entities.get(501)).toBe("Bomber Bob");
     expect(result!.predictions[1].factors.live).toBeGreaterThan(0.5);
 
+    // The fork map retains full attacker/weapon evidence from its cached zKillboard path.
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify([km(1, 12), km(2, 11)]), { status: 200 }));
     const map = await checkGates(RANCER);
     expect(map.complete).toBe(true);
     expect(map.kills.map((k) => [k.id, k.destinationId])).toEqual([
       [2, CRIELERE],
       [1, CRIELERE],
     ]);
+    expect(map.kills.every((k) => k.smartbombPodKill === true)).toBe(true);
+    expect(map.characterNames?.[501]).toBe("Bomber Bob");
+    expect(map.shipNames?.[17738]).toBe("Machariel");
+    expect(map.kills[0].attackers).toEqual([{ characterId: 501, shipTypeId: 17738 }]);
     expect(await runGatecheck(parseQuery({ from: "Nowhere", to: "Rancer" }))).toBeNull();
   });
 
