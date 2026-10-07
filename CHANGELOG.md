@@ -6,12 +6,20 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-07
+
+### Added
+
+- **Route-gate kill counts and smartbomb evidence.** Show the number of recorded kills at route gates and a bomb icon only for capsule killmails with recorded smartbomb damage. Resolve weapon groups through the shared background cache. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
+- **2D/3D map views.** Switch projection from the Universe header while retaining route particles, gate-kill pulses, Skyhook highlights and focus animations. In 2D, drag to pan and right-drag to rotate; jump reach remains based on real 3D distances. Dim non-route systems and labels while Travel Check is active. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
+- **Skyhook map filter.** Highlight systems with public current or upcoming raiding windows, with a scrollable system/planet list, opening and closing times, and explicit stale or unavailable data. Cache ESI windows and planet names in the worker. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
+
 ### Changed
+
+- **Map panel balance.** Expand Travel Check so it and Jump Range align with Universe, keep results scrollable, and increase route-line opacity to 45%. ([PR #21](https://github.com/larsduewel/Keystar/pull/21))
 
 - **Gate-kill waypoint pulse.** Add a red spherical pulse to route waypoints with recorded gate kills and shorten the result labels and killmail links, omitting IDs and abbreviating relative times. Reduced-motion mode shows a static halo. ([PR #20](https://github.com/larsduewel/Keystar/pull/20))
 - **Route security status.** Show each system’s security status beside its name in Travel Check results. ([PR #19](https://github.com/larsduewel/Keystar/pull/19))
-
-### Changed
 
 - **Gate attacker list.** Show each recorded attacker on a separate ship-and-character row and remove the Focus route button. ([PR #18](https://github.com/larsduewel/Keystar/pull/18))
 

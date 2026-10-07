@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { gateEvidence } from "../src/modules/map/gate-evidence";
-import { observedFleet, distanceLy, gateGraph, jumpRange, routeRisk, shortestRoute, systemsInRange, type JumpRules, type MapGate } from "../src/modules/map/travel";
+import { isSmartbombPodKill, routeGateKills, observedFleet, distanceLy, gateGraph, jumpRange, routeRisk, shortestRoute, systemsInRange, type JumpRules, type MapGate } from "../src/modules/map/travel";
 import type { MapSystem } from "../src/modules/map/model";
 import type { ZkillKillmail } from "../src/modules/killboard/zkill";
 const now=new Date("2026-10-03T12:00:00Z");
@@ -63,4 +63,28 @@ it("counts each identified attacker once using their latest gate-kill hull",()=>
  const evidence=gateEvidence(1,gates,[older,newer],now,true);
  expect(observedFleet(evidence.kills)).toEqual([{shipTypeId:588,count:2,characterIds:[1,2]},{shipTypeId:null,count:1,characterIds:[3]}]);
  expect(observedFleet([])).toEqual([]);
+});
+
+describe("smartbomb pod evidence",()=>{
+ const types=new Map([[670,29],[33328,29],[587,25],[3993,72],[38,38]]);
+ it("requires a capsule victim and smartbomb damage on the same killmail",()=>{
+  const pod={...kill(20,0),victim:{...kill(20,0).victim,ship_type_id:670},attackers:[{weapon_type_id:3993,damage_done:10,final_blow:false}]};
+  const result=gateEvidence(1,gates,[pod],now,true);
+  expect(result.kills[0].weaponTypeIds).toEqual([3993]);expect(isSmartbombPodKill(result.kills[0],types)).toBe(true);
+  expect(isSmartbombPodKill({...result.kills[0],shipTypeId:33328},types)).toBe(true);
+  expect(isSmartbombPodKill({...result.kills[0],shipTypeId:587},types)).toBe(false);
+  expect(isSmartbombPodKill({...result.kills[0],weaponTypeIds:[38]},types)).toBe(false);
+ });
+ it("does not invent smartbomb evidence from missing types, zero damage or fitted attacker ships",()=>{
+  const pod={...kill(21,0),victim:{...kill(21,0).victim,ship_type_id:670},attackers:[{weapon_type_id:3993,ship_type_id:587,damage_done:0,final_blow:false}]};
+  const [record]=gateEvidence(1,gates,[pod],now,true).kills;
+  expect(record.weaponTypeIds).toEqual([]);expect(isSmartbombPodKill(record,types)).toBeUndefined();
+  expect(isSmartbombPodKill({...record,weaponTypeIds:[999]},types)).toBeUndefined();
+  expect(isSmartbombPodKill({...record,weaponTypeIds:[3993]},new Map())).toBeUndefined();
+ });
+ it("counts each recorded route-gate kill once and excludes other gates",()=>{
+  vi.useFakeTimers();vi.setSystemTime(now);
+  const result=gateEvidence(1,gates,[kill(1,0),kill(1,0),kill(2,10),kill(3,1000000)],now,true);
+  expect(routeGateKills(result,[1,2]).map(k=>k.id)).toEqual([1,2]);
+ });
 });

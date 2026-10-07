@@ -1,9 +1,11 @@
 import type { map as en } from "../en/map";
 export const map: typeof en = {
+ canvas2d: "Interaktive 2D-Universumskarte", viewMode: "Kartenansicht", view2d: "2D", view3d: "3D", controls2d: "Ziehen zum Verschieben · Rechts-Ziehen zum Drehen · Scrollen zum Zoomen · System anklicken zum Fokussieren",
+ mapFilters: "Kartenfilter", skyhooks: "Skyhook-Raubfenster", skyhookSync: "Öffentliche Skyhook-Zeitfenster", skyhookOff: "Kartenfilter: aus", skyhookAll: "Skyhooks: jetzt & demnächst", skyhookActive: "Skyhooks: jetzt plünderbar", skyhookUpcoming: "Skyhooks: bevorstehend", skyhookHint: "Öffentliche ESI-Zeitfenster · Planetenstandorte · Beutemengen unbekannt", skyhookLoading: "Skyhook-Zeitfenster werden geladen…", skyhookUnavailable: "Skyhook-Zeitfenster nicht verfügbar", skyhookStale: "Veraltete Daten · Zeitfenster könnten sich geändert haben", skyhookEmpty: "Keine gemeldeten Zeitfenster für diesen Filter.", skyhookOpens: "Öffnet", skyhookCloses: "Schließt", skyhookUnknownPlanet: "Unbekannter Planet", skyhookUnknownSystem: "Unbekanntes System",
  resolveNames: "Schiffs- und Charakternamen der Karte", unknownCharacter: "Unbekannter Charakter", observedFleet: "Beobachtete Angreiferschiffe", unknownShip: "Unbekanntes Schiff", noAttackers: "Keine identifizierten Angreifer erfasst.", fleetHint: "Letztes Schiff je Pilot in diesen Gate-Kills · aktuelle Flotte unbekannt",
  region: "Region", allRegions: "Alle Regionen", regionLabels: "Regionsnamen", unknownRegion: "Unbekannte Region",
  universe: "Universum",
- title: "Karte", description: "Erkunde das EVE-Universum in 3D. Wähle ein System für Name und Sicherheitsstatus.",
+ title: "Karte", description: "Erkunde das EVE-Universum in 2D oder 3D. Wähle ein System für Name und Sicherheitsstatus.",
  search: "System suchen", all: "Gesamter Weltraum", known: "Bekannter Weltraum", wormholes: "Wurmlochraum", reset: "Ansicht zurücksetzen",
  controls: "Ziehen zum Drehen · Rechts- oder Umschalt-Ziehen zum Verschieben · Scrollen zum Zoomen · System anklicken zum Fokussieren", security: "Sicherheitsstatus", systems: "Systeme",
  high: "Highsec", low: "Lowsec", null: "Nullsec", loading: "Universum wird geladen…", error: "Universumsdaten konnten nicht geladen werden.", retry: "Erneut versuchen", source: "Quelle: CCP Static Data Export", labels: "Systembeschriftungen", empty: "Keine passenden Systeme", canvas: "Interaktive 3D-Universumskarte", zoomIn: "Vergrößern", zoomOut: "Verkleinern",
@@ -15,7 +17,7 @@ export const map: typeof en = {
  noRoute: "Keine Stargate-Route gefunden.",
  chooseSystems: "Wähle Start- und Zielsystem.",
  jumps: "Torsprünge",
- nearGate: "Kill nahe einem Tor",
+ nearGate: (count:number,value:string) => `${value} ${count===1?"Kill":"Kills"} am Gate`, smartbombPods: "Erfasster Pod-Kill mit Smartbomb-Schaden",
  clear: "Keine Gate-Kills gefunden",
  unknown: "Prüfung unvollständig / unbekannt",
  notChecked: "Nicht geprüft",

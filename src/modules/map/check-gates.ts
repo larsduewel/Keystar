@@ -5,7 +5,7 @@ import { mapNameQueue } from "./schema";
 import gateData from "../../../public/data/map-gates.json";
 import { getZkill } from "@/modules/killboard/sync";
 import { gateEvidence } from "./gate-evidence";
-import type { GateCheck, MapGate } from "./travel";
+import { isSmartbombPodKill, type GateCheck, type MapGate } from "./travel";
 import type { ZkillKillmail } from "@/modules/killboard/zkill";
 const gates = gateData as MapGate[];
 const known = new Set(gates.map(g=>g[1]));
@@ -30,9 +30,9 @@ export function checkGates(systemId: number): Promise<GateCheck> {
 
 /** Names are read afresh from the shared cache, never resolved against ESI on the request path. */
 async function withNames(evidence:GateCheck):Promise<GateCheck>{
- const result={...evidence};
-  const ids=[...new Set(result.kills.flatMap(k=>(k.attackers??[]).flatMap(a=>a.shipTypeId?[a.shipTypeId]:[])))];
-  if(ids.length){const types=await getDb().select({id:eveTypes.typeId,name:eveTypes.name}).from(eveTypes).where(inArray(eveTypes.typeId,ids));result.shipNames=Object.fromEntries(types.map(t=>[t.id,t.name]));}
+ const result={...evidence,kills:evidence.kills.map(k=>({...k}))};
+  const ids=[...new Set(result.kills.flatMap(k=>[k.shipTypeId,...(k.weaponTypeIds??[]),...(k.attackers??[]).flatMap(a=>a.shipTypeId?[a.shipTypeId]:[])]))];
+  if(ids.length){const types=await getDb().select({id:eveTypes.typeId,name:eveTypes.name,groupId:eveTypes.groupId}).from(eveTypes).where(inArray(eveTypes.typeId,ids));result.shipNames=Object.fromEntries(types.map(t=>[t.id,t.name]));const groups=new Map(types.map(t=>[t.id,t.groupId]));for(const kill of result.kills)kill.smartbombPodKill=isSmartbombPodKill(kill,groups);}
   const characterIds=[...new Set(result.kills.flatMap(k=>(k.attackers??[]).map(a=>a.characterId)))];
   if(characterIds.length){
    const characters=await getDb().select({id:eveEntities.id,name:eveEntities.name}).from(eveEntities).where(inArray(eveEntities.id,characterIds));
