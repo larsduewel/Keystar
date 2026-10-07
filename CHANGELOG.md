@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Changed
 
-- **Route security status.** Show each system’s security status beside its name in Travel Check results.
+- **Route security status.** Show each system’s security status beside its name in Travel Check results. ([PR #19](https://github.com/larsduewel/Keystar/pull/19))
 
 ### Changed
 
