@@ -103,7 +103,7 @@ async function updateFeed(db: Db, rows: GatecheckKillInsert[], progress: FeedPro
       ...(progress.caughtUp ? { caughtUpAt: now } : {}),
       ...(newest
         ? {
-            lastKillmailAt: sql`GREATEST(${gatecheckFeed.lastKillmailAt}, ${newest})`,
+            lastKillmailAt: sql`GREATEST(${gatecheckFeed.lastKillmailAt}, ${newest.toISOString()}::timestamptz)`,
           }
         : {}),
       updatedAt: now,

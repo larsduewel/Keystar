@@ -20,6 +20,15 @@ export const whatsNew: typeof en = {
     link: (version: string) => `Upgrade-Hinweise zu v${version}`,
   },
   releases: {
+    "0.19.0": {
+      upgrade: "Füge esi-clones.read_implants.v1 und esi-markets.read_character_orders.v1 zur EVE-Anwendung hinzu, bevor du implantatgestützte Skills oder Marktaufträge aktivierst.",
+      items: {
+        mapPlanning: { title: "Kartenplanung zusammen", body: "Skyhook-Raubfenster stehen jetzt zwischen Reiseprüfung und Sprungreichweite, mit einer scrollbaren Liste neben der Universumskarte." },
+        gateCheck: { title: "Gate-Check", body: "Prüfe aktive Gatecamps, Routenoptionen und historische Camp-Prognosen auf der neuen Seite unter Combat." },
+        marketOrders: { title: "Marktaufträge", body: "Verfolge Kauf- und Verkaufsaufträge deiner Charaktere, Restmengen und Ablaufzeiten. Der Zugriff wird je Charakter aktiviert." },
+        remapOptimiser: { title: "Remap-Optimierung", body: "Finde den schnellsten neuralen Remap für deine aktuelle Skill-Warteschlange, optional mit Implantaten." },
+      },
+    },
     "0.15.0": {
       upgrade:
         "Die Scopes esi-clones.read_implants.v1 und esi-markets.read_character_orders.v1 (und esi-universe.read_structures.v1, falls er fehlt) zur EVE-Anwendung auf developers.eveonline.com hinzufügen. Bis dahin schlagen das Teilen der Skills und das Einschalten des Marktzugriffs mit invalid_scope fehl.",

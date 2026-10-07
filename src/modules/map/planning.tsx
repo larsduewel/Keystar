@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bomb } from "lucide-react";
 import { useI18n } from "@/i18n/client";
 import { SystemPicker } from "@/components/ui/system-picker";
@@ -18,7 +18,7 @@ function SystemSearch({label,systems,value,onPick}:{label:string;systems:MapSyst
  </div>;
 }
 
-export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRoute,onOverlay}:{initialOriginId?:number|null;systems:MapSystem[];selected:MapSystem|null;onFocus:(s:MapSystem)=>void;onRoute:(route:number[])=>void;onOverlay:(o:MapOverlay)=>void}) {
+export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRoute,onOverlay,skyhookPanel}:{skyhookPanel?:ReactNode;initialOriginId?:number|null;systems:MapSystem[];selected:MapSystem|null;onFocus:(s:MapSystem)=>void;onRoute:(route:number[])=>void;onOverlay:(o:MapOverlay)=>void}) {
  const {t,f}=useI18n();const m=t.map;
  const [gates,setGates]=useState<MapGate[]>([]),[rules,setRules]=useState<JumpRules|null>(null);
  const [dataError,setDataError]=useState(false),[attempt,setAttempt]=useState(0);
@@ -80,6 +80,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
   {route.length>0 && start && end && <a href={`/gatecheck?${new URLSearchParams({from:start[1],to:end[1]})}`} className="mt-3 inline-block text-xs text-accent hover:underline">{m.openGatecheck}</a>}
   <p className="mt-3 text-2xs text-ink-3">{m.evidenceHint}</p>
  </Panel>
+ {skyhookPanel}
  <Panel className="shrink-0" title={m.jumpTitle} subtitle={m.rangeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2"><SystemSearch label={m.origin} systems={systems} value={source} onPick={s=>{setOrigin(s);if(s)onFocus(s);}}/>
    <label className="text-xs text-ink-3">{m.calibration}<select aria-label={m.calibration} value={level} onChange={e=>setLevel(Number(e.target.value))} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
