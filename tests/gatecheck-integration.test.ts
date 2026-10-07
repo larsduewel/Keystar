@@ -129,6 +129,7 @@ describe.skipIf(!enabled)("gate check integration", async () => {
 
     // The fork map retains full attacker/weapon evidence from its cached zKillboard path.
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify([km(1, 12), km(2, 11)]), { status: 200 }));
+    expect(fetchSpy).not.toHaveBeenCalled();
     const map = await checkGates(RANCER);
     expect(map.complete).toBe(true);
     expect(map.kills.map((k) => [k.id, k.destinationId])).toEqual([

@@ -1,7 +1,4 @@
 import "server-only";
-import { ensureNames, ensureTypes } from "@/core/eve/resolver";
-import { env } from "@/core/env";
-import { createLogger, errorMessage } from "@/core/logger";
 import { lookupDisplayNames, type DisplayNames } from "@/modules/intel/names";
 import { checkRoute, feedHealth, routeGates, type FeedHealth, type RouteCheck } from "./check";
 import { NEARBY_MS, PREDICTION_DAYS, SECONDS_PER_JUMP, WINDOW_HOURS } from "./constants";
@@ -11,10 +8,7 @@ import { killsAtGates, killsByPilots, killsInSystems, loadFeedStatus, systemRegi
 import { planRoute, securityMix } from "./route";
 import { getUniverse } from "./universe-data";
 
-const log = createLogger("gatecheck");
 const DAY = 86_400_000;
-/** Names looked up on ESI per check at most (the rest show as ids until the next check). */
-const MAX_NAME_LOOKUPS = 600;
 
 export interface FeedSummary {
   health: FeedHealth;
@@ -147,16 +141,6 @@ export async function runGatecheck(q: GatecheckQuery, now = new Date()): Promise
   });
 
   const ids = shownIds(check, predictions);
-  if (!env().KEYSTAR_DEMO_MODE) {
-    try {
-      await ensureTypes(ids.types, { maxLookups: 50, errorHeadroom: 50 });
-      await ensureNames(ids.entities.slice(0, MAX_NAME_LOOKUPS));
-    } catch (err) {
-      log.warn("Could not name gate check entities", {
-        error: errorMessage(err),
-      });
-    }
-  }
   const [names, regions] = await Promise.all([lookupDisplayNames({ typeIds: ids.types, entityIds: ids.entities }), systemRegions(route)]);
   const systemIds = new Set(route.flatMap((id) => [id, ...(u.neighbours.get(id) ?? [])]));
   for (const p of predictions) for (const s of p.sightings) systemIds.add(s.systemId);

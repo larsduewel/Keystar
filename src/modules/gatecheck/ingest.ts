@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { gatecheckFeed, gatecheckKills, type Db } from "@/core/db";
-import { ensureTypes } from "@/core/eve/resolver";
+import { ensureNames, ensureTypes } from "@/core/eve/resolver";
 import { createLogger, errorMessage } from "@/core/logger";
 import type { ZkillKillmail } from "@/modules/killboard/zkill";
 import { toGateKill } from "./classify";
@@ -51,15 +51,20 @@ export async function recordFeedKillmails(
   await updateFeed(db, rows, progress, now);
   if (rows.length) {
     const types = new Set<number>();
+    const entities = new Set<number>();
     for (const r of rows) {
       types.add(r.victimShipTypeId);
+      for (const id of [r.victimCharacterId, r.victimCorporationId, r.victimAllianceId, ...r.attackerCharacterIds, ...r.attackerCorporationIds, ...r.attackerAllianceIds]) {
+        if (id) entities.add(id);
+      }
       for (const t of r.attackerShipTypeIds ?? []) types.add(t);
       for (const t of r.attackerWeaponTypeIds ?? []) types.add(t);
     }
     try {
       await ensureTypes(types, { maxLookups: 200, errorHeadroom: 50 });
+      await ensureNames([...entities].slice(0, 600));
     } catch (err) {
-      log.warn("Could not name kill types", { error: errorMessage(err) });
+      log.warn("Could not name gate kill entities", { error: errorMessage(err) });
     }
   }
   return rows.length;
