@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Bomb } from "lucide-react";
 import { useI18n } from "@/i18n/client";
 import { SystemPicker } from "@/components/ui/system-picker";
 import { Panel } from "@/components/ui/glass";
@@ -54,23 +55,23 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
  // Refresh cached evidence while the worker resolves names; do not repeatedly refetch zKillboard.
  useEffect(()=>{namePolls.current=0;},[route]);
  useEffect(()=>{
-  const missing=Object.values(checks).some(check=>routeGateKills(check,route).some(k=>(k.attackers??[]).some(a=>!check.characterNames?.[a.characterId]||(a.shipTypeId&&!check.shipNames?.[a.shipTypeId]))));
+  const missing=Object.values(checks).some(check=>routeGateKills(check,route).some(k=>((k.weaponTypeIds?.length??0)>0 && k.smartbombPodKill===undefined) || (k.attackers??[]).some(a=>!check.characterNames?.[a.characterId]||(a.shipTypeId&&!check.shipNames?.[a.shipTypeId]))));
   if(!missing||checking||namePolls.current>=12)return;
   const timer=setTimeout(()=>{namePolls.current++;setCheckVersion(v=>v+1);},15000);
   return ()=>clearTimeout(timer);
  },[checks,route,checking]);
  const button="glass-chip rounded-md px-3 py-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40";
- return <div className="grid min-w-0 gap-3">
- <Panel className="relative z-20" title={m.travel} subtitle={m.routeHint} bodyClassName="px-3 pb-3">
+ return <div className="flex min-w-0 flex-col gap-3 lg:absolute lg:inset-0">
+ <Panel className="relative z-20 min-h-0 lg:flex-1" title={m.travel} subtitle={m.routeHint} bodyClassName="flex min-h-0 flex-col px-3 pb-3">
   <div className="grid grid-cols-2 gap-2">{([{name:"start",label:m.start,pick:setStart},{name:"end",label:m.end,pick:setEnd}] as const).map(field=><div key={field.name} className="min-w-0"><span className="mb-1 block text-xs text-ink-3">{field.label}</span><SystemPicker name={field.name} ariaLabel={field.label} className="w-full" onValueChange={text=>field.pick(systems.find(s=>s[1].toLowerCase()===text.trim().toLowerCase())??null)} onSelect={option=>field.pick(byId.get(option[0])??null)}/></div>)}</div>
   <div className="my-3 flex flex-wrap items-center gap-2"><button className={button} disabled={!start||!end||!gates.length} onClick={()=>{if(!start||!end)return;const path=shortestRoute(graph,start[0],end[0]);setRouteError(!path);setChecking(!!path);setChecks({});setFailed([]);setRoute(path??[]);if(path)onRoute(path);}}>{m.plan}</button>{route.length>0 && <><span className="text-xs text-ink-2">{route.length-1} {m.jumps}</span><button className={button} disabled={checking} onClick={()=>{setChecking(true);setChecks({});setFailed([]);setCheckVersion(v=>v+1);}}>{m.refreshCheck}</button></>}</div>
   {dataError && <button className="text-xs text-warning" onClick={()=>setAttempt(v=>v+1)}>{m.dataError} · {m.retryData}</button>}
   {routeError && <p className="text-xs text-warning">{m.noRoute}</p>}
   {checking && <p role="status" className="mb-2 text-xs text-ink-3">{m.checking} {Object.keys(checks).length+failed.length}/{route.length}</p>}
-  {route.length>0 && <ol className="glass-inset max-h-[min(16rem,30vh)] space-y-1 overflow-y-auto overscroll-contain rounded-lg p-2 [scrollbar-gutter:stable]">{route.map((id,index)=>{
+  {route.length>0 && <ol className="glass-inset min-h-0 max-h-[min(16rem,30vh)] lg:max-h-none lg:flex-1 space-y-1 overflow-y-auto overscroll-contain rounded-lg p-2 [scrollbar-gutter:stable]">{route.map((id,index)=>{
    const system=byId.get(id),check=checks[id],risk=routeRisk(check,route),kills=check?routeGateKills(check,route):[],fleet=observedFleet(kills);
    return <li key={id} className={`rounded-md p-2 text-xs ${risk==="red"?"bg-critical/10":risk==="green"?"bg-good/10":"bg-surface-contrast/5"}`}>
-    <div className="flex flex-wrap justify-between gap-2"><button onClick={()=>{const s=byId.get(id);if(s)onFocus(s);}} className="font-medium text-ink">{index+1}. {system?.[1]??id} <span className="font-normal tabular-nums text-ink-3" title={m.security}>· {system?f.number(system[2],1):m.unknown}</span></button><span className={risk==="red"?"text-critical-text":risk==="green"?"text-good-text":"text-ink-3"}>{risk==="red"?m.nearGate:risk==="green"?m.clear:failed.includes(id)?m.checkFailed:check?m.unknown:m.notChecked}</span></div>
+    <div className="flex flex-wrap justify-between gap-2"><button onClick={()=>{const s=byId.get(id);if(s)onFocus(s);}} className="font-medium text-ink">{index+1}. {system?.[1]??id} <span className="font-normal tabular-nums text-ink-3" title={m.security}>· {system?f.number(system[2],1):m.unknown}</span></button><span className={`inline-flex items-center gap-1.5 ${risk==="red"?"text-critical-text":risk==="green"?"text-good-text":"text-ink-3"}`}>{risk==="red"?m.nearGate(kills.length,f.integer(kills.length)):risk==="green"?m.clear:failed.includes(id)?m.checkFailed:check?m.unknown:m.notChecked}{kills.some(k=>k.smartbombPodKill===true)&&<span role="img" aria-label={m.smartbombPods} title={m.smartbombPods} className="text-warning"><Bomb size={14} aria-hidden="true"/></span>}</span></div>
     {check && <p className="mt-1 text-2xs text-ink-3">{m.checked}: {f.relativeTime(check.checkedAt)}</p>}
     {kills.length>0 && <div className="mt-2 border-t border-surface-contrast/10 pt-2"><h4 className="font-medium text-ink-2">{m.observedFleet}</h4><ul className="mt-1 space-y-1 text-2xs">{fleet.flatMap(ship=>ship.characterIds.map(id=><li key={id} className="break-words text-ink-2"><span>{ship.shipTypeId?check?.shipNames?.[ship.shipTypeId]??`${m.unknownShip} (${ship.shipTypeId})`:m.unknownShip}</span><span className="text-ink-3"> · </span><a href={`https://zkillboard.com/character/${id}/`} target="_blank" rel="noreferrer" className="text-ink-3 hover:text-accent hover:underline">{check?.characterNames?.[id]??`${m.unknownCharacter} (${id})`}</a></li>))}</ul>{!fleet.length&&<p className="text-2xs text-ink-3">{m.noAttackers}</p>}<p className="mt-1 text-2xs text-ink-3">{m.fleetHint}</p></div>}
     {kills.map(k=><a key={k.id} href={`https://zkillboard.com/kill/${k.id}/`} target="_blank" rel="noreferrer" className="mt-1 block text-accent hover:underline">{f.relativeTime(k.time,undefined,"narrow")} · {m.gateTo} {byId.get(k.destinationId)?.[1]??k.destinationId} · {k.distanceKm===null?m.resolvedGate:`${f.number(k.distanceKm,1)} km`}</a>)}
@@ -78,7 +79,7 @@ export function MapPlanning({initialOriginId=null,systems,selected,onFocus,onRou
   })}</ol>}
   <p className="mt-3 text-2xs text-ink-3">{m.evidenceHint}</p>
  </Panel>
- <Panel title={m.jumpTitle} subtitle={m.rangeHint} bodyClassName="px-3 pb-3">
+ <Panel className="shrink-0" title={m.jumpTitle} subtitle={m.rangeHint} bodyClassName="px-3 pb-3">
   <div className="grid grid-cols-2 gap-2"><SystemSearch label={m.origin} systems={systems} value={source} onPick={s=>{setOrigin(s);if(s)onFocus(s);}}/>
    <label className="text-xs text-ink-3">{m.calibration}<select aria-label={m.calibration} value={level} onChange={e=>setLevel(Number(e.target.value))} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{[0,1,2,3,4,5].map(v=><option key={v} value={v}>{v}</option>)}</select></label>
    <label className="col-span-2 min-w-0 text-xs text-ink-3">{m.ship}<select aria-label={m.ship} value={ship} onChange={e=>setShip(e.target.value as JumpShip)} className="glass-inset mt-1 w-full rounded-md px-3 py-2 text-xs text-ink">{JUMP_SHIPS.map(k=><option key={k} value={k}>{m[k]}{rules ? ` · ${f.number(jumpRange(rules,k,level),1)} ${m.lightYears}` : ""}</option>)}</select></label>

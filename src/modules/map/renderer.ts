@@ -4,6 +4,8 @@ import { securityClass } from "./model";
 
 type Hit = { system: MapSystem; x: number; y: number };
 type Options = {
+ view?: () => "2d" | "3d";
+ skyhooks?: () => ReadonlyMap<number, import("./skyhooks").SkyhookWindow>;
  overlay?: () => MapOverlay;
  camera: () => { yaw: number; pitch: number; zoom: number; panX?: number; panY?: number };
  dragging: () => boolean; selected: number | null; query: string; labels: boolean;
@@ -65,6 +67,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
  function draw(now: number) {
   frame=0;if(destroyed || !ctx)return;
   const overlay = options.overlay?.();
+  const skyhooks = options.skyhooks?.();
   if(overlay !== lastOverlay) {
    const nextRouteKey = (overlay?.route ?? []).join(",");
    if (nextRouteKey !== routeKey) { routeKey = nextRouteKey; beamStarted = now; }
@@ -72,7 +75,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    const origin=pointsById.get(overlay?.originId ?? -1);
    if(origin&&overlay?.range)for(const p of points)if(inRange.has(p.system[0])||p.system[0]===overlay.originId){p.rangeLabel=`${p.label} · ${options.format(Math.hypot(p.x-origin.x,p.y-origin.y,p.z-origin.z))} ${options.distanceUnit ?? "LY"}`;p.rangeWidth=ctx.measureText(p.rangeLabel).width;}
   }
-  const c=options.camera(), sy=Math.sin(c.yaw),cy=Math.cos(c.yaw),sp=Math.sin(c.pitch),cp=Math.cos(c.pitch);
+  const c=options.camera(), flat=options.view?.()==="2d", sy=Math.sin(c.yaw),cy=Math.cos(c.yaw),sp=flat?1:Math.sin(c.pitch),cp=flat?0:Math.cos(c.pitch);
   const scale=Math.min(width,height)*.8/range*c.zoom;
   ctx.clearRect(0,0,width,height);
   const hits: Hit[]=[];
@@ -86,19 +89,25 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    if(x<0||y<0||x>width||y>height)continue;
    hits.push(p.hit);onScreen.push(p);
    const group=route.has(p.system[0]) ? overlay?.risks[p.system[0]] ?? "unknown" : inRange.has(p.system[0]) ? "range" : p.group;
-   const match=inRange.has(p.system[0]) || p.system[0]===overlay?.originId || (p.match && (!options.regionId || p.system[6]===options.regionId) && !overlay?.range);
+   const match=route.size>0 ? route.has(p.system[0]) : inRange.has(p.system[0]) || p.system[0]===overlay?.originId || (p.match && (!options.regionId || p.system[6]===options.regionId) && !overlay?.range);
    const key=`${group}:${route.has(p.system[0]) || match}`;const path=paths[key]??(paths[key]=new Path2D());
    const size=route.has(p.system[0])||inRange.has(p.system[0])?5:options.regionId&&p.system[6]===options.regionId?4:3;
    path.rect(x-size/2,y-size/2,size,size);
   }
   for(const [key,path] of Object.entries(paths)) {
-   const [group,match]=key.split(":");ctx.fillStyle=colors[group]||ink;ctx.globalAlpha=match==="true"?.85:.35;ctx.fill(path);
+   const [group,match]=key.split(":");ctx.fillStyle=colors[group]||ink;ctx.globalAlpha=match==="true"?.85:route.size>0?.25:.35;ctx.fill(path);
   }
   options.onHits(hits);ctx.globalAlpha=1;
+  // Rings preserve security colours and route-risk markers; no per-frame data searches.
+  for(const p of onScreen) {
+   const state=skyhooks?.get(p.system[0]);if(!state)continue;
+   ctx.save();if(route.size>0&&!route.has(p.system[0]))ctx.globalAlpha=.4;ctx.strokeStyle=state==="active"?colors.green:colors.range;ctx.lineWidth=state==="active"?2:1;
+   ctx.beginPath();ctx.arc(p.hit.x,p.hit.y,8,0,Math.PI*2);ctx.stroke();ctx.restore();
+  }
   if(overlay?.route.length) {
    const path=new Path2D();let previous=false;
    for(const id of overlay.route) {const p=pointsById.get(id);if(!p){previous=false;continue;}if(previous)path.lineTo(p.hit.x,p.hit.y);else path.moveTo(p.hit.x,p.hit.y);previous=true;}
-   ctx.save();ctx.globalAlpha=.25;ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.stroke(path);ctx.restore();
+   ctx.save();ctx.globalAlpha=.45;ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.stroke(path);ctx.restore();
    const hops = overlay.route.length - 1;
    const duration = Math.min(hops * 750, 6000);
    const elapsed = now - beamStarted;
@@ -169,7 +178,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
     const cells:string[]=[];
     for(let col=Math.floor((x-8)/32);col<=Math.floor((x+r.width+12)/32);col++)for(let row=Math.floor((y-20)/16);row<=Math.floor((y+8)/16);row++)cells.push(`${col}:${row}`);
     if(cells.some(cell=>regionCells.has(cell)))continue;
-    ctx.fillStyle=id===options.regionId?(colors.range||ink):ink;ctx.globalAlpha=id===options.regionId?1:.7;ctx.fillText(r.name,x,y);
+    ctx.fillStyle=id===options.regionId?(colors.range||ink):ink;ctx.globalAlpha=route.size>0?.4:id===options.regionId?1:.7;ctx.fillText(r.name,x,y);
     cells.forEach(cell=>{regionCells.add(cell);occupied.add(cell);});
    }
    ctx.font="11px Inter, sans-serif";ctx.globalAlpha=1;ctx.fillStyle=ink;
@@ -183,7 +192,7 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
    for(let col=Math.floor(x/32);col<=Math.floor((x+labelWidth+4)/32);col++)
     for(let row=Math.floor((y-12)/16);row<=Math.floor((y+4)/16);row++)cells.push(`${col}:${row}`);
    if(!active && cells.some(cell=>occupied.has(cell)))continue;
-   ctx.fillText(label,x,y);cells.forEach(cell=>occupied.add(cell));count++;
+   ctx.globalAlpha=route.size>0&&!route.has(p.system[0])&&!active ? .4 : 1;ctx.fillText(label,x,y);ctx.globalAlpha=1;cells.forEach(cell=>occupied.add(cell));count++;
   }
  }
  function schedule() {if(!frame&&!destroyed)frame=requestAnimationFrame(draw);}

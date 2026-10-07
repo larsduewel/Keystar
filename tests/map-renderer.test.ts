@@ -5,7 +5,7 @@ import type { MapSystem } from "../src/modules/map/model";
 afterEach(() => vi.unstubAllGlobals());
 it("coalesces input and draws thousands of stars in bounded batches without repeated text measurement", () => {
  let overlay=EMPTY_OVERLAY;
- let callback: FrameRequestCallback = () => {}; let dragging = true;
+ let callback: FrameRequestCallback = () => {}; let dragging = true; let view:"2d"|"3d"="3d";
  const raf = vi.fn((cb: FrameRequestCallback) => { callback=cb; return 1; });
  vi.stubGlobal("requestAnimationFrame",raf);vi.stubGlobal("cancelAnimationFrame",vi.fn());
  vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
@@ -16,7 +16,7 @@ it("coalesces input and draws thousands of stars in bounded batches without repe
  const ctx={createRadialGradient:vi.fn(()=>({addColorStop:vi.fn()})),measureText:vi.fn(()=>({width:60})),setTransform:vi.fn(),clearRect:vi.fn(),fill:vi.fn(),fillText:vi.fn(),beginPath:vi.fn(),arc:vi.fn(),stroke:vi.fn(),save:vi.fn(),restore:vi.fn(),moveTo:vi.fn(),lineTo:vi.fn()};
  const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
  const systems:MapSystem[]=Array.from({length:8490},(_,i)=>[i,`System ${i}`,i%3===0?.8:i%3===1?.2:-.5,i%100,Math.floor(i/100),0]);
- const renderer=createMapRenderer(canvas,systems,{overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>dragging,selected:null,query:"",labels:true,format:String,onHits:vi.fn()});
+ const renderer=createMapRenderer(canvas,systems,{view:()=>view,overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>dragging,selected:null,query:"",labels:true,format:String,onHits:vi.fn()});
  for(let i=0;i<100;i++)renderer.schedule();
  expect(raf).toHaveBeenCalledTimes(1);
  callback(0); expect(ctx.fill.mock.calls.length).toBeLessThanOrEqual(6);expect(ctx.fillText).not.toHaveBeenCalled();
@@ -32,7 +32,7 @@ it("coalesces input and draws thousands of stars in bounded batches without repe
  expect(ctx.createRadialGradient).toHaveBeenCalledTimes(1);
  expect(ctx.lineTo).not.toHaveBeenCalled();
  const framesBefore=raf.mock.calls.length;
- callback(500);expect(raf.mock.calls.length).toBe(framesBefore+1);
+ view="2d";callback(500);expect(raf.mock.calls.length).toBe(framesBefore+1);
  callback(3100);expect(raf.mock.calls.length).toBe(framesBefore+2);
  renderer.destroy();
 });
@@ -91,7 +91,7 @@ it("fits a selected region independently of distant systems in all space", () =>
  expect(b.x-a.x).toBeCloseTo(560);expect(a.x).toBeGreaterThan(0);expect(b.x).toBeLessThan(1000);
  renderer.destroy();
 });
-it.each([false,true])("marks only red route waypoints and respects reduced motion (%s)",reduced=>{
+it.each([...[false,true].map(reduced=>({reduced,view:"3d" as const})),...[false,true].map(reduced=>({reduced,view:"2d" as const}))])("marks only red route waypoints and respects reduced motion ($view, $reduced)",({reduced,view})=>{
  let callback:FrameRequestCallback=()=>{};
  const raf=vi.fn((cb:FrameRequestCallback)=>{callback=cb;return 1;});
  vi.stubGlobal("requestAnimationFrame",raf);vi.stubGlobal("cancelAnimationFrame",vi.fn());
@@ -102,7 +102,7 @@ it.each([false,true])("marks only red route waypoints and respects reduced motio
  const ctx={measureText:()=>({width:60}),setTransform(){},clearRect(){},fill(){},fillText(){},beginPath(){},arc:vi.fn(),stroke(){},save(){},restore(){},createRadialGradient:vi.fn((...args:number[])=>({radius:args[5],addColorStop:vi.fn()}))};
  const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
  let overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"red",2:"red"}} as typeof EMPTY_OVERLAY;
- const renderer=createMapRenderer(canvas,[[1,"Route",.8,0,0,0],[2,"Other",.8,1,0,0]],{overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:null,query:"",labels:false,format:String,onHits:vi.fn()});
+ const renderer=createMapRenderer(canvas,[[1,"Route",.8,0,0,0],[2,"Other",.8,1,0,0]],{view:()=>view,overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>false,selected:null,query:"",labels:false,format:String,onHits:vi.fn()});
  callback(0);
  expect(ctx.createRadialGradient).toHaveBeenCalledTimes(1);expect(raf).toHaveBeenCalledTimes(reduced?1:2);
  const firstRadius=ctx.createRadialGradient.mock.calls[0][5];
@@ -113,4 +113,57 @@ it.each([false,true])("marks only red route waypoints and respects reduced motio
  expect(ctx.createRadialGradient).toHaveBeenCalledTimes(2);
  overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"unknown"}};renderer.schedule();callback(1300);
  expect(ctx.createRadialGradient).toHaveBeenCalledTimes(2);renderer.destroy();
+});
+
+it("refreshes Skyhook rings without rebuilding geometry or obscuring star colours",()=>{
+ let callback:FrameRequestCallback=()=>{};
+ vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{callback=cb;return 1;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"green"}));
+ vi.stubGlobal("ResizeObserver",class{observe(){}disconnect(){}});vi.stubGlobal("MutationObserver",class{observe(){}disconnect(){}});
+ vi.stubGlobal("Path2D",class{rect(){}});
+ const ctx={measureText:vi.fn(()=>({width:60})),setTransform(){},clearRect(){},fill:vi.fn(),fillText(){},beginPath(){},arc:vi.fn(),stroke:vi.fn(),save(){},restore(){}};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ let highlights=new Map<number,"active"|"upcoming">([[1,"active"],[2,"upcoming"]]);
+ const renderer=createMapRenderer(canvas,[[1,"A",.8,0,0,0],[2,"B",-.2,1,0,0],[3,"C",.2,2,0,0]],{skyhooks:()=>highlights,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>true,selected:null,query:"",labels:false,format:String,onHits:vi.fn()});
+ callback(0);expect(ctx.arc).toHaveBeenCalledTimes(2);expect(ctx.fill).toHaveBeenCalledTimes(3);
+ const measured=ctx.measureText.mock.calls.length;highlights=new Map();renderer.schedule();callback(16);
+ expect(ctx.arc).toHaveBeenCalledTimes(2);expect(ctx.measureText).toHaveBeenCalledTimes(measured);renderer.destroy();
+});
+
+it("flattens vertical positions in 2D and restores 3D without rebuilding the renderer",()=>{
+ let callback:FrameRequestCallback=()=>{};let view:"2d"|"3d"="3d";
+ vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{callback=cb;return 1;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"green"}));
+ vi.stubGlobal("ResizeObserver",class{observe(){}disconnect(){}});vi.stubGlobal("MutationObserver",class{observe(){}disconnect(){}});
+ vi.stubGlobal("Path2D",class{rect(){}});
+ const ctx={measureText:vi.fn(()=>({width:60})),setTransform(){},clearRect(){},fill(){},fillText(){},beginPath(){},arc(){},stroke(){}};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ let hits:{system:MapSystem;x:number;y:number}[]=[];
+ const renderer=createMapRenderer(canvas,[[1,"A",.8,0,0,0],[2,"B",.8,0,100,0],[3,"C",.8,1,0,1]],{view:()=>view,camera:()=>({yaw:.4,pitch:.6,zoom:.3}),dragging:()=>false,selected:null,query:"",labels:false,format:String,onHits:rows=>{hits=rows;}});
+ callback(0);const first=hits[0].y;expect(hits[1].y).not.toBe(first);
+ const measured=ctx.measureText.mock.calls.length;view="2d";renderer.schedule();callback(16);
+ expect(hits[0].x).toBeCloseTo(hits[1].x);expect(hits[0].y).toBeCloseTo(hits[1].y);
+ view="3d";renderer.schedule();callback(32);expect(hits[0].y).toBeCloseTo(first);expect(hits[1].y).not.toBe(first);
+ expect(ctx.measureText).toHaveBeenCalledTimes(measured);renderer.destroy();
+});
+
+it.each(["2d","3d"] as const)("dims systems outside an active route and restores them when cleared (%s)",view=>{
+ let callback:FrameRequestCallback=()=>{};let overlay=EMPTY_OVERLAY;
+ vi.stubGlobal("requestAnimationFrame",(cb:FrameRequestCallback)=>{callback=cb;return 1;});vi.stubGlobal("cancelAnimationFrame",vi.fn());
+ vi.stubGlobal("window",{devicePixelRatio:1});vi.stubGlobal("document",{documentElement:{}});
+ vi.stubGlobal("getComputedStyle",()=>({color:"white",getPropertyValue:()=>"green"}));
+ vi.stubGlobal("ResizeObserver",class{observe(){}disconnect(){}});vi.stubGlobal("MutationObserver",class{observe(){}disconnect(){}});
+ class Path{rects:number[][]=[];rect(...args:number[]){this.rects.push(args);}moveTo(){}lineTo(){}}
+ vi.stubGlobal("Path2D",Path);
+ const batches:{alpha:number;rects:number[][]}[]=[];
+ const ctx={globalAlpha:1,measureText:()=>({width:60}),setTransform(){},clearRect(){},fill:(path:Path)=>{batches.push({alpha:ctx.globalAlpha,rects:path.rects});},fillText(){},beginPath(){},arc(){},stroke(){},save(){},restore(){}};
+ const canvas={clientWidth:1000,clientHeight:700,getContext:()=>ctx} as unknown as HTMLCanvasElement;
+ const renderer=createMapRenderer(canvas,[[1,"Route",.8,-1,0,0],[2,"Background",.8,1,0,0]],{view:()=>view,overlay:()=>overlay,camera:()=>({yaw:0,pitch:0,zoom:1}),dragging:()=>true,selected:null,query:"",labels:false,format:String,onHits:vi.fn()});
+ callback(0);expect(batches.every(b=>b.alpha===.85)).toBe(true);
+ batches.length=0;overlay={...EMPTY_OVERLAY,route:[1],risks:{1:"green"},inRange:[2]};renderer.schedule();callback(16);
+ expect(batches.find(b=>b.rects.some(r=>r[0]<500))?.alpha).toBe(.85);
+ expect(batches.find(b=>b.rects.some(r=>r[0]>500))?.alpha).toBe(.25);
+ batches.length=0;overlay=EMPTY_OVERLAY;renderer.schedule();callback(32);expect(batches.every(b=>b.alpha===.85)).toBe(true);renderer.destroy();
 });

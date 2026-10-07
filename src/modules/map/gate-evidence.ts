@@ -3,9 +3,11 @@ import type { GateCheck, MapGate } from "./travel";
 export const GATE_RADIUS_METRES = 150_000;
 export function gateEvidence(systemId: number, gates: MapGate[], killmails: ZkillKillmail[], now: Date, complete: boolean): GateCheck {
  const result: GateCheck={systemId,checkedAt:now.toISOString(),complete,missingPositions:0,kills:[]};
+ const seen=new Set<number>();
  const local=gates.filter(g=>g[1]===systemId), since=now.getTime()-2*3600_000;
  if(!local.length)result.complete=false;
  for(const km of killmails) {
+  if(seen.has(km.killmail_id))continue;seen.add(km.killmail_id);
   const time=Date.parse(km.killmail_time);
   if(km.solar_system_id!==systemId || !Number.isFinite(time) || time<since || time>now.getTime())continue;
   const p=km.victim.position;
@@ -18,7 +20,7 @@ export function gateEvidence(systemId: number, gates: MapGate[], killmails: Zkil
    distance=closest;
    if(closest>GATE_RADIUS_METRES)continue;
   } else if(!located) {result.missingPositions++;continue;}
-  if(nearest)result.kills.push({id:km.killmail_id,time:km.killmail_time,gateId:nearest[0],destinationId:nearest[2],distanceKm:distance===null?null:distance/1000,shipTypeId:km.victim.ship_type_id,attackers:km.attackers.filter(a=>a.character_id).map(a=>({characterId:a.character_id!,shipTypeId:a.ship_type_id??null}))});
+  if(nearest)result.kills.push({id:km.killmail_id,time:km.killmail_time,gateId:nearest[0],destinationId:nearest[2],distanceKm:distance===null?null:distance/1000,shipTypeId:km.victim.ship_type_id,weaponTypeIds:[...new Set(km.attackers.filter(a=>a.damage_done>0&&Number.isSafeInteger(a.weapon_type_id)&&a.weapon_type_id!>0).map(a=>a.weapon_type_id!))],attackers:km.attackers.filter(a=>a.character_id).map(a=>({characterId:a.character_id!,shipTypeId:a.ship_type_id??null}))});
  }
  result.kills.sort((a,b)=>Date.parse(b.time)-Date.parse(a.time));return result;
 }

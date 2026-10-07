@@ -14,6 +14,7 @@ import { industrySyncJobs } from "./industry/jobs";
 import { intelJobs } from "./intel/jobs";
 import { killboardJobs } from "./killboard/jobs";
 import { mapNamesJob } from "./map/jobs";
+import { mapSkyhooksJob } from "./map/skyhook-job";
 import { miningJobs, miningPriceInterest } from "./mining/jobs";
 import { skillsJobs } from "./skills/jobs";
 import { socialJobs } from "./social/jobs";
@@ -34,6 +35,7 @@ export const JOBS: JobDefinition[] = [
   housekeepingJob,
   universeSystemsJob,
   mapNamesJob,
+  mapSkyhooksJob,
   ...miningJobs,
   ...industrySyncJobs,
   ...killboardJobs,

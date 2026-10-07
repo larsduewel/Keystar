@@ -4,7 +4,7 @@ export type MapGate = [number, number, number, number, number, number, number];
 export const JUMP_SHIPS = ["carrier", "commandCarrier", "supercapital", "blackops", "freighter"] as const;
 export type JumpShip = typeof JUMP_SHIPS[number];
 export type JumpRules = { bases: Record<JumpShip, number>; calibrationBonus: number; restricted: number[] };
-export type GateKill = { id: number; time: string; gateId: number; destinationId: number; distanceKm: number | null; shipTypeId: number; attackers?: { characterId: number; shipTypeId: number | null }[] };
+export type GateKill = { id: number; time: string; gateId: number; destinationId: number; distanceKm: number | null; shipTypeId: number; weaponTypeIds?: number[]; smartbombPodKill?: boolean; attackers?: { characterId: number; shipTypeId: number | null }[] };
 export type GateCheck = { systemId: number; checkedAt: string; complete: boolean; missingPositions: number; kills: GateKill[]; shipNames?: Record<number,string>; characterNames?: Record<number,string> };
 export type MapOverlay = { route: number[]; risks: Record<number, "red" | "green" | "unknown">; inRange: number[]; range: number | null; originId: number | null };
 export const EMPTY_OVERLAY: MapOverlay = { route: [], risks: {}, inRange: [], range: null, originId: null };
@@ -49,4 +49,13 @@ export function observedFleet(kills: GateKill[]): {shipTypeId:number|null;count:
  for(const kill of [...kills].sort((a,b)=>Date.parse(b.time)-Date.parse(a.time)))for(const a of kill.attackers??[])if(!pilots.has(a.characterId))pilots.set(a.characterId,a.shipTypeId);
  const groups=new Map<number|null,number[]>();for(const [id,hull] of pilots){const group=groups.get(hull)??[];group.push(id);groups.set(hull,group);}
  return [...groups].map(([shipTypeId,characterIds])=>({shipTypeId,count:characterIds.length,characterIds:characterIds.sort((a,b)=>a-b)})).sort((a,b)=>b.count-a.count || (a.shipTypeId??Infinity)-(b.shipTypeId??Infinity));
+}
+
+/** CCP groups: Capsule (29), Smart Bomb (72). Unresolved types never imply confirmed evidence. */
+export function isSmartbombPodKill(kill: GateKill, groups: ReadonlyMap<number,number>): boolean | undefined {
+ const victimGroup=groups.get(kill.shipTypeId);
+ if(victimGroup===undefined)return undefined;
+ if(victimGroup!==29)return false;
+ if(kill.weaponTypeIds?.some(id=>groups.get(id)===72))return true;
+ return kill.weaponTypeIds?.length && kill.weaponTypeIds.every(id=>groups.has(id)) ? false : undefined;
 }
