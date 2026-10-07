@@ -36,13 +36,13 @@ export function useSkyhooks(filter: SkyhookFilter) {
 export function SkyhookWindows({data,systems,onFocus}:{data:ReturnType<typeof useSkyhooks>;systems:MapSystem[];onFocus:(s:MapSystem)=>void}) {
  const {t,f}=useI18n(),m=t.map;
  const names=useMemo(()=>new Map(systems.map(s=>[s[0],s])),[systems]);
- return <Panel title={m.skyhooks} subtitle={m.skyhookHint} bodyClassName="px-3 pb-3">
+ return <Panel className="min-h-0 lg:min-h-48 lg:max-h-80 lg:flex-1" title={m.skyhooks} subtitle={m.skyhookHint} bodyClassName="flex min-h-0 flex-col px-3 pb-3">
   <div role="status" className="mb-2 text-xs text-ink-3">
    {data.failed?<button className="text-warning-text" onClick={data.retry}>{m.skyhookUnavailable} · {m.retry}</button>:!data.snapshot?m.skyhookLoading:null}
    {data.snapshot&&<p>{m.checked}: {f.relativeTime(data.snapshot.checkedAt,undefined,"narrow")}{data.stale&&<span className="block text-warning-text">{m.skyhookStale}</span>}</p>}
   </div>
   <div className="mb-2 flex flex-wrap gap-3 text-xs"><span className="text-good-text">● {m.skyhookActive}</span><span className="text-accent">○ {m.skyhookUpcoming}</span></div>
-  <div className="max-h-80 space-y-2 overflow-y-auto overscroll-contain" aria-label={m.skyhooks}>
+  <div className="min-h-0 max-h-80 space-y-2 overflow-y-auto overscroll-contain lg:flex-1" aria-label={m.skyhooks}>
    {data.snapshot&&!data.rows.length&&<p className="text-xs text-ink-3">{m.skyhookEmpty}</p>}
    {data.rows.map(row=>{const system=names.get(row.systemId),active=windowState(row,data.now)==="active";return <div key={row.planetId} className="glass-inset rounded-md p-2 text-xs">
     <button disabled={!system} onClick={()=>system&&onFocus(system)} className="text-accent hover:underline disabled:text-ink-3">{system?`${system[1]} · ${f.number(system[2],1)}`:`${m.skyhookUnknownSystem} (${row.systemId})`}</button>

@@ -29,6 +29,12 @@ export interface HighlightDef {
 type ReleaseDef<V extends ReleaseVersion> = { [K in ItemKey<V>]: HighlightDef };
 
 export const RELEASES: { [V in ReleaseVersion]: ReleaseDef<V> } = {
+  "0.19.0": {
+    mapPlanning: { icon: StarMap, kind: "improved", href: "/map", anyPermission: ["map.view"] },
+    gateCheck: { icon: Route, kind: "new", href: "/gatecheck", anyPermission: ["gatecheck.use"] },
+    marketOrders: { icon: Store, kind: "new", href: "/market", anyPermission: ["market.view.own"] },
+    remapOptimiser: { icon: Brain, kind: "new", href: "/skills/remap", anyPermission: ["skills.view.own", "skills.view.corp"] },
+  },
   "0.15.0": {
     gateCheck: { icon: Route, kind: "new", href: "/gatecheck", anyPermission: ["gatecheck.use"] },
     marketOrders: { icon: Store, kind: "new", href: "/market", anyPermission: ["market.view.own"] },

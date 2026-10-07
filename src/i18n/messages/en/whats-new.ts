@@ -30,6 +30,15 @@ export const whatsNew = {
     link: (version: string) => `Upgrade notes for v${version}`,
   },
   releases: {
+    "0.19.0": {
+      upgrade: "Add esi-clones.read_implants.v1 and esi-markets.read_character_orders.v1 to your EVE application before enabling implant-aware skills or Market Orders.",
+      items: {
+        mapPlanning: { title: "Map planning together", body: "Skyhook raiding windows now sit between Travel Check and Jump Range, with scrollable results beside the universe map." },
+        gateCheck: { title: "Gate Check", body: "Check live gate camps, route options and historical camp predictions on the new page under Combat." },
+        marketOrders: { title: "Market Orders", body: "Track your characters’ buy and sell orders, remaining quantities and expiry. Enable access per character." },
+        remapOptimiser: { title: "Remap optimiser", body: "Find the neural remap that trains your current skill queue fastest, with optional implant-aware calculations." },
+      },
+    },
     "0.15.0": {
       upgrade:
         "Add the scopes esi-clones.read_implants.v1 and esi-markets.read_character_orders.v1 (and esi-universe.read_structures.v1, if missing) to the EVE application at developers.eveonline.com. Until then, sharing skills and switching on market access fail with invalid_scope.",

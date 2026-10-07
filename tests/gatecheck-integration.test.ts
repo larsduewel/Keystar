@@ -107,7 +107,11 @@ describe.skipIf(!enabled)("gate check integration", async () => {
     expect(feed.caughtUpAt).not.toBeNull();
     expect(feed.coverageSince!.getTime()).toBeCloseTo(Date.now() - 30 * 60_000, -4);
 
-    expect((await killsByPilots([501, 999], new Date(Date.now() - 3600_000))).length).toBe(2);
+    await recordFeedKillmails(db(), [km(4, 2)], { restarted: false, caughtUp: true });
+    const advanced = await loadFeedStatus();
+    expect(advanced.lastKillmailAt!.getTime()).toBeGreaterThan(feed.lastKillmailAt!.getTime());
+
+    expect((await killsByPilots([501, 999], new Date(Date.now() - 3600_000))).length).toBe(3);
     expect((await killsByPilots([999], new Date(Date.now() - 3600_000))).length).toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
   });

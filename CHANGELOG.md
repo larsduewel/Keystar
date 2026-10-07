@@ -6,6 +6,21 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-07
+
+### Upgrade notes
+
+Add the optional `esi-clones.read_implants.v1` and `esi-markets.read_character_orders.v1` scopes to your EVE application before enabling implant-aware skill sharing or Market Orders. Existing map features require no new scopes.
+
+### Fixed
+
+- **Gate-feed timestamps.** Serialize timestamps before updating the live gate-feed cursor, preventing database errors during subsequent batches.
+- **Local worker configuration.** Load the local .env file when starting the development worker, so cached map data refreshes with the configured database and ESI settings.
+
+### Changed
+
+- **Skyhook panel position.** Show Skyhook raiding windows below Travel Check and above Jump Range in the left map column, with a scrollable results list.
+
 ### Changed
 
 - Sync upstream through 2554510, preserving the fork’s map, travel checks, Skyhook windows and Azure deployment. Integrate mobile navigation, Market Orders, Gate Check, help and the remap optimiser with a migration for the fork’s existing database. ([PR #22](https://github.com/larsduewel/Keystar/pull/22))
