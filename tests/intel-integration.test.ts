@@ -26,7 +26,9 @@ describe.skipIf(!enabled)("intel integration", async () => {
   const { writeBriefing, writeDossier, latestNote } = await import("@/modules/intel/ai/generate");
   const { readBriefing } = await import("@/modules/intel/ai/template");
   const { MESSAGES } = await import("@/i18n/messages");
-  const { USER_HOURLY_LIMIT } = await import("@/modules/intel/constants");
+  const { DSCAN_ERROR_HEADROOM, DSCAN_LOOKUP_LIMIT, DSCAN_MAX_LOOKUPS, USER_HOURLY_LIMIT } = await import("@/modules/intel/constants");
+  const { dscanShips } = await import("@/modules/intel/dscan");
+  const { getEsi } = await import("@/core/esi");
   const { resetEnvCache } = await import("@/core/env");
 
   const db = () => getDb();
@@ -68,6 +70,7 @@ describe.skipIf(!enabled)("intel integration", async () => {
     const url = new URL(String(input instanceof Request ? input.url : input));
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     const result = handler(url.pathname, body);
+    if (result instanceof Response) return result;
     if (result === undefined) return new Response(JSON.stringify({ error: "not found" }), { status: 404 });
     return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
   });
@@ -115,7 +118,7 @@ describe.skipIf(!enabled)("intel integration", async () => {
   beforeEach(async () => {
     await db().execute(sql`TRUNCATE users, characters, app_settings, eve_entities, eve_corporations, eve_systems, eve_types,
       eve_groups, eve_constellations, killmails, killmail_attackers, sync_jobs, esi_cache, intel_scans, intel_scan_pilots,
-      intel_pilots, intel_pilot_killmails, intel_queue, intel_contacts, intel_ai_notes RESTART IDENTITY CASCADE`);
+      intel_pilots, intel_pilot_killmails, intel_queue, intel_contacts, intel_ai_notes, intel_dscan_lookups RESTART IDENTITY CASCADE`);
     const [u] = await db().insert(schema.users).values({ role: "member" }).returning();
     userId = u.id;
     await setSetting("corp.homeCorporationId", HOME);
@@ -218,6 +221,80 @@ describe.skipIf(!enabled)("intel integration", async () => {
     await enqueuePilots([{ characterId: 9, priority: 40 }, { characterId: 9, priority: 1 }]);
     const [row] = await db().select().from(schema.intelQueue);
     expect(row).toMatchObject({ characterId: 9, stage: 2, priority: 40 });
+  });
+
+  describe("d-scan type lookups", () => {
+    const SABRE = 22456;
+    const typeLookups = (calls: unknown[][]) =>
+      calls.filter(([input]) => String(input).includes("/universe/types/")).map(([input]) => Number(String(input).split("/").at(-1)));
+    // The Sabre's line first and most often, then made-up ids from `from` on.
+    const paste = (from: number, junk: number) =>
+      [`${SABRE}\ta\tSabre\t1 km`, `${SABRE}\tb\tSabre\t2 km`, ...Array.from({ length: junk }, (_, i) => `${from + i}\tx\ty\t-`)].join("\n");
+    const fakeTypes = (extra?: (path: string) => Response | undefined) => (path: string) => {
+      const hit = extra?.(path);
+      if (hit) return hit;
+      if (path === `/universe/types/${SABRE}`) return { type_id: SABRE, name: "Sabre", group_id: 541, published: true };
+      if (path === "/universe/groups/541") return { group_id: 541, name: "Interdictor", category_id: 6, types: [SABRE] };
+      return undefined;
+    };
+
+    it("looks up a capped number of unknown types and never asks again for ids ESI doesn't know", async () => {
+      const spy = esi(fakeTypes());
+      try {
+        const first = await dscanShips(paste(9_000_000, 300), { userId, db: db() });
+        expect(first.ships.map((s) => s.name)).toEqual(["Sabre"]);
+        expect(first.lines).toBe(302);
+        const asked = typeLookups(spy.mock.calls);
+        expect(asked).toHaveLength(DSCAN_MAX_LOOKUPS);
+        expect(asked).toContain(SABRE);
+
+        // The same paste again: the ids ESI answered 404 for are remembered, the rest get their turn.
+        spy.mock.calls.length = 0;
+        await dscanShips(paste(9_000_000, 300), { userId, db: db() });
+        const again = typeLookups(spy.mock.calls);
+        expect(again).toHaveLength(DSCAN_MAX_LOOKUPS);
+        expect(again.some((id) => asked.includes(id))).toBe(false);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("stops looking up types when the shared ESI error budget runs low", async () => {
+      const remain = (n: number) =>
+        new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "x-esi-error-limit-remain": String(n), "x-esi-error-limit-reset": "30" } });
+      const spy = esi(fakeTypes((path) => (path.startsWith("/universe/types/91") ? remain(DSCAN_ERROR_HEADROOM - 1) : undefined)));
+      try {
+        await dscanShips(paste(9_100_000, 40), { userId, db: db() });
+        // Lookups already in flight finish; none start after the low budget was seen.
+        expect(typeLookups(spy.mock.calls).length).toBeLessThanOrEqual(6);
+      } finally {
+        // Leave the shared client with a healthy budget for later tests.
+        esi(() => remain(100));
+        await getEsi().get("/status").catch(() => undefined);
+        spy.mockRestore();
+      }
+    });
+
+    it("limits pastes with lookups per user, but known ships still show", async () => {
+      await db().insert(schema.eveGroups).values({ groupId: 541, name: "Interdictor", categoryId: 6 });
+      await db().insert(schema.eveTypes).values({ typeId: SABRE, name: "Sabre", groupId: 541, published: true });
+      const spy = esi(fakeTypes());
+      try {
+        for (let i = 0; i < DSCAN_LOOKUP_LIMIT; i++) await dscanShips(paste(9_300_000 + i * 10, 1), { userId, now, db: db() });
+        expect(typeLookups(spy.mock.calls)).toHaveLength(DSCAN_LOOKUP_LIMIT);
+        spy.mock.calls.length = 0;
+        const limited = await dscanShips(paste(9_400_000, 5), { userId, now, db: db() });
+        expect(typeLookups(spy.mock.calls)).toHaveLength(0);
+        expect(limited.ships.map((s) => s.name)).toEqual(["Sabre"]);
+        // A paste of known types only costs nothing.
+        const [lookups] = await db().select({ n: sql<number>`count(*)::int` }).from(schema.intelDscanLookups);
+        await dscanShips(paste(0, 0), { userId, now, db: db() });
+        const [after] = await db().select({ n: sql<number>`count(*)::int` }).from(schema.intelDscanLookups);
+        expect(after.n).toBe(lookups.n);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("worker", () => {

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, LayoutDashboard } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, KeyRound, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { MiningFilterBar } from "@/modules/mining/components/filter-bar";
 import { LedgerDay, LedgerDaysProvider, LedgerDaysToggleAll } from "@/modules/mining/components/ledger-days";
 import { miningQueryString } from "@/modules/mining/filters";
 import { groupLedgerByDay } from "@/modules/mining/ledger-groups";
-import { MINING_PERMISSIONS } from "@/modules/mining/module";
+import { MINING_MANAGE_HREF, MINING_PERMISSIONS } from "@/modules/mining/module";
 import { miningPageContext } from "@/modules/mining/page-context";
 import {
   canViewCorpMining,
@@ -62,6 +62,11 @@ export default async function LedgerPage({ searchParams }: PageProps<"/mining/le
               <ButtonLink href={`/mining?${miningQueryString(filters, { page: 1 })}`} size="sm">
                 <LayoutDashboard className="size-4" aria-hidden /> {l.overview}
               </ButtonLink>
+              {user.can(MINING_PERMISSIONS.viewOwn) && (
+                <ButtonLink href={MINING_MANAGE_HREF} size="sm">
+                  <KeyRound className="size-4" aria-hidden /> {t.mining.access}
+                </ButtonLink>
+              )}
               {user.can(MINING_PERMISSIONS.export) && (
                 <a
                   href={`/mining/export?${miningQueryString(filters, { page: 1 })}`}

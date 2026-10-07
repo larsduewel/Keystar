@@ -25,7 +25,7 @@ export function EveClock() {
       title={t.shell.eveTime}
     >
       <Clock3 className="size-3.5 text-accent" aria-hidden />
-      <span className="eve-label text-2xs text-ink-3">EVE</span>
+      <span className="eve-label text-2xs text-ink-3 max-sm:hidden">EVE</span>
       <span className="font-mono font-medium tabular-nums text-ink">{time}</span>
     </div>
   );

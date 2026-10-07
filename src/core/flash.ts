@@ -8,7 +8,15 @@
 export const FLASH_COOKIE = "ks_flash";
 export const FLASH_MAX_AGE_SECONDS = 60;
 
-export const FLASH_KINDS = ["linked", "reauthorized", "corpGranted", "scopesChanged", "linkFailed"] as const;
+export const FLASH_KINDS = [
+  "linked",
+  "alreadyLinked",
+  "accessRemoved",
+  "reauthorized",
+  "corpGranted",
+  "scopesChanged",
+  "linkFailed",
+] as const;
 export type FlashKind = (typeof FLASH_KINDS)[number];
 
 /** Why linking a character failed (`linkFailed`). */

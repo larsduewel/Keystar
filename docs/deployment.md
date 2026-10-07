@@ -84,6 +84,7 @@ IP. Caddy can only obtain a certificate once DNS resolves to the server — chec
    ```
    esi-alliances.read_contacts.v1
    esi-characters.read_corporation_roles.v1
+   esi-clones.read_implants.v1
    esi-corporations.read_contacts.v1
    esi-corporations.read_corporation_membership.v1
    esi-corporations.read_divisions.v1
@@ -93,6 +94,7 @@ IP. Caddy can only obtain a certificate once DNS resolves to the server — chec
    esi-industry.read_character_mining.v1
    esi-industry.read_corporation_mining.v1
    esi-mail.read_mail.v1
+   esi-markets.read_character_orders.v1
    esi-skills.read_skillqueue.v1
    esi-skills.read_skills.v1
    esi-universe.read_structures.v1
@@ -100,14 +102,20 @@ IP. Caddy can only obtain a certificate once DNS resolves to the server — chec
    esi-wallet.read_corporation_wallets.v1
    ```
 
-   Keystar only ever asks members for the scopes its enabled modules need; corporation scopes are requested only when
-   a director links a character with "corporation access", and the wallet, mail, fleet, skills and industry scopes
-   only when a pilot enables wallet import for a character in the mining P&L, mail for a character on the EVE Mail
-   page, fleet access for a character on the Live fleet page, skill sharing on the Skills access page or industry
-   access on the Industry access page. (The login page also shows this exact list while SSO is not configured yet.)
+   Registering asks members for no scope at all. Corporation scopes are requested only when a director links a
+   character with "corporation access", and every character scope only when a pilot switches it on for a character:
+   the mining ledger on the Mining access page, wallet import in the mining P&L, mail on the EVE Mail page, fleet
+   access on the Live fleet page, skill sharing on the Skills access page, industry access on the Industry access
+   page or market access on the Market access page. (The login page also shows this exact list while SSO is not
+   configured yet.)
 5. Save and keep the **Client ID** and **Secret Key** for the next step.
 
 When future modules (assets) are added, add their scopes to the application as well.
+
+> **Upgrading to the release with market orders (see the CHANGELOG):** add `esi-markets.read_character_orders.v1`
+> to the EVE application (and `esi-universe.read_structures.v1`, if it isn't there yet from industry jobs). Without
+> it, "Enable market access" on the Market access page fails at the EVE login with `invalid_scope`. Nobody is asked
+> for the scope unless they enable market access themselves.
 
 > **Upgrading to the release with industry jobs (see the CHANGELOG):** add `esi-industry.read_character_jobs.v1` and
 > `esi-universe.read_structures.v1` to the EVE application. Without them, "Enable industry access" on the Industry
@@ -117,6 +125,10 @@ When future modules (assets) are added, add their scopes to the application as w
 > **Upgrading to the release with skill queues (see the CHANGELOG):** add `esi-skills.read_skillqueue.v1` and
 > `esi-skills.read_skills.v1` to the EVE application. Without them, "Share skills" on the Skills access page fails at
 > the EVE login with `invalid_scope`. Nobody is asked for the scopes unless they share their skills themselves.
+
+> **Upgrading to the release with the remap optimiser (see the CHANGELOG):** add `esi-clones.read_implants.v1` to the
+> EVE application. "Share skills" now requests it along with the skills scopes, so without it that EVE login fails
+> with `invalid_scope`. Characters that already share keep sharing until they re-authorise.
 
 > **Upgrading to the release with EVE Mail (see the CHANGELOG):** add `esi-mail.read_mail.v1` to the EVE application.
 > Without it, "Enable mail" on the EVE Mail page fails at the EVE login with `invalid_scope`. Nobody is asked for the
@@ -186,8 +198,8 @@ Then open `https://keystar.example.com`. To build from the checkout instead of u
    3. **Corporation data** — link a character that has the in-game **Accountant** (or Director) role with corporation
       access, so Keystar can read refinery observers, the corporation wallets and the roster. Skippable.
    4. **Invite** — copy the `/join` link for your members.
-3. Link your alts under **My Characters → Link a character**. Alts in other corporations work too: once linked with
-   the mining scope, their personal mining ledgers sync like any other character's and appear in the mining P&L and in the **My characters** view of
+3. Link your alts under **My Characters → Link a character**, and switch on their mining ledger under **Mining →
+   Access**. Alts in other corporations work too: once their mining ledger is on, their personal mining ledgers sync like any other character's and appear in the mining P&L and in the **My characters** view of
    the mining overview, ledger and export. The corporation view only counts characters in the home corporation.
 
 The worker picks up new tokens within a minute. ESI keeps 30 days of mining history; Keystar keeps everything from
@@ -195,7 +207,9 @@ the moment it starts syncing.
 
 The **killboard** needs no extra setup: the worker imports the home corporation's last 90 days of kills and losses
 from zKillboard (public data, no ESI scopes) and then checks hourly. The first weekly situation report is written
-once a full week has been imported, shortly after 02:00 EVE time. The server needs outbound HTTPS to
+once a full week has been imported, shortly after 02:00 EVE time. The **gate check** needs no setup either: the
+worker's live feed stores every kill near a stargate (a few thousand rows a day, kept 60 days at gates and 7 days
+elsewhere, a few hundred MB at most), so camp estimates get better over the first weeks. The server needs outbound HTTPS to
 `esi.evetech.net`, `login.eveonline.com`, `zkillboard.com` and, with `ANTHROPIC_API_KEY`, `api.anthropic.com`.
 
 ## Operating Keystar

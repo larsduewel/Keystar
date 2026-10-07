@@ -80,14 +80,19 @@ const ratio = (x: string, y: string) => {
 };
 describe("chart palette per theme", () => {
   it("defines every series and ramp step for both themes", () => {
-    // Five categorical slots plus the income/expense pair; the neutral slate is shared.
-    expect(tokens(dark, "series")).toHaveLength(7);
-    expect(tokens(light, "series")).toHaveLength(6);
+    // Seven categorical slots plus the income/expense pair; the neutral slate is shared.
+    expect(tokens(dark, "series")).toHaveLength(9);
+    expect(tokens(light, "series")).toHaveLength(8);
     expect(tokens(dark, "ramp")).toHaveLength(5);
     expect(tokens(light, "ramp")).toHaveLength(5);
   });
   it("keeps light series marks at 3:1 on the light page", () => {
     for (const c of [...tokens(light, "series"), "#5d6878"]) expect(ratio(c, colors["space-950"])).toBeGreaterThanOrEqual(3);
+  });
+  it("keeps dark series marks at 3:1 on the dark surface", () => {
+    const marks = [...dark.matchAll(/--series-(?:moon|ore|ice|gas|other|\d+): (#[0-9a-f]{6});/g)].map((m) => m[1]);
+    expect(marks).toHaveLength(7);
+    for (const c of marks) expect(ratio(c, "#14161a")).toBeGreaterThanOrEqual(3);
   });
   it("keeps the income/expense pair at 3:1 on each surface", () => {
     const pair = (block: string) => [...block.matchAll(/--series-(?:income|expense): (#[0-9a-f]{6});/g)].map((m) => m[1]);

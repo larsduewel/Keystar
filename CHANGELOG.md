@@ -6,6 +6,132 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+### Changed
+
+- Sync upstream through 2554510, preserving the fork’s map, travel checks, Skyhook windows and Azure deployment. Integrate mobile navigation, Market Orders, Gate Check, help and the remap optimiser with a migration for the fork’s existing database.
+
+### Added
+
+- **Collapsible sidebar sections.** Click a section heading in the sidebar (Industry, Combat, …) to fold its pages
+  away, and again to slide them back open; the arrow beside it shows whether it is open. Folded sections are
+  remembered in your browser, and a folded section's heading still lights up in the section colour while you are on
+  one of its pages. ([PR #195](https://github.com/Theragus/Keystar/pull/195),
+  [PR #196](https://github.com/Theragus/Keystar/pull/196))
+
+### Changed
+
+- Hovering a page in the sidebar now shows its icon in the section colour, as the current page already did.
+  ([PR #196](https://github.com/Theragus/Keystar/pull/196))
+- **Keystar is usable on phones.** These changes apply only below tablet width; desktop is unchanged.
+  ([PR #192](https://github.com/Theragus/Keystar/pull/192))
+  - The sidebar is a menu that slides in from the ☰ button in the top bar and closes when you pick a page, tap beside
+    it or press Escape. The top bar keeps the page name, alerts, help and EVE time and no longer runs off the screen.
+  - Pages fit the screen instead of being shrunk to fit: wide tables scroll inside their panel, filter menus stay on
+    screen, and stat tiles, the mining observers and the killboard's top pilots fit two to a row.
+  - Tapping a text field no longer zooms the page in on iPhones, and filter menus don't open the keyboard by themselves.
+
+## Upstream 0.15.0 - 2026-10-07
+
+### Upgrade notes
+
+Sharing skills now includes the implants of the active clone, so the remap optimiser knows the base attributes.
+
+1. Add `esi-clones.read_implants.v1` to the scopes of your EVE application at
+   <https://developers.eveonline.com/applications>. Without it, "Share skills" on the Skills access page fails at the
+   EVE login with `invalid_scope`.
+2. Update as usual; the database migrations run on start. Characters that already share their skills keep sharing;
+   they are asked to re-authorise once to include their implants.
+
+Market orders need one more optional character scope: add `esi-markets.read_character_orders.v1` to the scopes of
+your EVE application (and `esi-universe.read_structures.v1`, if it isn't there yet). Nobody is asked for it unless
+they enable market access on the Market access page, but without it on the application that EVE login fails with
+`invalid_scope`.
+
+### Added
+
+- **Market orders.** A new Market Orders page under Trade lists the buy and sell orders of your own characters: the
+  item, its price per unit and the total, how much is left of the quantity, the station or structure with its system
+  and region, when the order was issued and when it expires. Filter by open or closed orders, buy or sell, character
+  and location; tiles add up what you are selling and buying, the ISK held in escrow and the orders that expire
+  within three days, and a panel shows where your orders are. Closed orders (filled, cancelled or expired) are listed
+  too, from the 90 days ESI reports back. Access is opt-in per character on the new Market access page, like
+  industry jobs, so nobody is asked for the new scope (`esi-markets.read_character_orders.v1`) at sign-up. It
+  shares the structure scope with industry access: switching one of them off keeps that scope while the other is
+  on. Only you see your characters' orders. ([PR #187](https://github.com/Theragus/Keystar/pull/187))
+- **Gate check** (Combat, for every role): plan a stargate route and see what waits at each gate before you jump.
+  - Routes like EVE's autopilot: shortest, safer (stays in high-sec as long as there is a way) or less secure, around
+    any systems you want to avoid; never through Zarzakh, whose gate lock would trap you.
+  - Kills of the last two hours at the gate you arrive by and the gate you leave by in every system, with the victim,
+    attackers, their ships and groups and the distance to the gate, kept apart from kills at the system's other gates.
+    Tags show smartbombs, interdictors and HICs (bubbles), gankers (CONCORD on the mail), hot drops and pod kills; a
+    system is marked as a camp after a kill at your gate in the last 30 minutes or three within the hour.
+  - A camp estimate for the time you reach each gate, leaving now at about a minute a jump: how often those gates saw
+    kills around that time of day over the last weeks, a camp there right now, and the regular campers of those gates
+    who were seen killing nearby in the last two hours, each explained, with the busiest hours and the groups behind
+    the kills.
+  - No extra load on zKillboard: the worker's live feed, which already reads every killmail for the killboard, keeps
+    the kills near stargates (60 days at gates, 7 days elsewhere). It now runs without a home corporation too, and on
+    a fresh start reads the last few hours back. The map's travel check reads the same data instead of asking
+    zKillboard for every system on the route.
+
+  ([PR #188](https://github.com/Theragus/Keystar/pull/188))
+
+- **Remap optimiser.** A new page under Pilots recommends the neural remap that trains each character's current skill
+  queue the fastest.
+  - Tries every legal remap (17–27 per attribute, 99 points) against the SP still to train and shows the attributes
+    to remap to, the queue time now and after the remap, and the time saved.
+  - Warns when the queue runs less than 180 days with the recommended attributes: the yearly remap only comes back
+    after 365 days and bonus remaps are gone once used.
+  - Shows whether the yearly remap or a bonus remap is available, and when the next one is.
+  - Skill sharing now also reads the active clone's implants (`esi-clones.read_implants.v1`), so their bonuses are
+    told apart from the base attributes; the remap only redistributes base points. Characters that shared before
+    are taken as implant-free until they re-authorise, and the page says so. When the attributes don't add up to 99
+    (implants or a booster Keystar doesn't know about), no remap is recommended.
+  - Own characters, plus the corporation view for directors; linked from each character on Skill queues.
+
+  ([PR #117](https://github.com/Theragus/Keystar/pull/117))
+
+- **Help, welcome tour and What's new.** A new **Help** button next to Alerts in the top bar (or the `?` key on any
+  page) explains Keystar in five topics:
+  - **This page:** what the page you are on shows, where its data comes from, which role can open it, and whether
+    only you can see it. Every page in the sidebar has its own text.
+  - **How Keystar works:** EVE login, read-only access, background sync and what pages show.
+  - **Scopes and EVE access:** every ESI scope Keystar can ask for, grouped into the ones everyone grants, the
+    optional ones per character (with a link to switch them) and corporation access with its in-game roles.
+  - **Your data and security:** what is stored and how it is protected, what only you can see, who else sees what
+    with which role, how to remove data and how long Keystar keeps it.
+  - **Who sees what:** your Keystar role, the role ladder, and every page with the role it needs, including the
+    permission changes made in Settings.
+
+  Every account sees the help once as a short welcome tour, new accounts on their first sign-in. After each update
+  with highlights, a **What's new** dialog shows the release's most important additions once, with a link to the
+  release notes on GitHub; admins also see what the update needs on the server. Pages that are new in the release
+  get a dot in the sidebar until you open them, and the version in the sidebar footer opens What's new again.
+  Release PRs add the highlights in English and German (`docs/releasing.md`).
+  ([PR #182](https://github.com/Theragus/Keystar/pull/182))
+
+### Changed
+
+- **The mining ledger is opt-in per character, so every ESI scope is now optional.** Registering, signing in and
+  "Link a character" no longer ask EVE for any scope; they only prove who you are. Each pilot turns on the personal
+  mining ledger per character on the new **Mining access** page (the Access button on the Mining Overview and Ledger,
+  or via My Characters), can switch it off in Keystar without an EVE login, and can delete a character's stored mining
+  history once it is off. Moon-drill records of corporation refineries are kept either way. Characters that already
+  share their mining ledger keep sharing; nothing to do on the server or the EVE application.
+  ([PR #186](https://github.com/Theragus/Keystar/pull/186))
+  - Characters without any ESI access are no longer flagged on My Characters, the dashboard, Users & Roles or Member
+    Audit; only revoked tokens are.
+  - Re-authorising a character with no access left removes its token and revokes it with CCP, and "Link a character"
+    with a character that is already on your account no longer changes its access.
+  - "Link with corporation access" no longer includes the mining ledger. A director whose character shares it is
+    asked once to turn it back on, like wallet import or skill sharing.
+- The sign-in, registration and "Link a character" buttons on the login and join pages are now CCP's official
+  "LOG IN with EVE Online" button (black on the dark theme, white on the light one), as CCP asks of third-party
+  applications. The CCP notice now carries the wording of the Developer License Agreement and also appears on the
+  join page and under "How Keystar works" in Help. ([PR #189](https://github.com/Theragus/Keystar/pull/189))
+- The Map moved to the bottom of the Combat section of the sidebar, below Gate check.
+  ([PR #190](https://github.com/Theragus/Keystar/pull/190))
+
 ## [0.18.0] - 2026-10-07
 
 ### Added
@@ -45,6 +171,10 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [0.15.0] - 2026-10-05
 
+### Upgrade notes
+
+After the upstream sync, skill sharing additionally requires `esi-clones.read_implants.v1` and Market Orders requires `esi-markets.read_character_orders.v1`. Add these optional scopes to the EVE application before enabling those features; see the upstream upgrade notes above.
+
 ### Changed
 - **Jump Range ship classes.** Expand ship classes to cover command carriers, supercapitals, force auxiliaries, lancer dreadnoughts and Rorquals. ([PR #13](https://github.com/larsduewel/Keystar/pull/13))
 - **Travel Check system inputs.** Use the Threat Intel system picker, including keyboard selection, region names and security status. ([PR #13](https://github.com/larsduewel/Keystar/pull/13))
@@ -72,8 +202,84 @@ Industry jobs need two optional character scopes.
 
 ### Fixed
 
-- **Map and Intel review fixes.** Cache map route lookups; let scan viewers read saved briefings without regenerating them, keep rewriting permission-gated, restore a pilot profile shortcut and align briefing severity with the three-tier danger model. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
+- The login page and the Privacy panel on My Characters now link to Authorized Apps on the EVE developers site for
+  revoking Keystar's access. The Third-Party Applications page on community.eveonline.com they pointed to now only
+  redirects to the developers homepage. ([PR #183](https://github.com/Theragus/Keystar/pull/183))
+- Saving the settings page or the setup walkthrough's access step with a price source or price date Keystar doesn't
+  know (a page left open across an update, or an edited form) now explains which field to fix in a toast and changes
+  nothing, instead of failing with "Something went wrong".
+  ([#145](https://github.com/Theragus/Keystar/issues/145))
+- A pasted d-scan with made-up type ids can no longer pause ESI for the whole web app. Unknown types are looked up on
+  ESI at most 50 per paste and for at most 20 pastes per user in 10 minutes, lookups stop while the shared ESI error
+  budget is low, and ids ESI doesn't know are not asked again for 6 hours. Ships that couldn't be looked up yet are
+  left out of the d-scan, as before. ([#143](https://github.com/Theragus/Keystar/issues/143))
+- Changes on the Mining P&L pages now confirm in a toast: the income basis (mined ore or wallet sales), the share of
+  the valuation, the per-character "count automatically" switches, ore prices, manual costs and "include all".
+  Rejected input (a rate of 0 %, a price rule that ends before it starts, an amount Keystar can't read) is explained in
+  a toast and keeps what you typed, instead of replacing the page with an error. Single include/exclude and category
+  changes only show a toast when they fail. Deleting a Threat Intel scan, writing a briefing, dossier or d-scan read,
+  profiling more pilots and rewriting the killboard situation report also confirm or explain in a toast, and the
+  setup walkthrough explains an invalid corporation ID instead of failing.
+  ([PR #175](https://github.com/Theragus/Keystar/pull/175))
 
+## [0.14.0] - 2026-10-06
+
+### Upgrade notes
+
+Industry jobs need two optional character scopes.
+
+1. Add `esi-industry.read_character_jobs.v1` and `esi-universe.read_structures.v1` to the scopes of your EVE
+   application at <https://developers.eveonline.com/applications>. Nobody is asked for them unless they enable
+   industry access on the Industry access page, but without them on the application that EVE login fails with
+   `invalid_scope`.
+2. Update as usual; the database migrations run on start.
+
+### Added
+
+- **Ore types in the daily mining chart.** Click a resource in the "Daily ISK by resource" chart (or its legend) to
+  stack the days by its ore types instead, such as Spodumain, Kernite and Scordite, with the smaller ones combined
+  into "Other". When only one resource was mined, the chart and the resource mix show its ore types straight away.
+  ([PR #173](https://github.com/Theragus/Keystar/pull/173))
+- **3D universe map.** Add a searchable star map under Combat with system names, security status and real positions;
+  Threat Intel system links focus the map and show jump range and light-year distances.
+  ([PR #87](https://github.com/Theragus/Keystar/pull/87))
+- **Travel and jump planning.** Calculate shortest stargate routes with two-hour gate-kill evidence and linked
+  killmails, plus carrier, jump freighter and Black Ops range highlighting with Jump Drive Calibration selection.
+  ([PR #87](https://github.com/Theragus/Keystar/pull/87))
+- **Industry jobs.** A new Industry Jobs page under Industry lists the industry jobs of your own characters:
+  manufacturing, material and time efficiency research, copying, invention and reactions, each with a progress bar,
+  the time left (counting down live) and the end time, and the station or structure it runs in with its system.
+  Filter by running or finished jobs, character, activity, system and station; tiles count running jobs, jobs ready
+  to deliver and jobs ending within a day. Access is opt-in per character on the new Industry access page, like
+  skills and mail, so nobody is asked for the two new scopes (`esi-industry.read_character_jobs.v1`,
+  `esi-universe.read_structures.v1`) at sign-up; add them to the EVE application (see `docs/deployment.md`). Only you
+  see your characters' jobs. ([#105](https://github.com/Theragus/Keystar/issues/105))
+- **Skill queue timeline.** Each character's card shows the queue as one strip, like the training-time bar in
+  game: every skill takes a slice proportional to the time it still needs, with day, week or month marks below.
+  Pointing at a slice highlights its row in the queue table and the other way round.
+- **Load on System Info.** The page now shows the CPU share, memory and JS heap of the web app and the worker, the
+  container's memory against its limit, free host memory and the host's load average.
+### Changed
+
+- **Map interaction.** Use compact glass panels, batched rendering and cached geometry; support mouse rotation and
+  panning, looping route illumination, system focus with fading rotation, reduced motion and wheel zoom without page
+  scrolling. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
+- **Mining P&L**: when income comes from wallet sales, it is now net of sales tax instead of counting the tax as an
+  expense: each sale on the Income tab shows the tax paid on it and its net, and the tax counts whenever the sale
+  does, without a review of its own. Broker fees stay expenses and are easier to review: each shows the journal's
+  description and time, and "Include all" counts every suggested broker fee at once.
+- Null-sec security status (0.0 and below) is shown in red instead of purple in every security pill, so the
+  security colours run from blue at 1.0 to red.
+
+### Fixed
+
+- **Map and Intel review fixes.** Cache map route lookups; let scan viewers read saved briefings without regenerating
+  them, keep rewriting permission-gated, restore a pilot profile shortcut and align briefing severity with the
+  three-tier danger model. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
+- An appraisal with an absurdly long quantity (hundreds of digits) no longer stores and shows an infinite total; such
+  a quantity is no longer read as one. A member can start at most 30 appraisals per ten minutes (failed and deleted
+  ones included), and appraisals are deleted after a year, so the appraisal table no longer grows without bound.
+  ([#155](https://github.com/Theragus/Keystar/issues/155))
 - A token refresh keeps the new refresh token EVE SSO hands out even if checking the new access token then fails
   (for example when CCP's key endpoint is unreachable), so pilots are no longer asked to re-authorise for nothing.
   Refreshes no longer hold the token row locked while waiting on CCP, so switching scopes or logging in doesn't stall
@@ -87,6 +293,10 @@ Industry jobs need two optional character scopes.
   unlinked and linked again, instead of waiting until ESI's data changes. Unlinking or transferring a character, and
   deleting its industry data, also removes the ESI responses Keystar had cached for it, and cached responses
   without an expiry are cleaned up after a week. ([#139](https://github.com/Theragus/Keystar/issues/139))
+- A mining ledger from ESI that lists the same pilot, ore and day twice (for example after the pilot changed
+  corporation that day) no longer makes the moon-mining import fail on every run until that day drops out of ESI's
+  30-day ledger. Repeats are merged before saving, and ore mined under two corporations on one day is added up.
+  ([#149](https://github.com/Theragus/Keystar/issues/149))
 - In English, the killboard's permissions in Users & Roles, its background jobs and its browser tab title now
   say "Combat Report" like the sidebar, instead of "Killboard".
 - Wallet imports read ESI's available history again after deleting wallet data or relinking a character, instead
@@ -103,36 +313,6 @@ Industry jobs need two optional character scopes.
   transaction as the change, so a database error can no longer leave a change without an audit trail. Other audit
   entries that can't be written are counted, and System Info warns about them in a new "Audit log written" check.
   ([#156](https://github.com/Theragus/Keystar/issues/156))
-
-### Added
-
-- **3D universe map.** Add a searchable star map under Combat with system names, security status and real positions; Threat Intel system links focus the map and show jump range and light-year distances. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
-- **Travel and jump planning.** Calculate shortest stargate routes with two-hour gate-kill evidence and linked killmails, plus carrier, jump freighter and Black Ops range highlighting with Jump Drive Calibration selection. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
-
-- **Industry jobs.** A new Industry Jobs page under Industry lists the industry jobs of your own characters:
-  manufacturing, material and time efficiency research, copying, invention and reactions, each with a progress bar,
-  the time left (counting down live) and the end time, and the station or structure it runs in with its system.
-  Filter by running or finished jobs, character, activity, system and station; tiles count running jobs, jobs ready
-  to deliver and jobs ending within a day. Access is opt-in per character on the new Industry access page, like
-  skills and mail, so nobody is asked for the two new scopes (`esi-industry.read_character_jobs.v1`,
-  `esi-universe.read_structures.v1`) at sign-up; add them to the EVE application (see `docs/deployment.md`). Only you
-  see your characters' jobs. ([#105](https://github.com/Theragus/Keystar/issues/105))
-- **Skill queue timeline.** Each character's card shows the queue as one strip, like the training-time bar in
-  game: every skill takes a slice proportional to the time it still needs, with day, week or month marks below.
-  Pointing at a slice highlights its row in the queue table and the other way round.
-- **Load on System Info.** The page now shows the CPU share, memory and JS heap of the web app and the worker, the
-  container's memory against its limit, free host memory and the host's load average.
-
-### Changed
-
-- **Map interaction.** Use compact glass panels, batched rendering and cached geometry; support mouse rotation and panning, looping route illumination, system focus with fading rotation, reduced motion and wheel zoom without page scrolling. ([PR #87](https://github.com/Theragus/Keystar/pull/87))
-
-- **Mining P&L**: when income comes from wallet sales, it is now net of sales tax instead of counting the tax as an
-  expense: each sale on the Income tab shows the tax paid on it and its net, and the tax counts whenever the sale
-  does, without a review of its own. Broker fees stay expenses and are easier to review: each shows the journal's
-  description and time, and "Include all" counts every suggested broker fee at once.
-- Null-sec security status (0.0 and below) is shown in red instead of purple in every security pill, so the
-  security colours run from blue at 1.0 to red.
 
 ## [0.13.0] - 2026-10-04
 

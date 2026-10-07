@@ -26,13 +26,13 @@ vi.mock("@/core/db", () => ({
 
 let picked = { characterId: 2, name: "Thargus Audelaire", ownerHash: "h", scopes: ["s"], expiresAt: new Date() };
 
-async function callback(expectedCharacterId?: number) {
+async function callback(expectedCharacterId?: number, intent: "link" | "link-corp" = "link-corp") {
   const { GET } = await import("@/app/auth/callback/route");
   const state = "s".repeat(24);
   const sealed = sealOAuthState({
     state,
     verifier: "v".repeat(43),
-    intent: "link-corp",
+    intent,
     returnTo: "/characters",
     createdAt: Date.now(),
     expectedCharacterId,
@@ -53,6 +53,7 @@ describe("SSO callback", () => {
       newCharacter: false,
       lostOptionalScopes: [],
       addedOptionalScopes: [],
+      tokenRemoved: false,
     });
     picked = { characterId: 2, name: "Thargus Audelaire", ownerHash: "h", scopes: ["s"], expiresAt: new Date() };
   });
@@ -78,5 +79,33 @@ describe("SSO callback", () => {
   it("accepts any character on a plain link", async () => {
     await callback();
     expect(provisionFromSso).toHaveBeenCalledOnce();
+    expect(provisionFromSso.mock.calls[0][0]).toMatchObject({ reauthorize: false });
+  });
+
+  it("tells provisioning when the character being re-authorised logged in", async () => {
+    await callback(2);
+    expect(provisionFromSso.mock.calls[0][0]).toMatchObject({ reauthorize: true });
+  });
+
+  it("says a plain link of a character already on the account changed nothing", async () => {
+    picked = { ...picked, scopes: [] };
+    const res = await callback(undefined, "link");
+    expect(parseFlash(res.cookies.get(FLASH_COOKIE)?.value)).toMatchObject({ kind: "alreadyLinked", name: "Thargus Audelaire" });
+  });
+
+  it("confirms a re-authorisation that removed the character's access", async () => {
+    picked = { ...picked, scopes: [] };
+    provisionFromSso.mockResolvedValueOnce({
+      userId: "user-1",
+      characterId: 2,
+      createdUser: false,
+      role: "admin",
+      newCharacter: false,
+      lostOptionalScopes: [],
+      addedOptionalScopes: [],
+      tokenRemoved: true,
+    });
+    const res = await callback(2, "link");
+    expect(parseFlash(res.cookies.get(FLASH_COOKIE)?.value)).toMatchObject({ kind: "accessRemoved", name: "Thargus Audelaire" });
   });
 });

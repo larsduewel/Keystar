@@ -4,7 +4,8 @@ import { SecurityStatus } from "@/components/ui/security";
 import type { Messages } from "@/i18n/messages";
 import { getI18n } from "@/i18n/server";
 import type { Formatter } from "@/lib/format";
-import { CHART_CLASSES, MOON_RARITY, toChartClasses } from "../class-colors";
+import { CHART_CLASSES, MOON_RARITY, toChartClasses, type ChartClass } from "../class-colors";
+import { oreSeries, oreTotals, type OreDrill } from "../daily-ores";
 import { miningQueryString, type MiningFilters } from "../filters";
 import type { ClassValues, MemberRow, SystemRow } from "../queries";
 
@@ -94,32 +95,61 @@ export async function MemberLeaderboard({
   );
 }
 
-export async function ClassComposition({ byClass, metric }: { byClass: ClassValues; metric: Metric }) {
+/**
+ * Share of each resource class. When only one class was mined, it lists that class's ores
+ * instead, in the same series as the daily chart's per-ore view.
+ */
+export async function ClassComposition({
+  byClass,
+  metric,
+  drill,
+}: {
+  byClass: ClassValues;
+  metric: Metric;
+  drill?: Partial<Record<ChartClass, OreDrill>>;
+}) {
   const { t, f } = await getI18n();
   const chart = toChartClasses(byClass);
   const total = Object.values(chart).reduce((a, b) => a + b, 0);
   const moonTotal = chart.moon;
+  const present = CHART_CLASSES.filter((c) => chart[c.id] > 0);
+  const single = present.length === 1 ? drill?.[present[0].id] : undefined;
+  const totals = single ? oreTotals(single) : null;
+  const rows =
+    single && totals
+      ? oreSeries(single, t).map((s) => ({ ...s, amount: totals[s.id] ?? 0 }))
+      : present.map((c) => ({ id: c.id, color: c.color, label: t.mining.chartClasses[c.id], amount: chart[c.id] }));
   return (
     <div className="space-y-5">
-      <ul className="space-y-3">
-        {CHART_CLASSES.filter((c) => chart[c.id] > 0).map((c) => (
-          <li key={c.id}>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="flex items-center gap-2">
-                <span className="size-2.5 rounded-[3px]" style={{ background: c.color }} aria-hidden />
-                <span className="text-ink-2">{t.mining.chartClasses[c.id]}</span>
-              </span>
-              <span className="tabular-nums">
-                <span className="font-semibold">{f.formatMetric(metric, chart[c.id])}</span>
-                <span className="ml-2 text-xs text-ink-3">{f.percent(chart[c.id] / total)}</span>
-              </span>
-            </div>
-            <div className="mt-1.5 h-1.5 rounded-full bg-surface-contrast/5">
-              <div className="h-full rounded-full" style={{ width: `${(chart[c.id] / total) * 100}%`, background: c.color }} />
-            </div>
-          </li>
-        ))}
-      </ul>
+      <div>
+        {single && (
+          <div className="eve-label mb-3 text-2xs text-ink-3">
+            {t.mining.breakdowns.oresOf(t.mining.chartClasses[present[0].id])}
+          </div>
+        )}
+        <ul className="space-y-3">
+          {rows.map((r) => (
+            <li key={r.id}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: r.color }} aria-hidden />
+                  <span className="truncate text-ink-2">{r.label}</span>
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  <span className="font-semibold">{f.formatMetric(metric, r.amount)}</span>
+                  <span className="ml-2 text-xs text-ink-3">{f.percent(r.amount / total)}</span>
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 rounded-full bg-surface-contrast/5">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${(r.amount / total) * 100}%`, background: r.color }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
       {moonTotal > 0 && (
         <div>
           <div className="eve-label mb-2 text-2xs text-ink-3">{t.mining.breakdowns.moonByRarity}</div>
@@ -153,40 +183,42 @@ export async function ClassComposition({ byClass, metric }: { byClass: ClassValu
 export async function SystemTable({ rows, filters }: { rows: SystemRow[]; filters: MiningFilters }) {
   const { t, f } = await getI18n();
   return (
-    <table className="ks-table">
-      <thead>
-        <tr>
-          <th>{t.mining.columns.system}</th>
-          <th className="num">{t.mining.columns.miners}</th>
-          <th className="num">{t.mining.columns.units}</th>
-          <th className="num">{t.mining.columns.volume}</th>
-          <th className="num">{t.mining.columns.value}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.systemId ?? "unknown"}>
-            <td>
-              {r.systemId ? (
-                <Link
-                  href={`?${miningQueryString(filters, { systems: [r.systemId], page: 1 })}`}
-                  scroll={false}
-                  className="flex items-center gap-2.5 hover:text-accent"
-                >
-                  <SecurityStatus value={r.security} />
-                  <span className="font-medium">{r.name}</span>
-                </Link>
-              ) : (
-                <span className="text-ink-3">{t.mining.breakdowns.unknownLocation}</span>
-              )}
-            </td>
-            <td className="num">{f.integer(r.miners)}</td>
-            <td className="num">{f.integer(r.quantity)}</td>
-            <td className="num">{f.volume(r.volume)}</td>
-            <td className="num font-semibold">{f.isk(r.value)}</td>
+    <div className="overflow-x-auto">
+      <table className="ks-table">
+        <thead>
+          <tr>
+            <th>{t.mining.columns.system}</th>
+            <th className="num">{t.mining.columns.miners}</th>
+            <th className="num">{t.mining.columns.units}</th>
+            <th className="num">{t.mining.columns.volume}</th>
+            <th className="num">{t.mining.columns.value}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.systemId ?? "unknown"}>
+              <td>
+                {r.systemId ? (
+                  <Link
+                    href={`?${miningQueryString(filters, { systems: [r.systemId], page: 1 })}`}
+                    scroll={false}
+                    className="flex items-center gap-2.5 hover:text-accent"
+                  >
+                    <SecurityStatus value={r.security} />
+                    <span className="font-medium">{r.name}</span>
+                  </Link>
+                ) : (
+                  <span className="text-ink-3">{t.mining.breakdowns.unknownLocation}</span>
+                )}
+              </td>
+              <td className="num">{f.integer(r.miners)}</td>
+              <td className="num">{f.integer(r.quantity)}</td>
+              <td className="num">{f.volume(r.volume)}</td>
+              <td className="num font-semibold">{f.isk(r.value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

@@ -7,6 +7,13 @@ const count = (value: number, one: string, many: string) => `${n(value)} ${value
 export const fleet = {
   module: {
     nav: { fleet: "Live fleet" },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      fleet:
+        "Fleets shared by their fleet boss, read from ESI every 15 seconds: members, ships, wings and squads, and who joined or left, " +
+        "plus a list of past fleets. To share your fleet, enable fleet access on the character that holds fleet boss and start " +
+        "tracking; it stops by itself when that character leaves the fleet.",
+    },
     permissionGroup: "Fleet",
     permissions: {
       view: { label: "View fleets", description: "See live fleets shared by fleet bosses and the list of past fleets." },

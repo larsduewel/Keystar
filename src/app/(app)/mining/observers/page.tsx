@@ -82,7 +82,7 @@ export default async function ObserversPage({ searchParams }: PageProps<"/mining
                     </Link>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div>
                       <div className="text-xs text-ink-3">{text.value}</div>
                       <div className="text-xl font-semibold">{f.isk(o.value)}</div>

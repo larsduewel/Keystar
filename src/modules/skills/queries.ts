@@ -1,8 +1,9 @@
 import { sql, type SQL } from "drizzle-orm";
 import { getDb } from "@/core/db";
 import type { SkillsView } from "./filters";
-import { SKILLQUEUE_SCOPE, SKILLS_PERMISSIONS, SKILLS_SCOPE } from "./module";
-import type { QueueEntry } from "./queue";
+import { IMPLANTS_SCOPE, SKILLQUEUE_SCOPE, SKILLS_PERMISSIONS, SKILLS_SCOPE } from "./module";
+import type { QueueEntry, SkillTrainingAttributes } from "./queue";
+import type { AttributeSet } from "./remap";
 
 export interface SkillsScope {
   /**
@@ -195,6 +196,8 @@ export interface SkillsAccessStatus {
   lastError: string | null;
   /** Something is stored for this character (queue or trained skills). */
   hasData: boolean;
+  /** Implants are shared too (for the remap optimiser). */
+  implantsGranted: boolean;
 }
 
 /** The viewer's characters with their skills access, for the settings page. */
@@ -230,6 +233,75 @@ export async function getSkillsAccess(userId: string): Promise<SkillsAccessStatu
       lastStatus: str(r.last_status),
       lastError: str(r.last_error),
       hasData: Boolean(r.has_data),
+      implantsGranted: scopes.includes(IMPLANTS_SCOPE),
     };
   });
+}
+
+export interface RemapInputs {
+  /** Primary/secondary attribute and rank of every queued skill whose data is stored. */
+  skillAttributes: Map<number, SkillTrainingAttributes>;
+  /** Per character: summed implant bonuses, or null when implants aren't shared or not synced yet. */
+  implants: Map<number, AttributeSet | null>;
+  /** Characters whose token holds the implants scope (shared, maybe not synced yet). */
+  implantsShared: Set<number>;
+}
+
+/**
+ * What the remap optimiser needs on top of `getSkillsOverview`: skill attributes for the queued skills and the implants
+ * of characters that share them. Only call it with characters the viewer may see (from `getSkillsOverview`).
+ */
+export async function getRemapInputs(characterIds: number[], skillIds: number[]): Promise<RemapInputs> {
+  const db = getDb();
+  const skillAttributes = new Map<number, SkillTrainingAttributes>();
+  const implants = new Map<number, AttributeSet | null>();
+  const implantsShared = new Set<number>();
+  const skills = [...new Set(skillIds)];
+  if (skills.length) {
+    const rows = await db.execute<Record<string, unknown>>(sql`
+      SELECT type_id, primary_attribute, secondary_attribute, rank FROM skills_type_attributes
+      WHERE type_id IN (${list(skills)})`);
+    for (const r of rows) {
+      skillAttributes.set(num(r.type_id), {
+        primaryAttribute: num(r.primary_attribute),
+        secondaryAttribute: num(r.secondary_attribute),
+        rank: num(r.rank),
+      });
+    }
+  }
+  if (characterIds.length) {
+    // Implants count only while the scope is shared and the token works, like the queue.
+    const rows = await db.execute<Record<string, unknown>>(sql`
+      SELECT c.character_id, s.implants_synced_at,
+             COUNT(i.type_id) AS implant_count, COUNT(i.type_id) - COUNT(a.type_id) AS unresolved,
+             COALESCE(SUM(a.charisma), 0) AS charisma, COALESCE(SUM(a.intelligence), 0) AS intelligence,
+             COALESCE(SUM(a.memory), 0) AS memory, COALESCE(SUM(a.perception), 0) AS perception,
+             COALESCE(SUM(a.willpower), 0) AS willpower
+      FROM characters c
+      JOIN esi_tokens t ON t.character_id = c.character_id AND t.status = 'active' AND ${IMPLANTS_SCOPE}::text = ANY(t.scopes)
+      LEFT JOIN skills_character s ON s.character_id = c.character_id
+      LEFT JOIN skills_implants i ON i.character_id = c.character_id
+      LEFT JOIN skills_implant_attributes a ON a.type_id = i.type_id
+      WHERE c.character_id IN (${list(characterIds)})
+      GROUP BY c.character_id, s.implants_synced_at`);
+    for (const r of rows) {
+      const id = num(r.character_id);
+      implantsShared.add(id);
+      // Not synced yet, or an implant whose bonuses couldn't be read: unknown rather than wrong.
+      const known = r.implants_synced_at !== null && r.implants_synced_at !== undefined && num(r.unresolved) === 0;
+      implants.set(
+        id,
+        known
+          ? {
+              charisma: num(r.charisma),
+              intelligence: num(r.intelligence),
+              memory: num(r.memory),
+              perception: num(r.perception),
+              willpower: num(r.willpower),
+            }
+          : null,
+      );
+    }
+  }
+  return { skillAttributes, implants, implantsShared };
 }

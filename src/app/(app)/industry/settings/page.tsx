@@ -33,13 +33,12 @@ export default async function IndustrySettingsPage() {
       <Panel title={m.title} subtitle={m.subtitle}>
         <div className="space-y-3">
           {access.map((a) => {
-            const partial = !a.granted && INDUSTRY_SCOPES.some((scope) => a.grantedScopes.includes(scope));
             const enable = reauthorizeHref(a.grantedScopes, {
               add: INDUSTRY_SCOPES,
               returnTo: INDUSTRY_MANAGE_HREF,
               characterId: a.characterId,
             });
-            const anyGranted = a.granted || partial;
+            const anyGranted = a.granted || a.partial;
             return (
               <Glass key={a.characterId} className="flex flex-wrap items-center gap-4 rounded-2xl px-4 py-3">
                 <Portrait id={a.characterId} size={44} />
@@ -50,7 +49,7 @@ export default async function IndustrySettingsPage() {
                       <StatusBadge status="error" label={m.revoked} />
                     ) : a.granted ? (
                       <StatusBadge status={a.lastStatus === "error" ? "warning" : "ok"} label={m.on} />
-                    ) : partial ? (
+                    ) : a.partial ? (
                       <StatusBadge status="warning" label={m.partial} />
                     ) : (
                       <StatusBadge status="pending" label={m.off} />
@@ -68,7 +67,7 @@ export default async function IndustrySettingsPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  {a.granted || partial || a.switchedOff ? (
+                  {anyGranted || a.switchedOff ? (
                     // In Keystar only: the token keeps the scopes until the character is re-authorised.
                     <ActionForm
                       action={setIndustryAccess.bind(null, a.characterId, !anyGranted)}
@@ -97,7 +96,7 @@ export default async function IndustrySettingsPage() {
                     </ButtonLink>
                   )}
                   {/* A revoked token, or one holding only one of the scopes, needs the EVE login to get both. */}
-                  {anyGranted && (a.tokenStatus === "invalid" || partial) && !demo && (
+                  {anyGranted && (a.tokenStatus === "invalid" || a.partial) && !demo && (
                     <ButtonLink href={enable} size="sm" variant="primary">
                       <KeyRound className="size-3.5" aria-hidden /> {m.reauthorize}
                     </ButtonLink>

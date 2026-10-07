@@ -68,7 +68,7 @@ describe("dictionaries", () => {
     for (const l of LOCALES) {
       const t = MESSAGES[l];
       const texts = MODULES.flatMap((m) => [
-        ...m.nav.flatMap((s) => [s.label(t), ...s.items.map((i) => i.label(t))]),
+        ...m.nav.flatMap((s) => [s.label(t), ...s.items.flatMap((i) => [i.label(t), i.help(t)])]),
         ...m.permissions.flatMap((p) => [p.label(t), p.description(t), p.group(t)]),
         ...m.scopes.map((s) => s.reason(t)),
       ]);

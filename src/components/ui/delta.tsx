@@ -14,7 +14,7 @@ export function Delta({ value, period, upIsGood = true }: { value: number | null
   const good = flat ? null : value > 0 === upIsGood;
   const Icon = flat ? Minus : value > 0 ? ArrowUpRight : ArrowDownRight;
   return (
-    <span className="inline-flex items-center gap-1 text-xs">
+    <span className="inline-flex items-center gap-1 text-xs max-sm:flex-wrap">
       <span
         className={cn(
           "inline-flex items-center gap-0.5 font-semibold tabular-nums",

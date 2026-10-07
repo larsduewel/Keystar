@@ -26,6 +26,10 @@ export const industry = {
     nav: {
       jobs: "Industry Jobs",
     },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      jobs: "The industry jobs of your own characters (manufacturing, research, copying, invention, reactions) with progress, end time and installation costs. Choose on the Access page which characters share their jobs; Keystar reads them every five minutes, and only you see them.",
+    },
   },
 
   metaTitle: "Industry jobs",

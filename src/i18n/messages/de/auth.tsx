@@ -16,11 +16,12 @@ export const auth: typeof en = {
     },
     genericError: "Etwas ist schiefgelaufen.",
     signIn: "Mit EVE Online anmelden",
-    register: "Neu hier? Registrieren & ESI-Zugriff erteilen",
-    privacy: (site: ReactNode) => (
+    register: "Neu hier? Registrieren",
+    privacy: (link: (text: string) => ReactNode) => (
       <>
-        Die Anmeldung bestätigt nur, wer du bist – dabei wird kein ESI-Zugriff angefragt. Tokens werden separat
-        angefragt, verschlüsselt gespeichert und können jederzeit unter {site} widerrufen werden.
+        Anmeldung und Registrierung bestätigen nur, wer du bist – dabei wird kein ESI-Zugriff angefragt. Optionalen
+        Zugriff schaltest du später pro Charakter ein; seine Tokens werden verschlüsselt gespeichert und können jederzeit
+        unter {link("Authorized Apps")} auf der EVE-Entwicklerseite widerrufen werden.
       </>
     ),
     setupTitle: "Server-Einrichtung nötig",
@@ -33,8 +34,6 @@ export const auth: typeof en = {
     ),
     setupFirstPilot: "Melde dich an – der erste Pilot wird Admin und durch die restliche Einrichtung geführt.",
     demoTitle: "Demo-Modus – anmelden als",
-    trademark:
-      "EVE Online und das EVE-Logo sind eingetragene Marken von CCP hf. Keystar ist ein Fan-Projekt ohne Verbindung zu CCP.",
     license: "Keystar ist freie Software unter der AGPL-3.0",
     sourceCode: "Quellcode",
   },
@@ -44,7 +43,8 @@ export const auth: typeof en = {
     titleWithCorp: (corp: string) => `${corp} auf Keystar beitreten`,
     title: "Registriere deine Charaktere",
     intro:
-      "Melde dich mit jedem Charakter an, den du registrieren möchtest. Keystar fragt Lesezugriff auf die folgenden ESI-Daten an. Im Spiel kann nichts verändert werden, und du kannst den Zugriff jederzeit widerrufen.",
+      "Die Registrierung bestätigt nur, wer du bist: Keystar fragt bei EVE keinen Zugriff auf deine Daten an. Danach wählst du pro Charakter, was Keystar lesen darf. Der Zugriff ist rein lesend, im Spiel kann nichts verändert werden, und du kannst ihn jederzeit abschalten.",
+    optional: "Optional, pro Charakter, nach der Registrierung",
     link: "Charakter mit EVE Online verknüpfen",
     register: "Mit EVE Online registrieren",
     alts: (page: ReactNode) => <>Du hast Alts? Öffne nach der Registrierung {page} und verknüpfe jeden einzeln.</>,

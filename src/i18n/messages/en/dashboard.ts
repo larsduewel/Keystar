@@ -19,7 +19,7 @@ export const dashboard = {
     registeredOfMembers: (registered: number, members: number) => `${n(registered)} of ${n(members)} members`,
     registeredOnly: (registered: number) => `${n(registered)} registered`,
     esiAccess: "Your ESI access",
-    esiComplete: (healthy: number, total: number) => `${n(healthy)} of ${n(total)} characters complete`,
+    esiComplete: (healthy: number, total: number) => `${n(healthy)} of ${n(total)} characters OK`,
     syncWorker: "Sync worker",
     workerOnline: "Online",
     workerOffline: "No heartbeat",
@@ -36,7 +36,7 @@ export const dashboard = {
     corpMining: "Corporation mining · 30 days",
     ownMining: "Your mining · 30 days",
     characters: "Your characters",
-    esiComplete: "ESI complete",
+    esiComplete: "No ESI problems",
     needAttention: (count: number) => `${n(count)} need attention`,
     backgroundSync: "Background sync",
     jobs: (count: number) => `${n(count)} ${count === 1 ? "job" : "jobs"}`,
@@ -61,7 +61,8 @@ export const dashboard = {
     miningSubtitle: "Daily ISK by resource",
     miningOverview: "Mining overview",
     gettingStarted: "Getting started",
-    gettingStartedBody: "Link your characters and grant ESI access while a director approves your account.",
+    gettingStartedBody:
+      "Link your characters while a director approves your account. Optional ESI access, such as your mining ledger, is switched on per character on each feature's page.",
     manageCharacters: "Manage characters",
     mvp: "MVP · last 30 days",
     allPilots: "All pilots",
@@ -71,6 +72,8 @@ export const dashboard = {
     manage: "Manage",
     tokenRevoked: "Revoked",
     tokenScopes: "Scopes",
+    /** No ESI token: nothing was granted, which is fine. */
+    noAccess: "No ESI",
   },
   roadmap: {
     title: "On the roadmap",

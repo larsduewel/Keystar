@@ -60,6 +60,9 @@ open, so add the link in a follow-up commit on the same branch.
    - …
    ```
 
+   For a release with new features, also add its **What's new highlights**: the dialog that each account sees once,
+   on its next visit after the update (see "What's new highlights" below). The script reminds you.
+
 2. Wait for CI to pass on that commit on `main`, then open the Actions tab → **Release** → **Run workflow** (on
    `main`). The workflow (`.github/workflows/release.yml`) checks that `v0.2.0` doesn't exist yet and that CI passed
    on the commit, then:
@@ -72,7 +75,47 @@ open, so add the link in a follow-up commit on the same branch.
    If the version is already tagged, CI hasn't passed yet or the CHANGELOG section is missing, the workflow stops
    with an error and publishes nothing. A failed release (e.g. a registry outage) is retried the same way.
 
-The version shows in the sidebar footer, in System Info and in `GET /api/health`.
+The version shows in the sidebar footer, in System Info and in `GET /api/health`. In the sidebar footer it opens the
+release's What's new when the release has highlights, and links to the release notes otherwise.
+
+## What's new highlights
+
+After an update, each account sees a short **What's new** dialog once (new accounts get the welcome tour instead):
+the release's most important additions as cards, each with an icon, a "New" or "Improved" badge, a sentence or two
+and a link to its page, and a button to the release's GitHub page with the full notes. Pick 2–4 entries from the
+release's `### Added` and `### Changed` sections that members will notice; fixes stay in the release notes.
+
+1. Add the texts to `whatsNew.releases` in `src/i18n/messages/en/whats-new.ts` and, translated, in
+   `src/i18n/messages/de/whats-new.ts`:
+
+   ```ts
+   "0.15.0": {
+     items: {
+       helpTour: { title: "Help and welcome tour", body: "Press ? on any page …" },
+     },
+   },
+   ```
+
+   Titles are a few words; bodies one or two sentences that say what you can do now, not how it was built.
+2. Add the same keys to `RELEASES` in `src/core/help/releases.ts`, in display order:
+
+   ```ts
+   "0.15.0": {
+     helpTour: { icon: CircleHelp, kind: "new", href: "/" },
+   },
+   ```
+
+   `href` must be a sidebar page; it gets the card's "Open" link and a "New" dot in the sidebar until each member
+   opens it. Give `anyPermission` the permissions of that nav item, so a highlight is only shown to members who can
+   use it (a corporation-wallet feature isn't news to a member).
+3. If the release has `### Upgrade notes`, add `upgrade` next to `items` with a one- or two-sentence summary of what
+   whoever runs the server has to do. Admins see it as "Action needed" with a link to the release notes.
+
+The typecheck fails when a highlight is missing on either side or in either language, and `tests/whats-new.test.ts`
+checks that each release with highlights has a CHANGELOG section, that `upgrade` matches its upgrade notes, that
+every `href` is a sidebar page and every permission exists. A release without highlights (e.g. a patch release)
+still records the version, so nothing opens. Old releases can be removed from both files when they no longer
+matter; an account that skipped them then sees fewer cards.
 
 ## Trying unreleased changes
 

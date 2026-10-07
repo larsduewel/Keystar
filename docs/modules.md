@@ -39,6 +39,7 @@ export const skillsModule: KeystarModule = {
           href: "/skills",
           label: (t) => t.skills.module.nav.queues,
           icon: GraduationCap,
+          help: (t) => t.skills.module.help.queues,
           anyPermission: ["skills.view.own", "skills.view.corp"],
         },
       ],
@@ -50,6 +51,11 @@ export const skillsModule: KeystarModule = {
 User-facing text is never written into the manifest directly: `label`, `description`, `group` and `reason` are
 selectors into the dictionaries (see step 5), so the sidebar and settings render in the viewer's language.
 
+Every nav item needs `help`: one to three sentences on what the page shows, where its data comes from and what the
+viewer can do there. The help dialog ("?" in the top bar) shows it as "This page", for the page and the pages below
+its `href` (a settings page, a detail page), next to the role the page needs. Set `ownDataOnly: true` on a page that
+only ever shows the viewer's own data, whatever their role (mail, the Mining P&L); the help says so.
+
 A nav section may set `tone` (`"industry"`, `"combat"`, `"trade"`, `"pilots"` or `"social"`) to colour its page
 headings, the sidebar marker and the header glow; without one it uses the accent. Sections merged by id share the
 first tone set, so only one module needs to declare it. Don't add new tones ad hoc: they are checked for contrast and
@@ -58,24 +64,25 @@ reuses an existing tone or keeps the accent.
 
 Register it in `src/core/modules/registry.ts` (`MODULES`). That alone:
 
-- adds its scopes to the SSO requests (`character` scopes for every member, `corporation` scopes for the "link with
-  corporation access" flow) and to the scope checklists in the UI,
+- adds its scopes to the SSO requests (`corporation` scopes for the "link with corporation access" flow; `character`
+  scopes when a pilot switches them on for a character) and to the scope lists in the UI,
 - adds its permissions to the role system and the Settings → Permissions matrix,
-- adds its navigation (filtered by permission).
+- adds its navigation (filtered by permission), its page help, and its pages and scopes to the help dialog's
+  "Who sees what" and "Scopes" topics.
 
-Remember to enable new scopes on the EVE developer application, and tell members to re-authorise (My Characters
-shows "missing scopes" automatically).
+Remember to enable new scopes on the EVE developer application.
 
-Sensitive scopes, or scopes that only some users need, can be **optional**:
-`{ scope, level: "character", optional: true, manageHref: "/your-page", managePermission, label, reason }`. They are left out of the
-member and corporation scope sets and never reported as missing. Let users enable them per character on the
+Character scopes are always **optional** (registering and linking ask for none; `tests/optional-scopes.test.ts`
+fails otherwise):
+`{ scope, level: "character", optional: true, manageHref: "/your-page", managePermission, label, reason }`. They are
+left out of the corporation scope set and never reported as missing. Let users enable them per character on the
 `manageHref` page (My Characters links there) with `reauthorizeHref(grantedScopes, { add: [scope] })`. Switching one
 off happens in Keystar, without an EVE login: an `ActionForm` around `setOptionalScope(characterId, scope, false)`
 (`src/app/(app)/characters/actions.ts`). The same action with `true` switches it back on while the token still holds
 it (`esi_tokens.disabled_scopes`); see "Optional scopes" in `docs/architecture.md`. `label` names the access in
 toasts and notes ("Fleet access"); `managePermission` is the permission `setOptionalScope` requires (the one
 the `manageHref` page checks). Jobs that require the scope are only planned for characters that use it. See the
-wallet, mail and fleet modules for examples.
+mining (`/mining/settings`), industry, wallet, mail and fleet modules for examples.
 
 ## 2. Schema — `src/modules/<name>/schema.ts`
 
@@ -132,15 +139,26 @@ const corpWide = user.can("skills.view.corp");
 
 Server actions must call `assertPermission(...)` themselves — never rely on the page having checked.
 
+Keep `page.tsx` to the data access check, the queries and the layout; the panels it lays out are async server
+components in files next to it (`admin/system/*-panels.tsx`, `mining/pnl/expenses/purchases-panel.tsx`) or, when
+another page could use them, in `src/modules/<name>/components/`. Each takes the rows it shows as props and calls
+`getI18n()` itself, so it needs no `t` and `f` passed down. Computations behind the panels (totals, grouping, what a
+tab covers) go into a plain `.ts` file (`src/modules/mining/pnl/review-totals.ts`, `src/modules/killboard/table-rows.ts`)
+so they can be unit-tested without rendering. The dashboard keeps its pieces in the private folder
+`src/app/(app)/_dashboard/`, which Next excludes from routing.
+
 Reuse the UI kit in `src/components/ui` (`Panel`, `StatTile`, `MultiSelect`, `DateRangePicker`, `Segmented`,
 `StatusBadge`, `Portrait`, `TypeIcon`, …) and keep filters in the URL like the mining pages do (`PendingProvider`
 dims the previous render while new data loads).
 
 To confirm an action or report a refusal from a client component, call `useToast().toast({ tone, title,
 description, action, durationMs })` (`src/components/ui/toast.tsx`). The app layout already mounts the
-`ToastProvider`. For a single button, a server page can wrap it in `ActionForm` (`src/components/ui/action-form.tsx`)
-instead: pass the bound action and the translated `success`, `failed` and `errors` texts, and the action returns an
-`ActionResult` (`src/lib/action-result.ts`). A route handler that redirects (like the SSO callback) can't show a
+`ToastProvider`. A server page can wrap a button or a whole form in `ActionForm` (`src/components/ui/action-form.tsx`)
+instead: pass the bound action (it also receives the form's fields) and the translated `success`, `failed` and
+`errors` texts, and the action returns an `ActionResult` (`src/lib/action-result.ts`). Leave out `success` for inline
+edits whose result shows on the page (only failures toast); `reset`, `redirectTo` and `successByField` cover forms
+that add entries, steps that move on and success texts that depend on the submitted value. Submit buttons inside
+read the pending state with `useFormPending()`. A route handler that redirects (like the SSO callback) can't show a
 toast; it sets a one-shot cookie with `encodeFlash()` (`src/core/flash.ts`) that `FlashToasts` in the app layout
 turns into one. A feature that keeps its own list of richer cards, like the live kills, renders `<Toast>`s
 inside a `<ToastViewport>`; they join the same stack. To announce new events as they
@@ -198,6 +216,7 @@ de-duplication and desktop notifications. A module supplies four pieces:
 - [ ] Pages check permissions; member views scoped to own characters
 - [ ] New scopes added to the EVE application and listed in `docs/deployment.md`
 - [ ] Texts in both dictionaries (`src/i18n/messages/en` and `de`), no hard-coded UI strings
+- [ ] Page help (`help`) on every nav item, and `ownDataOnly` where the page only shows the viewer's own data
 - [ ] Live alerts (if any) declared in the manifest and their feeds registered in `src/modules/alerts.ts`
 - [ ] Tests for parsing/aggregation logic (`tests/`)
 - [ ] ROADMAP.md updated

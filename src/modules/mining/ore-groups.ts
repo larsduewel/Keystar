@@ -9,12 +9,17 @@ export interface OreRow extends TypeRow {
 
 export const singleOreRow = (r: TypeRow): OreRow => ({ ...r, key: String(r.typeId), typeIds: [r.typeId] });
 
+/** The ore family a type belongs to: Scordite II-Grade → Scordite, keyed by class so families never span classes. */
+export function oreFamily(name: string, oreClass: TypeRow["oreClass"]): { key: string; name: string; rank: number } {
+  const { base, rank } = oreGrade(name);
+  return { key: `${oreClass}:${base}`, name: base, rank };
+}
+
 /** Combines the grades and variants of each ore (Scordite, Scordite II-Grade, …) into one row named after the family. */
 export function groupOreTypes(rows: TypeRow[]): OreRow[] {
   const families = new Map<string, { rank: number; first: TypeRow; row: OreRow }>();
   for (const r of rows) {
-    const { base, rank } = oreGrade(r.name);
-    const key = `${r.oreClass}:${base}`;
+    const { key, name: base, rank } = oreFamily(r.name, r.oreClass);
     const family = families.get(key);
     if (!family) {
       families.set(key, { rank, first: r, row: { ...r, name: base, key, typeIds: [r.typeId] } });

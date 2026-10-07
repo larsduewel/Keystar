@@ -51,7 +51,15 @@ export const intelModule: KeystarModule = {
       id: "combat",
       label: (t) => t.killboard.module.navSection,
       order: 15,
-      items: [{ href: "/intel", label: (t) => t.intel.module.navItem, icon: ScanEye, anyPermission: [INTEL_PERMISSIONS.use] }],
+      items: [
+        {
+          href: "/intel",
+          label: (t) => t.intel.module.navItem,
+          icon: ScanEye,
+          help: (t) => t.intel.module.help,
+          anyPermission: [INTEL_PERMISSIONS.use],
+        },
+      ],
     },
   ],
 };

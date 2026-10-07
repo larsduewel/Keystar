@@ -29,7 +29,8 @@ export const mining: typeof en = {
       },
     },
     scopes: {
-      characterMining: "Liest dein persönliches Mining-Ledger (Erz, Eis, Gas und Mond-Mining der letzten 30 Tage).",
+      characterMining: "Liest dein persönliches Mining-Ledger: Erz, Eis, Gas und Mond-Mining der letzten 30 Tage (optional).",
+      characterMiningLabel: "Zugriff auf das Mining-Ledger",
       corporationMining: "Liest die Mondbohrer-Ledger der Raffinerien deiner Corporation.",
       structures: "Benennt Raffinerien auf der Seite Mondbohrer.",
     },
@@ -37,6 +38,17 @@ export const mining: typeof en = {
       characterLedger: "Persönliches Mining-Ledger",
       observers: "Mondbohrer-Ledger",
       structures: "Raffinerie-Namen",
+    },
+    help: {
+      overview:
+        "Mining-Summen für den gewählten Zeitraum: ISK-Wert, Volumen, Tagesdiagramm, Top-Miner, Erze und Systeme. Mit Corporation-Zugriff kannst du zwischen der ganzen Corporation und deinen eigenen Charakteren wechseln, sonst siehst du nur deine. Auf der Zugriffsseite wählt jeder Pilot, welche Charaktere ihr persönliches Ledger teilen; es wird alle 15 Minuten synchronisiert, Mondbohrer stündlich. ESI hält 30 Tage vor, Keystar behält ab dann alles.",
+      ledger:
+        "Jeder Eintrag hinter der Mining-Übersicht, nach Tagen gruppiert: eine Zeile pro Charakter, Erz und System (oder Raffinerie) mit Einheiten, Volumen und ISK-Wert. Die Filter funktionieren wie in der Übersicht; mit der Export-Berechtigung kannst du die gefilterten Zeilen als CSV herunterladen.",
+      observers:
+        "Mond-Mining, erfasst von den Mondbohrern der Corporation, pro Raffinerie: Wert, Volumen, Piloten und Erze – auch von Piloten, die nie bei Keystar registriert waren oder nicht zur Corporation gehören. Dafür muss ein Charakter mit der Ingame-Rolle Accountant oder Direktor mit Corporation-Zugriff verknüpft sein; Sync stündlich.",
+      estimator:
+        "Füge ein Ergebnis des Survey-Scanners ein, um einen Asteroidengürtel oder Mond-Chunk nach Erz und Stufe zu bewerten – mit Keystars Preisquelle neben der Schätzung des Scanners. Gib den Flottenertrag in m³/s ein, um die Abbaudauer zu sehen. Der Scan wird nicht gespeichert.",
+      pnl: "Deine eigene Mining-GuV: Einnahmen aus dem abgebauten Erz (oder aus deinen Wallet-Verkäufen) minus die Wallet-Käufe, die du übernimmst, und selbst erfasste Kosten. Nur du siehst sie, unabhängig von deiner Rolle. Der Wallet-Import ist optional pro Charakter: Im Tab „Einstellungen“ schaltest du ihn ein, legst fest, wie Einnahmen gezählt werden, und hinterlegst Erzpreise.",
     },
   },
 
@@ -94,6 +106,8 @@ export const mining: typeof en = {
   },
 
   exportCsv: "CSV exportieren",
+  /** Button to the Mining access page. */
+  access: "Zugriff",
 
   filters: {
     members: "Mitglieder",
@@ -129,9 +143,13 @@ export const mining: typeof en = {
     table: "Tabelle",
     noMining: "Kein Mining",
     total: "Gesamt",
+    allResources: "Alle Ressourcen",
+    showOres: (resource: string) => `Erze in ${resource} anzeigen`,
+    otherOres: (count: number) => `Übrige (${plural(count, "Erz", "Erze")})`,
   },
 
   breakdowns: {
+    oresOf: (resource: string) => `${resource} · nach Sorte`,
     characters: (count: number) => plural(count, "Char", "Chars"),
     notRegistered: "nicht registriert",
     moonByRarity: "Monderz nach Seltenheit",
@@ -154,8 +172,8 @@ export const mining: typeof en = {
     ledger: "Ledger",
     empty: {
       title: "Noch keine Mining-Daten",
-      action: "Charaktere verwalten",
-      body: "Verknüpfe deine Charaktere mit dem Mining-Ledger-Scope. Der Worker synchronisiert persönliche Ledger alle 15 Minuten und Mondbohrer stündlich; ESI hält die letzten 30 Tage vor, Keystar behält ab dann alles.",
+      action: "Mining-Zugriff",
+      body: "Das Mining-Ledger zu teilen ist freiwillig: Schalte es auf der Seite Mining-Zugriff für deine Charaktere ein. Der Worker synchronisiert persönliche Ledger alle 15 Minuten und Mondbohrer stündlich; ESI hält die letzten 30 Tage vor, Keystar behält ab dann alles.",
     },
     // Short on purpose: it follows "ggü." in narrow stat tiles.
     priorPeriod: (days: number) => (days === 1 ? "Vortag" : "Vorperiode"),
@@ -190,7 +208,10 @@ export const mining: typeof en = {
       title: "Datenabdeckung",
       subtitle: "Wie vollständig diese Zahlen sind",
       tracked: "Charaktere mit Zugriff auf das Mining-Ledger",
-      missingScope: "Charaktere ohne Mining-Scope",
+      notEnabled: "Charaktere, die ihr Ledger nicht teilen",
+      notEnabledHint: "Schalte das Mining-Ledger für diese Charaktere auf der Seite Mining-Zugriff ein.",
+      notEnabledCorpHint:
+        "Das persönliche Mining-Ledger zu teilen ist pro Charakter freiwillig. Mond-Mining an Raffinerien der Corporation erscheint weiterhin über die Mondbohrer.",
       invalidTokens: "Widerrufene oder abgelaufene Tokens",
       unregistered: "Nicht registrierte Corp-Mitglieder",
       lastLedgerSync: "Letzter Sync der persönlichen Ledger",
@@ -307,6 +328,46 @@ export const mining: typeof en = {
       scanner: "Scanner",
       keystar: "Keystar",
       share: "Anteil",
+    },
+  },
+
+  /** Mining access: which characters share their personal mining ledger (opt-in). */
+  settings: {
+    metaTitle: "Mining-Zugriff",
+    description: "Wähle für jeden Charakter, ob Keystar sein persönliches Mining-Ledger lesen darf.",
+    title: "Mining-Ledger pro Charakter",
+    subtitle: "Beim Einschalten wird der Charakter bei EVE neu autorisiert und der Mining-Ledger-Scope hinzugefügt.",
+    on: "Eingeschaltet",
+    off: "Aus",
+    revoked: "Token widerrufen",
+    enable: "Mining-Ledger teilen",
+    stop: "Ausschalten",
+    reauthorize: "Neu autorisieren",
+    demo: "Im Demo-Modus nicht verfügbar",
+    lastSync: (when: string) => `Zuletzt aktualisiert ${when}`,
+    firstSync: "Die erste Aktualisierung läuft in wenigen Minuten.",
+    nothing: "Nichts gespeichert.",
+    kept: (from: string, to: string) => `Das Ledger vom ${from} bis ${to} ist noch gespeichert.`,
+    deleteData: "Mining-Verlauf löschen",
+    deleteDataHint: "Entfernt das gespeicherte persönliche Mining-Ledger und die gemessene Mining-Aktivität dieses Charakters aus Keystar.",
+    deleteDataConfirm: (name: string) =>
+      `Den gespeicherten Mining-Verlauf von ${name} löschen? ESI hält nur die letzten 30 Tage vor, Älteres lässt sich nicht erneut abrufen.`,
+    toast: {
+      deleted: (name: string) => `Gespeicherter Mining-Verlauf von ${name} gelöscht`,
+      failed: (name: string) => `Der Mining-Verlauf von ${name} konnte nicht gelöscht werden`,
+      errors: {
+        forbidden: "Du hast in Keystar keinen Zugriff mehr auf Mining.",
+        notOwned: "Dieser Charakter ist nicht mehr mit deinem Konto verknüpft.",
+        stillEnabled: "Schalte das Mining-Ledger für diesen Charakter zuerst aus.",
+        unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+      },
+    },
+    notes: {
+      scopes:
+        "Keystar liest das Mining-Ledger des Charakters alle 15 Minuten. Es fließt in die Mining-Übersicht, das Ledger und deine Mining-GuV ein und, für Direktoren und Betrachter, in die Mining-Zahlen der Corporation.",
+      stop: "Ausschalten beendet das Lesen in Keystar sofort; der gespeicherte Verlauf bleibt (auch in den Zahlen der Corporation), bis du ihn löschst. Autorisiere den Charakter unter „Meine Charaktere“ neu, um den Scope auch aus seinem EVE-Token zu entfernen.",
+      observers:
+        "Mond-Mining an Raffinerien der Corporation erfassen die Mondbohrer, ob du dein Ledger teilst oder nicht; das Löschen deines Verlaufs entfernt diese Einträge nicht.",
     },
   },
 };

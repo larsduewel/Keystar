@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Saved appraisals: a snapshot of items and Jita prices at the time of the
@@ -20,4 +20,19 @@ export const appraisals = pgTable(
     input: text("input").notNull(),
   },
   (t) => [index("appraisals_created_by_idx").on(t.createdBy, t.createdAt)],
+);
+
+/**
+ * One row per appraisal a user started, saved or not, for the per-user rate
+ * limit. Kept apart from `appraisals` so deleting a snapshot (or an appraisal
+ * that failed or found nothing) still counts. Pruned by trade.housekeeping.
+ */
+export const appraisalAttempts = pgTable(
+  "appraisal_attempts",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("appraisal_attempts_user_idx").on(t.userId, t.createdAt)],
 );

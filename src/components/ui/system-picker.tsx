@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { isWormholeSystem, matchSystems, wormholeClass, type SystemOption } from "@/core/eve/systems";
 import { useI18n } from "@/i18n/client";
 import { cn } from "@/lib/utils";
+import { useKeepInViewport } from "./popover";
 import { SecurityStatus } from "./security";
 
 let systemsRequest: Promise<SystemOption[]> | null = null;
@@ -60,6 +61,8 @@ export function SystemPicker({
 
   const matches = useMemo(() => (Array.isArray(systems) ? matchSystems(systems, value) : []), [systems, value]);
   const showList = open && value.trim().length > 0;
+  const panelRef = useRef<HTMLDivElement>(null);
+  useKeepInViewport(panelRef, showList);
 
   useEffect(() => {
     listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
@@ -138,7 +141,7 @@ export function SystemPicker({
         className={cn("glass-inset h-9 w-48 rounded-lg px-3 text-sm text-ink placeholder:text-ink-3", className)}
       />
       {showList && (
-        <div className="absolute top-[calc(100%+6px)] left-0 z-50 w-72 rounded-xl border border-surface-contrast/10 bg-space-800 p-1 shadow-2xl">
+        <div ref={panelRef} className="absolute top-[calc(100%+6px)] left-0 z-50 w-72 max-w-[calc(100vw-1rem)] rounded-xl border border-surface-contrast/10 bg-space-800 p-1 shadow-2xl">
           {status ? (
             <p role="status" className="px-2 py-3 text-xs text-ink-3">
               {status}

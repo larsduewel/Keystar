@@ -112,7 +112,7 @@ export default async function PilotPage({ params }: PageProps<"/intel/[id]/pilot
         <DossierPanel
           note={dossier}
           claudeHint={!canAi ? t.intel.notes.dossierNotAllowed : claudeConfigured() ? null : t.intel.notes.dossierTemplateHint}
-          actions={canAi ? <WriteDossierButton scanId={id} characterId={characterId} action={writeDossier} again={!!dossier} /> : undefined}
+          actions={canAi ? <WriteDossierButton action={writeDossier.bind(null, id, characterId)} again={!!dossier} /> : undefined}
         />
       )}
 

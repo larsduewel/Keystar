@@ -15,10 +15,10 @@ Keystar signs pilots in with **EVE SSO**, collects their **ESI tokens** with exa
 syncs data in the background and turns it into dashboards. Modules so far: **mining** (personal and moon-refinery
 ledgers with filters, daily volume / value / quantity, member and ore breakdowns, CSV export, an ore field estimator
 for survey scans and a personal **mining P&L** with opt-in wallet import), **industry jobs** of your own characters
-with progress and completion times, a **killboard** with the corporation's PvP
-performance from zKillboard and a weekly situation report, **live fleet** tracking, **threat intel** for pasted
-local, fleets and d-scans, an **appraisal** tool for Jita prices and **corporation wallets** with income, expenses and a
-long-term journal archive.
+with progress and completion times, **market orders** of your own characters, **skill queues** with a remap optimiser, a **killboard** with the corporation's
+PvP performance from zKillboard and a weekly situation report, **live fleet** tracking, **threat intel** for pasted
+local, fleets and d-scans, a **3D universe map**, an **appraisal** tool for Jita prices, **EVE Mail** and
+**corporation wallets** with income, expenses and a long-term journal archive.
 
 ![Mining overview](docs/screenshots/mining.png)
 
@@ -47,15 +47,22 @@ long-term journal archive.
 
 - **EVE SSO login** (OAuth 2.0 + PKCE, JWT validated against CCP's keys), multiple characters per account,
   automatic handling of character transfers.
-- **ESI token management** — encrypted refresh tokens (AES-256-GCM), per-character scope status, re-authorisation,
-  token revocation on removal, and a shareable `/join` link that explains every requested scope to members.
+- **ESI token management** — registering asks for no ESI scope: every kind of character data (mining ledger, wallet,
+  skills, industry, mail, fleet) is opt-in per character and can be switched off again in Keystar. Encrypted refresh
+  tokens (AES-256-GCM), per-character scope status, re-authorisation, token revocation on removal, and a shareable
+  `/join` link that explains what members can share.
 - **Roles inside Keystar**: Admin › Director › Contributor › Viewer › Member › Guest. Directors approve guests and
   manage roles below their own; admins can tune the minimum role of every permission.
 - **Industry jobs**: every job of your own characters (manufacturing, ME/TE research, copying, invention,
   reactions) with a progress bar, time left and end time, filterable by running/finished, character, activity, system
   and station. Opt-in per character on the Industry access page; only you see your characters' jobs.
+- **Market orders**: the buy and sell orders of your own characters with item, price, remaining quantity, station or
+  structure, issue date and expiry, plus closed orders of the last 90 days; totals for what you are selling, buying
+  and holding in escrow, and orders about to expire. Opt-in per character on the Market access page; only you see
+  your characters' orders.
 - **Mining**
-  - Personal ledgers *and* corporation moon-observer ledgers, de-duplicated in a combined view
+  - Personal ledgers (opt-in per character, deletable once switched off) *and* corporation moon-observer ledgers,
+    de-duplicated in a combined view
   - Filters for date range, members, ore class, ore type, system and data source — all in the URL
   - Daily stacked chart (ISK / m³ / units), resource mix with moon rarity, top miners (grouped by main or per
     character), ore and system breakdowns, data-coverage panel
@@ -67,6 +74,8 @@ long-term journal archive.
     prices), mining costs from opt-in wallet imports (crystals, Heavy Water, burst charges, drones, hulls — suggested
     until you include them) plus manual costs, net profit per day / week / month, ISK per hour from measured ledger
     activity, cost per m³, per-character and per-activity splits. Only you see your sheet.
+- **Skills** (Pilots): opt-in skill queues with finish times and a timeline, plus a **remap optimiser** that finds the
+  attribute remap finishing the queue fastest.
 - **Killboard** for the home corporation from zKillboard (no extra scopes): kills, losses, ISK efficiency with
   week-over-week changes, a weekly **situation report** written by Claude (optional API key) or from a template, top
   systems, recent activity, most effective / used / lost ships and pilot efficiency.
@@ -80,18 +89,25 @@ long-term journal archive.
   "recently seen hostiles" list.
 - **Appraisal** (Trade): paste cargo, inventory, contracts, EFT fittings, d-scans, killmails or item lists and get
   Jita 4-4 buy / sell / split values, volume and a percentage price (e.g. for buyback), saved as a shareable link.
+- **Gate check** (Combat, every role): plan a route (shortest, safer or less secure, avoiding systems) and see kills at
+  each gate you pass, live from zKillboard's feed, tagged smartbombs, interdictors, HICs, gankers, hot drops and pod
+  kills; plus a camp estimate for the time you get to each gate from weeks of history and the regular campers seen
+  nearby.
+- **Universe map** (Combat): interactive 3D map with stargate routes and capital jump ranges.
+- **EVE Mail** (Social): read-only mail per character, opt-in and private to you.
+- **Live alerts**: kills, losses and new mail as in-app or desktop notifications.
 - **Corporation wallets** (Finances): balances, income, expenses and net for every wallet division per day / week /
   month, transfers between divisions kept apart, and a filterable wallet journal. The worker archives journal entries,
   market transactions and daily balances for good, beyond the ~30 days ESI keeps, and flags any gaps.
 - **Administration**: users & roles, member audit (in-game roster vs registered), sync status with manual triggers,
-  settings, audit log, and a short first-start setup walkthrough.
+  settings, audit log, System Info with a support package, and a short first-start setup walkthrough.
 - **Background worker** respecting ESI's 2025+ rules: `X-Compatibility-Date`, ETag/Expires caching, pagination,
   error-limit and per-group rate-limit back-off.
 - **English and German**: the language follows the browser (English for everything else) and can be switched in the
   sidebar footer; numbers and dates use the language's conventions (e.g. "9,87 Mio. ISK").
-- **Design**: dark, EVE-flavoured UI.
+- **Design**: dark, EVE-flavoured UI with a light mode.
 
-See [ROADMAP.md](ROADMAP.md) for what's next (skills, assets, wallet breakdowns).
+See [ROADMAP.md](ROADMAP.md) for what's next (corporation skill plans, assets, wallet breakdowns).
 
 ## Deploy
 
@@ -171,5 +187,5 @@ modify and share it; if you run a modified version as a service for other people
 
 ---
 
-EVE Online and the EVE logo are the registered trademarks of CCP hf. All rights are reserved worldwide. Keystar is a
-fan-made tool and is not affiliated with or endorsed by CCP hf.
+© 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are trademarks or
+registered trademarks of CCP hf. Keystar is a fan-made tool, not affiliated with or endorsed by CCP hf.

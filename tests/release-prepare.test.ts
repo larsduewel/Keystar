@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextVersion, releaseChangelog, suggestedBump } from "@/scripts/release-prepare";
+import { hasUpgradeNotes, highlightsReminder, nextVersion, releaseChangelog, suggestedBump } from "@/scripts/release-prepare";
 
 describe("nextVersion", () => {
   it.each([
@@ -85,5 +85,27 @@ Intro.
   it("refuses a missing Unreleased section or an existing version", () => {
     expect(() => releaseChangelog("## [0.1.4] - 2026-10-03\n", "0.1.5", "2026-10-05")).toThrow(/Unreleased/);
     expect(() => releaseChangelog(changelog, "0.1.4", "2026-10-05")).toThrow(/already has a section/);
+  });
+});
+
+describe("What's new reminder", () => {
+  it("spots upgrade notes", () => {
+    expect(hasUpgradeNotes("\n### Upgrade notes\n\n1. Add a scope.\n\n### Added\n\n- A.\n")).toBe(true);
+    expect(hasUpgradeNotes("\n### Added\n\n- Upgrade notes are mentioned here.\n")).toBe(false);
+  });
+
+  it("asks for highlights when the release adds something", () => {
+    const reminder = highlightsReminder("0.15.0", "\n### Added\n\n- A.\n");
+    expect(reminder).toContain('whatsNew.releases["0.15.0"]');
+    expect(reminder).toContain("src/core/help/releases.ts");
+    expect(reminder).not.toContain("upgrade");
+  });
+
+  it("asks for the upgrade text too when the release has upgrade notes", () => {
+    expect(highlightsReminder("0.15.0", "\n### Upgrade notes\n\n1. Add a scope.\n\n### Fixed\n\n- A.\n")).toContain('"upgrade"');
+  });
+
+  it("stays quiet for a release with only fixes", () => {
+    expect(highlightsReminder("0.14.1", "\n### Fixed\n\n- A.\n")).toBeNull();
   });
 });

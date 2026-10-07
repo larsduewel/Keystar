@@ -8,6 +8,13 @@ export const social = {
   module: {
     navSection: "Social",
     nav: { mail: "EVE Mail" },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      mail:
+        "Read the EVE mail of your own characters, with folders, labels and search; only you can see it, and Keystar never sends, " +
+        "deletes or marks mail as read in game. Turn mail on per character in the Characters panel on this page: the first import " +
+        "fetches about the newest 1,000 mails, then new mail is checked every five minutes.",
+    },
     alerts: { mail: { label: "EVE mail", hint: "When one of your characters with mail access receives mail" } },
     permissionGroup: "Social",
     permissions: {

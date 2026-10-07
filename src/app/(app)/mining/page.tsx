@@ -1,4 +1,4 @@
-import { AlertTriangle, Box, CalendarDays, Coins, Download, Info, Layers3, Pickaxe, TableProperties, Users } from "lucide-react";
+import { AlertTriangle, Box, CalendarDays, Coins, Download, Info, KeyRound, Layers3, Pickaxe, TableProperties, Users } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/shell/page-header";
 import { ButtonLink } from "@/components/ui/button";
@@ -16,12 +16,14 @@ import { OreBreakdown } from "@/modules/mining/components/ore-table";
 import { DailyChart } from "@/modules/mining/components/daily-chart";
 import { MiningFilterBar } from "@/modules/mining/components/filter-bar";
 import { GroupByToggle } from "@/modules/mining/components/group-toggle";
+import { dailyOreDrill } from "@/modules/mining/daily-ores";
 import { daysBetween, miningQueryString } from "@/modules/mining/filters";
-import { MINING_PERMISSIONS } from "@/modules/mining/module";
+import { MINING_MANAGE_HREF, MINING_PERMISSIONS } from "@/modules/mining/module";
 import { miningPageContext } from "@/modules/mining/page-context";
 import {
   getCoverage,
   getDailySeries,
+  getDailyTypeSeries,
   getFilterOptions,
   getMemberBreakdown,
   getMiningSummary,
@@ -42,9 +44,10 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
   const m = t.mining.overview;
   const { filters, scope, valuation, user } = ctx;
 
-  const [summary, daily, members, types, systems, options, coverage, observersOnRecord] = await Promise.all([
+  const [summary, daily, dailyTypes, members, types, systems, options, coverage, observersOnRecord] = await Promise.all([
     getMiningSummary(filters, scope, valuation),
     getDailySeries(filters, scope, valuation),
+    getDailyTypeSeries(filters, scope, valuation),
     getMemberBreakdown(filters, scope, valuation),
     getTypeBreakdown(filters, scope, valuation),
     getSystemBreakdown(filters, scope, valuation),
@@ -58,8 +61,11 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
   const period = m.priorPeriod(span);
   const byClass: Partial<Record<OreClass, number>> = {};
   for (const type of types) byClass[type.oreClass] = (byClass[type.oreClass] ?? 0) + type[filters.metric];
+  const drill = dailyOreDrill(dailyTypes, daily.map((d) => d.date));
   const hasAnyData = options.characters.length > 0;
   const canSwitchView = canViewCorpMining(user, ctx.homeCorporationId);
+  // The access page, where each pilot switches the ledger on per character.
+  const canManageAccess = user.can(MINING_PERMISSIONS.viewOwn);
 
   return (
     <PendingProvider>
@@ -81,6 +87,11 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
               <ButtonLink href={`/mining/ledger?${miningQueryString(filters)}`} size="sm">
                 <TableProperties className="size-4" aria-hidden /> {m.ledger}
               </ButtonLink>
+              {canManageAccess && (
+                <ButtonLink href={MINING_MANAGE_HREF} size="sm">
+                  <KeyRound className="size-4" aria-hidden /> {t.mining.access}
+                </ButtonLink>
+              )}
               {user.can(MINING_PERMISSIONS.export) && (
                 <a
                   href={`/mining/export?${miningQueryString(filters)}`}
@@ -108,9 +119,11 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
               icon={Pickaxe}
               title={m.empty.title}
               action={
-                <ButtonLink href="/characters" variant="primary">
-                  {m.empty.action}
-                </ButtonLink>
+                canManageAccess ? (
+                  <ButtonLink href={MINING_MANAGE_HREF} variant="primary">
+                    <KeyRound className="size-4" aria-hidden /> {m.empty.action}
+                  </ButtonLink>
+                ) : undefined
               }
             >
               {m.empty.body}
@@ -171,10 +184,11 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
                 <DailyChart
                   metric={filters.metric}
                   rows={daily.map((d) => ({ date: d.date, total: d.total, values: toChartClasses(d.byClass) }))}
+                  drill={drill}
                 />
               </Panel>
               <Panel className="xl:col-span-4" title={m.resourceMix} subtitle={m.shareOf[filters.metric]}>
-                <ClassComposition byClass={byClass} metric={filters.metric} />
+                <ClassComposition byClass={byClass} metric={filters.metric} drill={drill} />
               </Panel>
             </div>
 
@@ -211,14 +225,19 @@ export default async function MiningPage({ searchParams }: PageProps<"/mining">)
                     <span className="text-ink-2">{m.coverage.tracked}</span>
                     <span className="font-semibold tabular-nums">{f.integer(coverage.trackedCharacters)}</span>
                   </li>
-                  {coverage.missingScope > 0 && (
+                  {coverage.notEnabled > 0 && (
+                    // Opt-in per character: not a problem, just not counted.
                     <li className="flex items-start justify-between gap-4">
-                      <span className="flex items-center gap-1.5 text-ink-2">
-                        <AlertTriangle className="size-3.5 text-warning" aria-hidden /> {m.coverage.missingScope}
+                      <span className="flex items-center gap-1.5 text-ink-2" title={scope.corp ? m.coverage.notEnabledCorpHint : undefined}>
+                        <Info className="size-3.5 text-ink-3" aria-hidden /> {m.coverage.notEnabled}
                       </span>
-                      <Link href="/characters" className="font-semibold text-warning tabular-nums hover:underline">
-                        {f.integer(coverage.missingScope)}
-                      </Link>
+                      {!scope.corp && canManageAccess ? (
+                        <Link href={MINING_MANAGE_HREF} title={m.coverage.notEnabledHint} className="font-semibold tabular-nums hover:text-accent">
+                          {f.integer(coverage.notEnabled)}
+                        </Link>
+                      ) : (
+                        <span className="font-semibold tabular-nums">{f.integer(coverage.notEnabled)}</span>
+                      )}
                     </li>
                   )}
                   {coverage.invalidTokens > 0 && (

@@ -26,7 +26,15 @@ export const tradeModule: KeystarModule = {
       label: (t) => t.trade.module.navSection,
       order: 20,
       tone: "trade",
-      items: [{ href: "/trade/appraisal", label: (t) => t.trade.module.nav.appraisal, icon: Scale, anyPermission: [TRADE_PERMISSIONS.appraisal] }],
+      items: [
+        {
+          href: "/trade/appraisal",
+          label: (t) => t.trade.module.nav.appraisal,
+          icon: Scale,
+          help: (t) => t.trade.module.help.appraisal,
+          anyPermission: [TRADE_PERMISSIONS.appraisal],
+        },
+      ],
     },
   ],
 };

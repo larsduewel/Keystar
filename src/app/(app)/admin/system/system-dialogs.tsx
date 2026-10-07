@@ -6,6 +6,7 @@ import { createContext, useContext, useRef, useState, useTransition, type ReactN
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { CopyField } from "@/components/ui/copy-button";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import type { CheckStatus } from "@/core/system/checks";
 import type { RedactionRule } from "@/core/system/redact";
@@ -132,55 +133,6 @@ export function RecheckButton() {
   );
 }
 
-function DialogFrame({
-  ref,
-  labelledBy,
-  icon,
-  title,
-  intro,
-  closeLabel,
-  footer,
-  children,
-}: {
-  ref: React.Ref<HTMLDialogElement>;
-  labelledBy: string;
-  icon: ReactNode;
-  title: string;
-  intro: string;
-  closeLabel: string;
-  footer?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby={labelledBy}
-      // Clicking the backdrop (the dialog element itself, outside the panel) closes it.
-      onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
-      className="m-auto max-h-[min(860px,calc(100dvh-2rem))] w-[min(1040px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-transparent p-0 text-ink backdrop:bg-black/60 backdrop:backdrop-blur-[2px]"
-    >
-      <div className="glass flex max-h-[inherit] flex-col bg-space-800/95">
-        <header className="flex items-start gap-3.5 border-b border-surface-contrast/[0.075] px-6 pt-5 pb-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-accent/12 text-accent">{icon}</span>
-          <div className="min-w-0 flex-1">
-            <h2 id={labelledBy} className="text-xl font-semibold">
-              {title}
-            </h2>
-            <p className="mt-1 text-sm text-ink-2">{intro}</p>
-          </div>
-          <form method="dialog">
-            <Button type="submit" variant="ghost" className="size-9 px-0" aria-label={closeLabel}>
-              <X className="size-4" aria-hidden />
-            </Button>
-          </form>
-        </header>
-        {children}
-        {footer}
-      </div>
-    </dialog>
-  );
-}
-
 function PackageDialog({ ref, data }: { ref: React.Ref<HTMLDialogElement>; data: SystemDialogData }) {
   const { t } = useI18n();
   const tp = t.admin.system.package;
@@ -188,7 +140,7 @@ function PackageDialog({ ref, data }: { ref: React.Ref<HTMLDialogElement>; data:
   const sizeKb = Math.max(1, Math.round(new Blob([data.packageJson]).size / 1024));
   const removed = (Object.keys(data.redactions) as RedactionRule[]).filter((r) => data.redactions[r] > 0);
   return (
-    <DialogFrame
+    <Dialog
       ref={ref}
       labelledBy="support-package-title"
       icon={<Package className="size-5" aria-hidden />}
@@ -196,7 +148,7 @@ function PackageDialog({ ref, data }: { ref: React.Ref<HTMLDialogElement>; data:
       intro={tp.intro}
       closeLabel={tp.close}
       footer={
-        <footer className="flex flex-wrap items-center gap-3 border-t border-surface-contrast/[0.075] px-6 py-3.5">
+        <DialogFooter>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <FileJson className="size-4 shrink-0 text-ink-2" aria-hidden />
             <span className="truncate font-mono text-xs">{data.packageFilename}</span>
@@ -209,7 +161,7 @@ function PackageDialog({ ref, data }: { ref: React.Ref<HTMLDialogElement>; data:
           <Button type="button" variant="primary" onClick={() => download(data)}>
             <Download className="size-4" aria-hidden /> {tp.download}
           </Button>
-        </footer>
+        </DialogFooter>
       }
     >
       <div className="grid min-h-0 flex-1 md:grid-cols-[340px_minmax(0,1fr)]">
@@ -271,7 +223,7 @@ function PackageDialog({ ref, data }: { ref: React.Ref<HTMLDialogElement>; data:
           </pre>
         </div>
       </div>
-    </DialogFrame>
+    </Dialog>
   );
 }
 
@@ -307,7 +259,7 @@ function IssueDialog({
   const [copied, setCopied] = useState(false);
   const searchHref = `${data.issueSearchUrl}${encodeURIComponent(query ? ` ${query}` : "")}`;
   return (
-    <DialogFrame
+    <Dialog
       ref={ref}
       labelledBy="report-issue-title"
       icon={<Bug className="size-5" aria-hidden />}
@@ -416,6 +368,6 @@ function IssueDialog({
           </a>
         </aside>
       </div>
-    </DialogFrame>
+    </Dialog>
   );
 }

@@ -83,6 +83,43 @@ export const pnl = {
   typeFallback: (id: number) => `Type ${id}`,
   characterFallback: (id: number) => `Character ${id}`,
   switch: { on: "On", off: "Off" },
+  /** Toasts for the changes made on the P&L pages (error codes: `PnlActionError`). */
+  toast: {
+    failed: "Couldn't save the change",
+    errors: {
+      forbidden: "You no longer have access to the mining P&L.",
+      notOwned: "That character isn't linked to your account any more.",
+      notFound: "That entry no longer exists. Reload the page.",
+      invalidRate: "Enter a share between 1 and 1000 %.",
+      invalidSource: "Pick how income is counted.",
+      invalidPrice: "Enter the ISK you get per unit, e.g. 18.5.",
+      invalidDate: "Enter a valid date.",
+      invalidRange: "The end date is before the start date.",
+      invalidAmount: "Enter an amount in ISK, e.g. 2.1b or 450,000,000.",
+      invalidCategory: "Pick one of the listed categories.",
+      invalidSpread: "Pick one of the listed periods.",
+      unknownType: "Keystar doesn't know that ore. Reload the page.",
+      salesTaxFollowsSale: "Sales tax counts with its sale: include or exclude the sale on the Income tab instead.",
+      unknown: "Something went wrong. Reload the page and try again.",
+    },
+    incomeSource: {
+      mined: "Income now counts the value of the ore you mine",
+      sales: "Income now counts your wallet sales",
+    } satisfies Record<IncomeSource, string>,
+    incomeRate: "Share of the valuation saved",
+    autoCount: (name: string, on: boolean) =>
+      on ? `Tagged purchases of ${name} now count automatically` : `Tagged purchases of ${name} are only suggested again`,
+    autoCountSales: (name: string, on: boolean) =>
+      on ? `Tagged sales of ${name} now count automatically` : `Tagged sales of ${name} are only suggested again`,
+    priceAdded: "Ore price added",
+    priceDeleted: "Ore price deleted",
+    priceApplied: (ore: string, price: string) => `${ore} is now priced at ${price} ISK per unit`,
+    purchasesIncluded: (count: number) => `${plural(count, "purchase", "purchases")} included`,
+    salesIncluded: (count: number) => `${plural(count, "sale", "sales")} included`,
+    feesIncluded: (count: number) => `${plural(count, "broker fee", "broker fees")} included`,
+    costAdded: "Cost added",
+    costDeleted: "Cost deleted",
+  },
 
   chart: {
     legend: "Legend",
@@ -101,7 +138,7 @@ export const pnl = {
     empty: {
       title: "Nothing to show for this period",
       action: "P&L settings",
-      body: "Income comes from your characters' mining ledgers (synced every 15 minutes). Expenses come from wallet purchases you include and from manual entries. Wallet import is optional and off until you enable it per character.",
+      body: "Income comes from your characters' mining ledgers (synced every 15 minutes once you switch them on under Mining access). Expenses come from wallet purchases you include and from manual entries. Wallet import is optional and off until you enable it per character.",
     },
     tiles: {
       net: (from: string, to: string) => `Net profit · ${from} – ${to}`,
@@ -352,7 +389,10 @@ export const pnl = {
       nothing: "Nothing imported",
       activitySince: (date: string) => `Mining activity measured since ${date}`,
       activityNext: "Mining activity is measured from the next ledger sync",
-      activityNone: "No mining ledger access: activity can't be measured",
+      /** `link` renders the link to the Mining access page. */
+      activityNone: (link: (text: string) => ReactNode) => (
+        <>Mining ledger is off, so activity can&apos;t be measured. Switch it on under {link("Mining access")}.</>
+      ),
       autoCount: "Count tagged purchases automatically",
       autoCountSales: "Count tagged sales automatically",
       enable: "Enable wallet import",

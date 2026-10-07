@@ -8,7 +8,7 @@ import { getDb } from "@/core/db";
 import { refreshCorporations } from "@/core/eve/resolver";
 import { allPermissions } from "@/core/modules/registry";
 import { isRole, type Role } from "@/core/rbac/roles";
-import { getSettings, setSetting, type Settings } from "@/core/settings";
+import { getSettings, isSettingValue, setSetting } from "@/core/settings";
 import { triggerJobs } from "@/core/sync/scheduler";
 import { ok, refused, type ActionResult } from "@/lib/action-result";
 
@@ -204,7 +204,7 @@ export async function setSyncPaused(paused: boolean): Promise<ActionResult<SyncA
 
 export type SettingsSaveResult =
   | { ok: true; homeChanged: boolean }
-  | { ok: false; error: "forbidden" | "invalidCorporation" };
+  | { ok: false; error: "forbidden" | "invalidCorporation" | "invalidValuation" };
 
 /** Returns a result instead of throwing so the settings page can confirm or explain in a toast. */
 export async function saveSettings(formData: FormData): Promise<SettingsSaveResult> {
@@ -213,7 +213,6 @@ export async function saveSettings(formData: FormData): Promise<SettingsSaveResu
     refresh();
     return { ok: false, error: "forbidden" };
   }
-  const before = await getSettings();
 
   const corpRaw = String(formData.get("homeCorporationId") ?? "").trim();
   const homeCorporationId = corpRaw ? Number(corpRaw) : null;
@@ -221,8 +220,12 @@ export async function saveSettings(formData: FormData): Promise<SettingsSaveResu
     return { ok: false, error: "invalidCorporation" };
   }
 
-  const valuationSource = String(formData.get("valuationSource")) as Settings["mining.valuationSource"];
-  const valuationMode = String(formData.get("valuationMode")) as Settings["mining.valuationMode"];
+  // Checked before anything is read or written, so a stale or edited <select> gets a field error, not a failed save.
+  const valuationSource = formData.get("valuationSource");
+  const valuationMode = formData.get("valuationMode");
+  if (!isSettingValue("mining.valuationSource", valuationSource) || !isSettingValue("mining.valuationMode", valuationMode)) {
+    return { ok: false, error: "invalidValuation" };
+  }
 
   const overrides: Record<string, Role> = {};
   for (const def of allPermissions()) {
@@ -231,6 +234,7 @@ export async function saveSettings(formData: FormData): Promise<SettingsSaveResu
     if (isRole(value) && value !== def.defaultMinRole) overrides[def.key] = value;
   }
 
+  const before = await getSettings();
   await getDb().transaction(async (tx) => {
     await setSetting("corp.homeCorporationId", homeCorporationId, actor.id, tx);
     await setSetting("access.autoApproveCorpMembers", formData.get("autoApproveCorpMembers") === "on", actor.id, tx);

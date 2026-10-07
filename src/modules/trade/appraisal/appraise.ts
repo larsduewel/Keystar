@@ -1,5 +1,5 @@
-import { and, inArray, sql } from "drizzle-orm";
-import { appraisals, eveTypes, getDb, typeValues } from "@/core/db";
+import { and, count, eq, gt, inArray, sql } from "drizzle-orm";
+import { appraisalAttempts, appraisals, eveTypes, getDb, typeValues } from "@/core/db";
 import { EsiError, getEsi } from "@/core/esi";
 import { notePriceInterest, PRICE_MAX_AGE_MS, syncPrices } from "@/core/eve/prices";
 import { ensureTypes } from "@/core/eve/resolver";
@@ -40,6 +40,14 @@ export class AppraisalUnavailableError extends Error {
 const log = createLogger("appraisal");
 
 export const MAX_INPUT_CHARS = 200_000;
+/**
+ * Appraisals one user may start per APPRAISAL_RATE_WINDOW_MS (each may cost ESI
+ * requests and store its paste). Failed, empty and deleted appraisals count too.
+ */
+export const APPRAISAL_RATE_LIMIT = 30;
+export const APPRAISAL_RATE_WINDOW_MS = 10 * 60_000;
+/** Saved appraisals (and their share links) are deleted after this many days. */
+export const APPRAISAL_RETENTION_DAYS = 365;
 /** ESI /universe/ids rejects the whole batch if any name is longer; no item name is. */
 const MAX_NAME_LENGTH = 100;
 
@@ -183,6 +191,26 @@ export async function appraise(input: string): Promise<AppraisalResult> {
 /** Short, unguessable id for share links. */
 export function appraisalId(length = 10): string {
   return shareId(length);
+}
+
+/** Serialises attempt reservations so parallel submits cannot all see the last free slot. */
+const ATTEMPT_LOCK = 727_277;
+
+/**
+ * Records an appraisal attempt for the rate limit, or returns false when the
+ * user has used up APPRAISAL_RATE_LIMIT in the window. Call before any ESI work.
+ */
+export async function reserveAppraisalAttempt(userId: string, now = new Date()): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${ATTEMPT_LOCK}, hashtext(${userId}))`);
+    const [recent] = await tx
+      .select({ n: count() })
+      .from(appraisalAttempts)
+      .where(and(eq(appraisalAttempts.userId, userId), gt(appraisalAttempts.createdAt, new Date(now.getTime() - APPRAISAL_RATE_WINDOW_MS))));
+    if ((recent?.n ?? 0) >= APPRAISAL_RATE_LIMIT) return false;
+    await tx.insert(appraisalAttempts).values({ userId, createdAt: now });
+    return true;
+  });
 }
 
 export async function saveAppraisal(

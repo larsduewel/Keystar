@@ -134,14 +134,14 @@ export const admin = {
       body: (settings: string) => `Set the home corporation in ${settings} to audit its members.`,
     },
     description:
-      "Compare the in-game corporation roster with characters registered in Keystar, and chase missing ESI access.",
+      "Compare the in-game corporation roster with characters registered in Keystar, and spot revoked ESI access.",
     stats: {
       roster: "In-game roster",
       rosterHint: "Needs a roster token",
       registered: "Registered",
       ofRoster: (share: string) => `${share} of roster`,
       notRegistered: "Not registered",
-      missingEsi: "Missing or revoked ESI",
+      missingEsi: "ESI problems",
     },
     columns: { character: "Character", status: "Status", account: "Account", esi: "ESI" },
     characterFallback: (id: string) => `Character ${id}`,
@@ -158,7 +158,7 @@ export const admin = {
         roster: "in the in-game roster",
         registered: "registered",
         unregistered: "not registered",
-        esi: "with missing or revoked ESI",
+        esi: "with ESI problems",
       },
     },
     /** Line above the table: how many rows match, and which page is shown. */
@@ -179,15 +179,16 @@ export const admin = {
     },
     esi: {
       tokenRevoked: "Token revoked",
-      noToken: "No token",
+      /** Nothing granted, which is fine: every ESI scope is opt-in. */
+      noToken: "No ESI access",
       missing: (count: number) => `${n(count)} missing`,
-      complete: "Complete",
+      complete: "Active",
     },
     request: {
-      title: "Request ESI access",
+      title: "Registration link",
       subtitle: "Share this link with members",
       body: (page: string) =>
-        `The page explains exactly which scopes are requested and why, then walks the member through EVE SSO. Alts can be linked afterwards from ${page}.`,
+        `The page explains what Keystar reads, then walks the member through EVE SSO. Registering only confirms who they are; optional access such as the mining ledger is switched on per character afterwards. Alts can be linked from ${page}.`,
     },
     rosterUnavailable: {
       title: "Roster unavailable",
@@ -282,6 +283,7 @@ export const admin = {
     errors: {
       forbidden: "You no longer have permission to change settings.",
       invalidCorporation: "The home corporation must be a numeric corporation ID, e.g. 98765432.",
+      invalidValuation: "Choose a price source and price date from the lists. Reload the page if they look out of date.",
       unknown: "Something went wrong. Reload the page and check which changes were kept.",
     },
     home: {

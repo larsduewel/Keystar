@@ -39,6 +39,10 @@ function successFlash(saved: OAuthState, result: ProvisionResult, verified: Veri
   const name = verified.name;
   if (result.newCharacter) return { kind: "linked", name };
   if (saved.intent === "link-corp") return { kind: "corpGranted", name };
+  // The login granted nothing and the character's old token went: it shares nothing with Keystar any more.
+  if (result.tokenRemoved) return { kind: "accessRemoved", name };
+  // A plain link asks for no scope, so linking a character that is already on the account changes nothing.
+  if (!verified.scopes.length) return { kind: "alreadyLinked", name };
   const removed = saved.optionalRemoved.filter((s) => !verified.scopes.includes(s));
   if (result.addedOptionalScopes.length || removed.length) {
     return { kind: "scopesChanged", name, added: result.addedOptionalScopes, removed };
@@ -82,6 +86,8 @@ export async function GET(request: NextRequest) {
       tokens,
       intent: saved.intent,
       currentUserId: existingSession?.userId ?? null,
+      // Checked above: a re-authorise link that reaches this point logged in with its own character.
+      reauthorize: saved.expectedCharacterId === verified.characterId,
     });
 
     // An opt-in scope (e.g. wallet import) dropped by a generic link: say so instead of silently stopping it.

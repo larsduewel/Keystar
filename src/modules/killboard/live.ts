@@ -5,6 +5,8 @@ import { KEYSTAR_VERSION } from "@/core/esi";
 import { ensureConstellations, ensureNames, ensureTypes, refreshCorporations } from "@/core/eve/resolver";
 import { getSetting } from "@/core/settings";
 import type { JobDefinition } from "@/core/sync/types";
+import { errorMessage } from "@/core/logger";
+import { recordFeedKillmails } from "@/modules/gatecheck/ingest";
 import { resolveKillmailNames, storeKillmails } from "./sync";
 import { involvesCorporation, R2z2Client, ZkillError, type ZkillKillmail } from "./zkill";
 
@@ -16,9 +18,16 @@ const STALE_STATE_MS = 20 * 3600_000;
 const MAX_PER_RUN = 300;
 /** After R2Z2 refuses us (403/429), stay away for a while. */
 const REFUSED_BACKOFF_MS = 10 * 60_000;
+/**
+ * Starting over, read this many files back from the pointer (a few hours of New
+ * Eden), so the gate check knows recent camps right away instead of an hour later.
+ */
+export const START_BACKLOG = 2500;
+/** Hand killmails to observers (the gate check) in batches of this size. */
+const OBSERVE_BATCH = 100;
 
 export interface LiveFeedState {
-  /** Corporation the position was kept for. */
+  /** Corporation the position was kept for (none while no home corporation is set). */
   corporationId?: number;
   /** Next sequence number to read. */
   sequence?: number;
@@ -35,8 +44,8 @@ function getR2z2(): R2z2Client {
 }
 
 /** Where to continue: the stored position, unless it's for another corporation or too old to still exist. */
-export function resumeSequence(state: LiveFeedState, corporationId: number, now: Date): number | null {
-  if (state.corporationId !== corporationId || !Number.isSafeInteger(state.sequence)) return null;
+export function resumeSequence(state: LiveFeedState, corporationId: number | null, now: Date): number | null {
+  if ((state.corporationId ?? null) !== corporationId || !Number.isSafeInteger(state.sequence)) return null;
   const updated = state.updatedAt ? Date.parse(state.updatedAt) : NaN;
   if (!Number.isFinite(updated) || now.getTime() - updated > STALE_STATE_MS) return null;
   return state.sequence!;
@@ -50,21 +59,33 @@ export interface LiveFeedOutcome {
   scanned: number;
   stored: number;
   caughtUp: boolean;
+  /** Started over at the pointer (minus the backlog) instead of resuming. */
+  restarted: boolean;
   error: ZkillError | null;
 }
 
 /**
+ * Sees every killmail the reader reads, in batches (the gate check stores the
+ * ones near stargates). `last` marks the final batch of the run.
+ */
+export type FeedObserver = (killmails: ZkillKillmail[], batch: { first: boolean; last: boolean; restarted: boolean; caughtUp: boolean }) => Promise<void>;
+
+/**
  * Reads R2Z2 forward from the stored position and stores every killmail the
  * corporation is on as soon as it is seen (so the browser can announce it).
+ * Every killmail read also goes to `observe`, if given.
  */
 export async function readLiveFeed(
   db: Db,
-  corporationId: number,
+  corporationId: number | null,
   state: LiveFeedState,
   deps: {
     r2z2?: Pick<R2z2Client, "sequence" | "entry">;
     store?: (db: Db, entries: ZkillKillmail[]) => Promise<number>;
     resolve?: (corporationId: number, entries: ZkillKillmail[]) => Promise<void>;
+    observe?: FeedObserver;
+    /** Files to read back from the pointer when starting over (default 0: start at the pointer). */
+    backlog?: number;
     now?: Date;
     maxPerRun?: number;
   } = {},
@@ -75,15 +96,25 @@ export async function readLiveFeed(
   const max = deps.maxPerRun ?? MAX_PER_RUN;
 
   let sequence = resumeSequence(state, corporationId, deps.now ?? new Date());
+  const restarted = sequence === null;
   let requests = 0;
   let scanned = 0;
   let stored = 0;
   let caughtUp = false;
   let error: ZkillError | null = null;
+  let pending: ZkillKillmail[] = [];
+  let first = true;
+  const flush = async (last: boolean) => {
+    if (!deps.observe || (!pending.length && !last)) return;
+    const batch = pending;
+    pending = [];
+    await deps.observe(batch, { first, last, restarted, caughtUp });
+    first = false;
+  };
   try {
     if (sequence === null) {
       requests += 1;
-      sequence = await r2z2.sequence();
+      sequence = Math.max(0, (await r2z2.sequence()) - (deps.backlog ?? 0));
     }
     while (requests < max) {
       requests += 1;
@@ -101,17 +132,22 @@ export async function readLiveFeed(
       }
       scanned += 1;
       sequence += 1;
-      if (res.killmail && involvesCorporation(res.killmail, corporationId)) {
+      if (!res.killmail) continue;
+      if (corporationId !== null && involvesCorporation(res.killmail, corporationId)) {
         await store(db, [res.killmail]);
         await resolve(corporationId, [res.killmail]);
         stored += 1;
       }
+      pending.push(res.killmail);
+      if (pending.length >= OBSERVE_BATCH) await flush(false);
     }
   } catch (err) {
     if (!(err instanceof ZkillError)) throw err;
     error = err;
   }
-  return { sequence, requests, scanned, stored, caughtUp, error };
+  // Whatever was read before an error still counts: the position moves past it.
+  await flush(true);
+  return { sequence, requests, scanned, stored, caughtUp, restarted, error };
 }
 
 /**
@@ -149,20 +185,34 @@ export async function resolveLiveNames(corporationId: number, entries: ZkillKill
   await ensureConstellations(systems.map((s) => s.constellationId!));
 }
 
-/** Kills and losses of the home corporation within seconds, from zKillboard's live feed (R2Z2). */
+/**
+ * Kills and losses of the home corporation within seconds, from zKillboard's
+ * live feed (R2Z2). The same read feeds the gate check with every kill near a
+ * stargate, so it runs without a home corporation too.
+ */
 export const liveFeedJob: JobDefinition = {
   key: "killboard.live-feed",
   label: (t) => t.killboard.module.jobs.liveFeed,
   module: "killboard",
   owner: "global",
   intervalSeconds: LIVE_POLL_SECONDS,
-  async run({ db, meta }) {
+  async run({ db, meta, log }) {
     // Demo data is fake; the worker leaves this job out in demo mode, and it never calls zKillboard there itself.
     if (env().KEYSTAR_DEMO_MODE) return { summary: "Demo mode: the live feed is off" };
-    const corporationId = await getSetting("corp.homeCorporationId");
-    if (!corporationId) return { summary: "No home corporation configured" };
+    const corporationId = (await getSetting("corp.homeCorporationId")) ?? null;
     const state = meta as LiveFeedState;
-    const out = await readLiveFeed(db, corporationId, state);
+    let gateKills = 0;
+    const out = await readLiveFeed(db, corporationId, state, {
+      backlog: START_BACKLOG,
+      // A gate check failure must not hold up the killboard's notifications.
+      observe: async (killmails, batch) => {
+        try {
+          gateKills += await recordFeedKillmails(db, killmails, { restarted: batch.restarted && batch.first, caughtUp: batch.last && batch.caughtUp });
+        } catch (err) {
+          log.warn("Gate check could not store killmails", { error: errorMessage(err) });
+        }
+      },
+    });
     const refused = out.error?.status === 403 || out.error?.status === 429;
     // Nothing read at all: report the failure so it shows on the sync page (and backs off).
     // A refusal instead keeps away for the full cooldown, whatever it interrupted.
@@ -171,8 +221,9 @@ export const liveFeedJob: JobDefinition = {
     const next: LiveFeedState =
       out.sequence === null
         ? state
-        : { corporationId, sequence: out.sequence, updatedAt: moved ? new Date().toISOString() : state.updatedAt };
-    const read = out.sequence === null ? "Read nothing" : `Read ${out.scanned} killmails up to #${out.sequence - 1}, ${out.stored} for the corporation`;
+        : { ...(corporationId === null ? {} : { corporationId }), sequence: out.sequence, updatedAt: moved ? new Date().toISOString() : state.updatedAt };
+    const corp = corporationId === null ? "no home corporation" : `${out.stored} for the corporation`;
+    const read = out.sequence === null ? "Read nothing" : `Read ${out.scanned} killmails up to #${out.sequence - 1}, ${corp}, ${gateKills} for the gate check`;
     return {
       summary: out.error ? `${read} (stopped: ${out.error.message}${refused ? "; retrying in 10 minutes" : ""})` : read,
       // Behind: continue right away (the scheduler still waits the interval); refused: stay away for a while.

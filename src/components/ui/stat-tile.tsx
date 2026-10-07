@@ -75,7 +75,8 @@ export function StatTile({
         <div
           className={cn(
             "leading-none font-semibold tracking-tight whitespace-nowrap text-ink",
-            hero ? "text-[3.25rem]" : "text-[1.75rem]",
+            // Smaller on phones, where two tiles share a row.
+            hero ? "text-[3.25rem] max-sm:text-[2.25rem]" : "text-[1.75rem] max-sm:text-[1.3rem]",
           )}
         >
           {value}

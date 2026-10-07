@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { parseVersion } from "@/lib/semver";
 
 /**
  * Prepares a release in the working tree: bumps "version" in package.json and
@@ -11,13 +12,12 @@ import path from "node:path";
  *   pnpm release:prepare patch      # or minor, major, or an exact version such as 0.3.0
  */
 
-const SEMVER = /^(\d+)\.(\d+)\.(\d+)$/;
 const UNRELEASED = /^## \[Unreleased\][^\n]*\n/m;
 
 function parse(version: string): [number, number, number] {
-  const m = SEMVER.exec(version);
-  if (!m) throw new Error(`"${version}" is not a version like 1.2.3`);
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+  const parsed = parseVersion(version);
+  if (!parsed) throw new Error(`"${version}" is not a version like 1.2.3`);
+  return parsed;
 }
 
 /** The version after `current` for a bump ("patch", "minor", "major") or an exact, higher version. */
@@ -53,6 +53,25 @@ export function suggestedBump(body: string): "patch" | "minor" {
   return kinds.length > 0 && kinds.every((k) => k === "Fixed" || k === "Security") ? "patch" : "minor";
 }
 
+/** Whether the entries have `### Upgrade notes`: steps for whoever runs the server. */
+export function hasUpgradeNotes(body: string): boolean {
+  return /^### Upgrade notes\b/m.test(body);
+}
+
+/**
+ * The step that reminds the release's author of the What's new highlights (src/core/help/releases.ts),
+ * or null for a release with only fixes, which needs none.
+ */
+export function highlightsReminder(version: string, body: string): string | null {
+  const upgrade = hasUpgradeNotes(body);
+  if (suggestedBump(body) === "patch" && !upgrade) return null;
+  const where = `RELEASES in src/core/help/releases.ts and whatsNew.releases["${version}"] in src/i18n/messages/{en,de}/whats-new.ts`;
+  return (
+    `Add 2–4 What's new highlights for v${version}: ${where} (docs/releasing.md).` +
+    (upgrade ? ` It has upgrade notes: also write their short form as "upgrade" there, which admins see.` : "")
+  );
+}
+
 /** CHANGELOG.md with its Unreleased entries moved under "## [version] - date" and a new empty Unreleased section. */
 export function releaseChangelog(changelog: string, version: string, date: string): string {
   const { start, bodyStart } = unreleased(changelog);
@@ -69,7 +88,8 @@ if (isMain) {
     const pkg = readFileSync(pkgPath, "utf8");
     const current: string = JSON.parse(pkg).version;
     const before = readFileSync(changelogPath, "utf8");
-    const bump = process.argv[2] ?? suggestedBump(unreleased(before).body);
+    const body = unreleased(before).body;
+    const bump = process.argv[2] ?? suggestedBump(body);
     const version = nextVersion(current, bump);
     const date = new Date().toISOString().slice(0, 10);
     const changelog = releaseChangelog(before, version, date);
@@ -77,11 +97,15 @@ if (isMain) {
     writeFileSync(pkgPath, pkg.replace(/("version":\s*")[^"]*(")/, `$1${version}$2`));
     writeFileSync(changelogPath, changelog);
     const why = process.argv[2] ? "" : ` (${bump}, from the Unreleased headings; pass patch/minor/major to override)`;
+    const steps = [
+      highlightsReminder(version, body),
+      "Review the diff, then commit and push to main (or open a pull request and merge it).",
+      "When CI has passed on that commit: GitHub → Actions → Release → Run workflow (on main).",
+    ].filter((step): step is string => step !== null);
     console.log(`Prepared v${version}${why}, was ${current}: package.json and CHANGELOG.md updated.
 
 Next:
-  1. Review the diff, then commit and push to main (or open a pull request and merge it).
-  2. When CI has passed on that commit: GitHub → Actions → Release → Run workflow (on main).`);
+${steps.map((step, i) => `  ${i + 1}. ${step}`).join("\n")}`);
   } catch (err) {
     console.error((err as Error).message);
     process.exit(1);

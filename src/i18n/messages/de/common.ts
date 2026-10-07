@@ -9,6 +9,8 @@ export const common: typeof en = {
   unknown: "unbekannt",
   never: "nie",
   opensInNewTab: "(öffnet in neuem Tab)",
+  ccpNotice:
+    '© 2014 CCP hf. Alle Rechte vorbehalten. „EVE“, „EVE Online“, „CCP“ und alle zugehörigen Logos und Bilder sind Marken oder eingetragene Marken von CCP hf. Keystar ist ein Fan-Projekt und steht in keiner Verbindung zu CCP hf.',
   status: {
     ok: "OK",
     error: "Fehler",

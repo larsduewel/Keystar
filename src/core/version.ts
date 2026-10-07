@@ -50,6 +50,16 @@ export function versionLabel(info: BuildInfo, sourceUrl: string): VersionLabel {
   const { version, imageTag, commit } = info;
   const base = sourceUrl.replace(/\/+$/, "");
   const prerelease = Boolean(commit) && Boolean(imageTag) && imageTag !== version && imageTag !== `v${version}`;
-  if (!prerelease || !commit) return { text: `Keystar v${version}`, href: `${base}/releases`, prerelease: false };
+  if (!prerelease || !commit) return { text: `Keystar v${version}`, href: releasesUrl(sourceUrl), prerelease: false };
   return { text: `Keystar v${version} · ${imageTag} @ ${commit.slice(0, 7)}`, href: `${base}/commit/${commit}`, prerelease: true };
+}
+
+/** The repository's list of GitHub releases (`SOURCE_URL`). */
+export function releasesUrl(sourceUrl: string): string {
+  return `${sourceUrl.replace(/\/+$/, "")}/releases`;
+}
+
+/** The GitHub release page of `version` (tags are `v<version>`, see .github/workflows/release.yml). */
+export function releaseUrl(sourceUrl: string, version: string): string {
+  return `${releasesUrl(sourceUrl)}/tag/v${version}`;
 }

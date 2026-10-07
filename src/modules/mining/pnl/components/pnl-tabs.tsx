@@ -13,14 +13,14 @@ const TABS = [
 export async function PnlTabs({ current, query }: { current: (typeof TABS)[number]["id"]; query: string }) {
   const { t } = await getI18n();
   return (
-    <nav aria-label={t.pnl.tabs.label} className="glass-inset inline-flex items-center gap-0.5 rounded-lg p-0.5">
+    <nav aria-label={t.pnl.tabs.label} className="glass-inset inline-flex max-w-full items-center gap-0.5 rounded-lg p-0.5 max-sm:overflow-x-auto">
       {TABS.map((tab) => (
         <Link
           key={tab.id}
           href={query ? `${tab.href}?${query}` : tab.href}
           aria-current={tab.id === current ? "page" : undefined}
           className={cn(
-            "rounded-md px-3.5 py-1.5 text-xs font-medium transition-all duration-200",
+            "shrink-0 rounded-md px-3.5 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200",
             tab.id === current ? "glass-chip text-ink" : "text-ink-3 hover:text-ink",
           )}
         >

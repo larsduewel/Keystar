@@ -253,6 +253,46 @@ describe("zKillboard live feed (R2Z2)", () => {
     expect(gaps).toMatchObject({ sequence: 13, requests: 6, scanned: 0, caughtUp: false });
   });
 
+  it("hands every killmail read to the observer, in batches, and reads without a home corporation", async () => {
+    const f = feed({ 10: entry(1), 11: null, 12: entry(2) }, 12);
+    const seen: { ids: number[]; first: boolean; last: boolean; restarted: boolean; caughtUp: boolean }[] = [];
+    const stored: number[] = [];
+    const out = await readLiveFeed({} as never, null, { sequence: 10, updatedAt: "2026-10-03T11:59:50Z" }, {
+      r2z2: f.r2z2,
+      store: async (_db, kms) => (stored.push(...kms.map((k) => k.killmail_id)), kms.length),
+      resolve: async () => {},
+      observe: async (kms, batch) => {
+        seen.push({ ids: kms.map((k) => k.killmail_id), ...batch });
+      },
+      now,
+    });
+    // No corporation: nothing for the killboard, everything for the observer (unusable files skipped).
+    expect(stored).toEqual([]);
+    expect(seen).toEqual([{ ids: [1, 2], first: true, last: true, restarted: false, caughtUp: true }]);
+    expect(out).toMatchObject({ sequence: 13, scanned: 3, stored: 0, restarted: false });
+    // A position kept for a corporation is not resumed without one (and the other way round).
+    expect(resumeSequence({ sequence: 5, updatedAt: "2026-10-03T11:59:50Z" }, null, now)).toBe(5);
+    expect(resumeSequence({ corporationId: 100, sequence: 5, updatedAt: "2026-10-03T11:59:50Z" }, null, now)).toBeNull();
+  });
+
+  it("starts a backlog before the pointer when starting over, and tells the observer", async () => {
+    const f = feed({ 18: entry(1), 19: entry(2), 20: entry(3) }, 20);
+    let restarted: boolean | null = null;
+    const out = await readLiveFeed({} as never, 100, {}, {
+      r2z2: f.r2z2,
+      store: async () => 1,
+      resolve: async () => {},
+      observe: async (_kms, batch) => {
+        restarted = batch.restarted;
+      },
+      backlog: 2,
+      now,
+    });
+    expect(f.read).toEqual([18, 19, 20, 21]);
+    expect(out).toMatchObject({ sequence: 21, restarted: true });
+    expect(restarted).toBe(true);
+  });
+
   it("never reads the feed in demo mode", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     process.env.KEYSTAR_DEMO_MODE = "true";

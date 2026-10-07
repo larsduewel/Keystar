@@ -114,6 +114,11 @@
   --series-ice: #199e70;
   --series-gas: #c98500;
   --series-other: #5d6878;
+  /* Two more categorical slots after gas, for the per-ore view of the daily mining chart
+     (moon, ore, ice, gas, these two, then other): adjacent CVD ΔE ≥ 8.4, normal ΔE ≥ 19.3,
+     all ≥ 3.5:1 on #14161a. */
+  --series-5: #d55181;
+  --series-6: #9085e9;
   /* Ordinal ramp (moon rarity, threat tiers, heatmap), low → high: one hue, the
      high end most salient against the surface. Validated with --ordinal. */
   --ramp-1: #184f95;
@@ -132,6 +137,10 @@
   --section: var(--color-accent);
 }
 
+/* A sidebar section without a tone: back to the accent, whatever the current route's tone. */
+[data-section-tone="none"] {
+  --section: var(--color-accent);
+}
 [data-section-tone="industry"] {
   --section: var(--color-section-industry);
 }
@@ -609,6 +618,9 @@ select option:disabled {
   --series-ore: #d4541f;
   --series-ice: #16916a;
   --series-gas: #ad7300;
+  /* With the slots above: adjacent CVD ΔE ≥ 9.0, normal ΔE ≥ 17.6, ≥ 4.6:1. */
+  --series-5: #c03c74;
+  --series-6: #4a3aa7;
   /* Darkest = highest on a light surface, so the ramp runs the other way round. */
   --ramp-1: #7fb0ea;
   --ramp-2: #5797e4;
@@ -646,4 +658,27 @@ select option:disabled {
 }
 [data-theme="light"] .mail-color[data-pale] {
   color: color-mix(in oklab, var(--mail-color) 25%, var(--color-ink));
+}
+
+/* Phones. Page grids mostly get their columns at xl; below that their one implicit
+   column grows to the widest child (a wide table), pushing the page sideways. Let
+   children shrink so tables scroll inside their panel. Base layer: min-w-* still wins. */
+@layer base {
+  .grid > * {
+    @variant max-md {
+      min-width: 0;
+    }
+  }
+}
+
+/* iOS Safari zooms the page into any focused field under 16px and stays zoomed.
+   Phones only, unlayered so it wins over the text-xs/text-sm utilities on fields. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="submit"], [type="reset"], [type="button"], [type="image"]),
+select,
+textarea {
+  @variant max-md {
+    @variant pointer-coarse {
+      font-size: 16px;
+    }
+  }
 }

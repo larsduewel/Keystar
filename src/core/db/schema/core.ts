@@ -25,6 +25,11 @@ export const users = pgTable("users", {
   role: text("role").$type<Role>().notNull().default("guest"),
   isDisabled: boolean("is_disabled").notNull().default(false),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  /**
+   * The newest Keystar version this account was shown the welcome tour or What's new for
+   * (src/core/help/onboarding.ts); only ever raised. Null: never, so the welcome tour opens.
+   */
+  seenVersion: text("seen_version"),
   ...timestamps,
 });
 

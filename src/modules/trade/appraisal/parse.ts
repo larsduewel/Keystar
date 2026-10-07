@@ -37,16 +37,23 @@ export function countItemLines(text: string): number {
   return text.split(/\r\n?|\n/).filter((l) => l.trim()).length;
 }
 
-/** Parses "1,000", "1.000" (German), "1 000", "1'000", "12" → integer; null if not a quantity. */
+/**
+ * Largest quantity one line may carry. EVE stacks stop at 2³¹ − 1; anything far
+ * beyond is a typo or abuse, and MAX_LINES of these still sum to a safe integer.
+ */
+export const MAX_QUANTITY = 1e12;
+
+/** Parses "1,000", "1.000" (German), "1 000", "1'000", "12" → integer; null if not a quantity or above MAX_QUANTITY. */
 export function parseQuantity(input: string): number | null {
   const s = input.trim().replace(/ /g, " ");
   if (!/^\d[\d.,' ]*$/.test(s)) return null;
+  let n: number;
   // Thousand separators: groups of exactly three digits after the first group.
-  if (/^\d{1,3}([.,' ]\d{3})+$/.test(s)) return Number(s.replace(/[.,' ]/g, ""));
-  if (/^\d+$/.test(s)) return Number(s);
+  if (/^\d{1,3}([.,' ]\d{3})+$/.test(s)) n = Number(s.replace(/[.,' ]/g, ""));
+  else if (/^\d+$/.test(s)) n = Number(s);
   // A decimal value (quantities are whole numbers in EVE; round defensively).
-  const n = Number(s.replace(/\s/g, "").replace(",", "."));
-  return Number.isFinite(n) ? Math.round(n) : null;
+  else n = Math.round(Number(s.replace(/\s/g, "").replace(",", ".")));
+  return Number.isSafeInteger(n) && n <= MAX_QUANTITY ? n : null;
 }
 
 function cleanName(name: string): string {

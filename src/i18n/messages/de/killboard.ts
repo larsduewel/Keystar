@@ -8,6 +8,12 @@ export const killboard: typeof en = {
   module: {
     navSection: "Kampf",
     nav: { killboard: "Killboard" },
+    help: {
+      killboard:
+        "Kills und Verluste der Heimat-Corporation laut zKillboard für den gewählten Zeitraum: Summen, Top-Piloten, Systeme, Schiffe " +
+        "und die letzten Killmails. Neue Killmails erscheinen meist innerhalb weniger Minuten, und ein wöchentlicher Lagebericht fasst " +
+        "die letzten sieben Tage zusammen, geschrieben von Claude, wenn der Server einen API-Schlüssel hat.",
+    },
     alerts: { kills: { label: "Kills und Verluste", hint: "Wenn ein Corp-Mitglied einen Kill hat oder ein Schiff verliert" } },
     permissionGroup: "Killboard",
     permissions: {
@@ -166,5 +172,14 @@ export const killboard: typeof en = {
     claudeHint: "Setze ANTHROPIC_API_KEY auf dem Server, damit Claude diese Berichte schreibt.",
     rewrite: "Bericht neu schreiben",
     rewriting: "Wird geschrieben …",
+    toast: {
+      rewritten: "Lagebericht neu geschrieben",
+      failed: "Der Lagebericht konnte nicht neu geschrieben werden",
+      errors: {
+        forbidden: "Du darfst das Killboard nicht mehr verwalten.",
+        noCorporation: "Lege zuerst die Heimatcorporation fest (Admin → Einstellungen).",
+        unknown: "Etwas ist schiefgelaufen. Lade die Seite neu und versuche es noch einmal.",
+      },
+    },
   },
 };

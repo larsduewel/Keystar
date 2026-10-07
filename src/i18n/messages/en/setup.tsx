@@ -15,6 +15,16 @@ export const setup = {
   progress: (step: number, total: number) => `Step ${n(step)} of ${n(total)}`,
   back: "Back",
   continue: "Continue",
+  /** Toasts when a step can't be saved. */
+  toast: {
+    failed: "Couldn't save this step",
+    errors: {
+      forbidden: "You no longer have permission to change the settings.",
+      invalidCorporation: "Choose a corporation or enter a numeric corporation ID.",
+      invalidValuation: "Choose how to price ore from the list. Reload the page if it looks out of date.",
+      unknown: "Something went wrong. Reload the page and try again.",
+    },
+  },
   corporation: {
     title: "Your home corporation",
     intro: "Keystar tracks the members, roster and refineries of one corporation. We picked the one your character is in.",
@@ -48,8 +58,10 @@ export const setup = {
   },
   invite: {
     title: "Invite your members",
-    intro: "Share this link in corp chat or MOTD. It explains exactly what Keystar reads and walks pilots through EVE SSO.",
-    worker: "The sync worker picks up new characters within a minute; first ledgers appear shortly after.",
+    intro:
+      "Share this link in corp chat or MOTD. It explains what Keystar reads and walks pilots through EVE SSO; registering asks EVE for no access.",
+    worker:
+      "Each pilot switches on what they share, such as their mining ledger, per character under Mining → Access. The sync worker picks it up within a minute; first ledgers appear shortly after.",
     history: "ESI only keeps 30 days of mining — Keystar keeps everything from today on.",
     /** `path` is the settings page's place in the navigation, e.g. "Administration → Settings". */
     settings: (path: string) => `Everything here can be changed later under ${path}.`,

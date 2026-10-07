@@ -12,6 +12,13 @@ export const killboard = {
   module: {
     navSection: "Combat",
     nav: { killboard: "Combat Report" },
+    /** "This page" help for the nav items (NavItem.help), one to three sentences each. */
+    help: {
+      killboard:
+        "The home corporation's kills and losses from zKillboard for the period you pick: totals, top pilots, systems, ships and " +
+        "recent killmails. New killmails usually appear within minutes, and a weekly situation report sums up the last seven days, " +
+        "written by Claude if the server has an API key.",
+    },
     alerts: { kills: { label: "Kills and losses", hint: "When a corporation member gets a kill or loses a ship" } },
     permissionGroup: "Combat Report",
     permissions: {
@@ -177,5 +184,14 @@ export const killboard = {
     claudeHint: "Set ANTHROPIC_API_KEY on the server to have Claude write these reports.",
     rewrite: "Rewrite report",
     rewriting: "Writing…",
+    toast: {
+      rewritten: "Situation report rewritten",
+      failed: "Couldn't rewrite the situation report",
+      errors: {
+        forbidden: "You no longer have permission to manage the killboard.",
+        noCorporation: "Set the home corporation first (Admin → Settings).",
+        unknown: "Something went wrong. Reload the page and try again.",
+      },
+    },
   },
 };

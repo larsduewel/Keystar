@@ -12,6 +12,9 @@ export const common = {
   never: "never",
   /** Screen-reader note on links that open in a new tab. */
   opensInNewTab: "(opens in a new tab)",
+  /** CCP's proprietary notice (Developer License Agreement §7.1), shown wherever EVE marks appear. */
+  ccpNotice:
+    '© 2014 CCP hf. All rights reserved. "EVE", "EVE Online", "CCP", and all related logos and images are trademarks or registered trademarks of CCP hf. Keystar is a fan-made tool, not affiliated with or endorsed by CCP hf.',
   status: {
     ok: "OK",
     error: "Error",

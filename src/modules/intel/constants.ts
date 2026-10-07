@@ -13,6 +13,15 @@ export const MAX_PROFILED = 150;
 /** Scans one user may start per RATE_WINDOW_MS. */
 export const SCAN_RATE_LIMIT = 20;
 export const SCAN_RATE_WINDOW_MS = 10 * 60_000;
+/**
+ * D-scans: unknown type ids looked up on ESI per paste, pastes with lookups one
+ * user may make per DSCAN_LOOKUP_WINDOW_MS, and the ESI error budget lookups
+ * leave alone (the client pauses below 20; ESI allows 100 per window).
+ */
+export const DSCAN_MAX_LOOKUPS = 50;
+export const DSCAN_LOOKUP_LIMIT = 20;
+export const DSCAN_LOOKUP_WINDOW_MS = 10 * 60_000;
+export const DSCAN_ERROR_HEADROOM = 50;
 
 /** Recency weighting: a kill this many days old counts half. */
 export const DECAY_HALF_LIFE_DAYS = 14;

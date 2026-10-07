@@ -38,14 +38,14 @@ describe.skipIf(!enabled)("integration", async () => {
   beforeEach(async () => {
     await db().execute(sql`TRUNCATE users, characters, esi_tokens, sessions, eve_types, eve_groups, eve_systems,
       eve_entities, type_values, type_value_history, market_prices, price_interest, mining_character_ledger,
-      mining_observer_ledger, mining_observers, sync_jobs, app_settings, killmails, killmail_attackers, killboard_reports, appraisals, esi_cache,
+      mining_observer_ledger, mining_observers, sync_jobs, app_settings, killmails, killmail_attackers, killboard_reports, appraisals, appraisal_attempts, esi_cache,
       fleets, fleet_members, fleet_trackers, eve_constellations, intel_scans, intel_scan_pilots, intel_pilots,
       intel_pilot_killmails, intel_queue, intel_contacts, intel_ai_notes, wallet_transactions, wallet_fees, mining_activity,
       mining_activity_coverage, mining_pnl_settings, mining_pnl_characters, mining_pnl_price_rules,
       mining_pnl_tx_overrides, mining_pnl_fee_overrides, mining_pnl_entries, corp_wallet_divisions, corp_wallet_balance_history,
       corp_wallet_journal, corp_wallet_transactions, corp_wallet_sync_state, mail_messages, mail_labels, mail_lists,
       corporation_members, skills_queue, skills_character_skills, skills_character, skills_type_attributes,
-      industry_jobs, industry_locations
+      industry_jobs, industry_locations, market_orders
       RESTART IDENTITY CASCADE`);
     const [a] = await db().insert(schema.users).values({ role: "member", mainCharacterId: 1 }).returning();
     const [b] = await db().insert(schema.users).values({ role: "member", mainCharacterId: 2 }).returning();
@@ -253,6 +253,24 @@ describe.skipIf(!enabled)("integration", async () => {
         endDate: new Date(Date.now() + 3600_000),
       });
       await db().insert(schema.industryJobs).values([job(1, 1), job(2, 3)]);
+      // Market orders too.
+      const order = (orderId: number, characterId: number) => ({
+        orderId,
+        characterId,
+        typeId: 34,
+        regionId: 10000002,
+        locationId: 60003760,
+        isBuyOrder: false,
+        isCorporation: false,
+        price: 5,
+        volumeTotal: 100,
+        volumeRemain: 40,
+        range: "region" as const,
+        duration: 90,
+        issued: new Date(),
+        state: "open" as const,
+      });
+      await db().insert(schema.marketOrders).values([order(1, 1), order(2, 2), order(3, 3)]);
 
       // Bravo keeps an alt: the account stays active and the alt becomes main.
       const bravo = await db().transaction((tx) => detachTransferredCharacter(tx, 2, userB));
@@ -270,6 +288,7 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(remaining.map((r) => r.userId)).toEqual([userB]);
       expect((await db().select().from(schema.characters)).map((c) => c.characterId)).toEqual([3]);
       expect((await db().select().from(schema.industryJobs)).map((j) => j.jobId)).toEqual([2]);
+      expect((await db().select().from(schema.marketOrders)).map((o) => o.orderId)).toEqual([3]);
     });
 
     it("only invalidates a token on invalid_grant", async () => {
@@ -894,6 +913,25 @@ describe.skipIf(!enabled)("integration", async () => {
     });
   });
 
+  describe("appraisal rate limit", () => {
+    it("counts every attempt, deleted or parallel, and only within the window", async () => {
+      const { APPRAISAL_RATE_LIMIT, APPRAISAL_RATE_WINDOW_MS, reserveAppraisalAttempt } = await import(
+        "@/modules/trade/appraisal/appraise"
+      );
+      const now = new Date();
+      // Parallel submits are serialised: exactly the limit gets through.
+      const results = await Promise.all(
+        Array.from({ length: APPRAISAL_RATE_LIMIT + 5 }, () => reserveAppraisalAttempt(userA, now)),
+      );
+      expect(results.filter(Boolean)).toHaveLength(APPRAISAL_RATE_LIMIT);
+      // Deleting saved appraisals doesn't free a slot; another user is unaffected.
+      await db().delete(schema.appraisals);
+      expect(await reserveAppraisalAttempt(userA, now)).toBe(false);
+      expect(await reserveAppraisalAttempt(userB, now)).toBe(true);
+      expect(await reserveAppraisalAttempt(userA, new Date(now.getTime() + APPRAISAL_RATE_WINDOW_MS + 1))).toBe(true);
+    });
+  });
+
   describe("ESI failures in appraisal and field estimator", () => {
     const reply = <T,>(data: T) => ({ data, status: 200, expiresAt: null, pages: 1, fromCache: false, notModified: false, lastModified: null });
     const outage = () => new EsiError("ESI POST /universe/ids failed: 503", 503, "/universe/ids");
@@ -1335,6 +1373,8 @@ describe.skipIf(!enabled)("integration", async () => {
     });
 
     it("records ledger growth in the sync job", async () => {
+      const { MINING_LEDGER_SCOPE } = await import("@/modules/mining/module");
+      await db().insert(schema.esiTokens).values({ characterId: 1, refreshTokenEnc: "x", scopes: [MINING_LEDGER_SCOPE] });
       const today = new Date().toISOString().slice(0, 10);
       let quantity = 1000;
       const esi = new EsiClient({
@@ -1846,6 +1886,62 @@ describe.skipIf(!enabled)("integration", async () => {
       }
     });
 
+    it("deletes the token only when a character is re-authorised with no scope at all", async () => {
+      const { encryptToken } = await import("@/core/crypto");
+      const { provisionFromSso } = await import("@/core/auth/provision");
+      const { MINING_LEDGER_SCOPE: MINING } = await import("@/modules/mining/module");
+      // Wallet import on, the mining ledger switched off in Keystar but still in the token.
+      await db()
+        .insert(schema.esiTokens)
+        .values({ characterId: 2, refreshTokenEnc: encryptToken("old-refresh"), scopes: [WALLET_SCOPE], disabledScopes: [MINING] });
+      const { getEsi } = await import("@/core/esi");
+      const reply = <T,>(data: T) => ({ data, status: 200, expiresAt: null, pages: 1, fromCache: false, notModified: false, lastModified: null });
+      const getSpy = vi
+        .spyOn(getEsi(), "get")
+        .mockImplementation(async (path: string) =>
+          reply(path.startsWith("/corporations/") ? { name: "Home", ticker: "HOME", member_count: 3 } : { corporation_id: 100 }),
+        ) as unknown as { mockRestore: () => void };
+      const postSpy = vi.spyOn(getEsi(), "post").mockImplementation(async () => reply([]));
+      // Only CCP's revoke endpoint is fetched directly.
+      const revoke = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 200 }));
+      const login = (intent: "login" | "join" | "link", reauthorize?: boolean, ownerHash = "h2") =>
+        provisionFromSso({
+          verified: { characterId: 2, name: "Bravo", ownerHash, scopes: [], expiresAt: new Date(Date.now() + 1e6) },
+          tokens: { access_token: "a", expires_in: 1200, token_type: "Bearer" },
+          intent,
+          currentUserId: intent === "link" ? userB : null,
+          reauthorize,
+        });
+      const tokens = async () => db().select().from(schema.esiTokens);
+      try {
+        // Signing in, joining, and a plain link with a character already on the account leave its access alone.
+        expect(await login("login")).toMatchObject({ tokenRemoved: false, lostOptionalScopes: [] });
+        expect(await login("join")).toMatchObject({ tokenRemoved: false, lostOptionalScopes: [] });
+        expect(await login("link")).toMatchObject({ tokenRemoved: false, newCharacter: false, lostOptionalScopes: [] });
+        expect(await tokens()).toMatchObject([{ scopes: [WALLET_SCOPE], disabledScopes: [MINING] }]);
+        expect(revoke).not.toHaveBeenCalled();
+
+        // Re-authorising this very character without any scope withdraws everything, switched-off scopes included.
+        expect(await login("link", true)).toMatchObject({ tokenRemoved: true, lostOptionalScopes: [WALLET_SCOPE] });
+        expect(await tokens()).toEqual([]);
+        expect(revoke).toHaveBeenCalledOnce();
+        expect(String(revoke.mock.calls[0][1]?.body)).toContain("token=old-refresh");
+        // Nothing left to remove the second time.
+        expect(await login("link", true)).toMatchObject({ tokenRemoved: false, lostOptionalScopes: [] });
+        expect(revoke).toHaveBeenCalledOnce();
+
+        // Linked back from another of the player's EVE accounts: the old token belongs to the account it left.
+        await db().insert(schema.esiTokens).values({ characterId: 2, refreshTokenEnc: encryptToken("old-account"), scopes: [WALLET_SCOPE] });
+        expect(await login("link", false, "h2-moved")).toMatchObject({ tokenRemoved: true, lostOptionalScopes: [WALLET_SCOPE] });
+        expect(await tokens()).toEqual([]);
+        expect(String(revoke.mock.calls[1][1]?.body)).toContain("token=old-account");
+      } finally {
+        getSpy.mockRestore();
+        postSpy.mockRestore();
+        revoke.mockRestore();
+      }
+    });
+
     it("hints at realised sale prices per raw unit, raw or compressed", async () => {
       await db().insert(schema.walletTransactions).values([
         tx(3, 21, 62516, { isBuy: false, quantity: 10, unitPrice: 1100 }), // 10 compressed = 1000 raw
@@ -1856,6 +1952,41 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(hints).toHaveLength(1);
       expect(hints[0]).toMatchObject({ typeId: 1230, rawUnits: 1500, isk: 17_000, sales: 2, baseUnitPrice: 10 });
       expect(hints[0].rawUnitPrice).toBeCloseTo(17_000 / 1500);
+    });
+
+    it("saves settings through actions that refuse with codes instead of throwing", async () => {
+      const form = (fields: Record<string, string>) => {
+        const data = new FormData();
+        for (const [key, value] of Object.entries(fields)) data.set(key, value);
+        return data;
+      };
+      vi.doMock("@/core/auth/dal", () => ({ assertPermission: async () => ({ id: userB, characterIds: [3] }) }));
+      vi.doMock("next/cache", () => ({ revalidatePath: vi.fn() }));
+      vi.doMock("server-only", () => ({}));
+      try {
+        const a = await import("@/app/(app)/mining/pnl/actions");
+        expect(await a.setIncomeSource(form({ source: "sales" }))).toEqual({ ok: true });
+        expect(await a.setIncomeSource(form({ source: "guesswork" }))).toEqual({ ok: false, error: "invalidSource" });
+        expect(await a.setIncomeRate(form({ rate: "0" }))).toEqual({ ok: false, error: "invalidRate" });
+        expect(await a.addPriceRule(form({ typeId: "1230", unitPrice: "12", validFrom: "2026-09-10", validTo: "2026-09-01" }))).toEqual({
+          ok: false,
+          error: "invalidRange",
+        });
+        expect(await a.addPriceRule(form({ typeId: "999999", unitPrice: "12" }))).toEqual({ ok: false, error: "unknownType" });
+        expect(await a.setAutoInclude(1, true)).toEqual({ ok: false, error: "notOwned" });
+        expect(await a.deleteManualEntry(424242)).toEqual({ ok: false, error: "notFound" });
+        expect(await a.addManualEntry(form({ date: "2026-09-10", amount: "2.1b", category: "subscription", spreadDays: "1" }))).toEqual({
+          ok: true,
+        });
+      } finally {
+        vi.doUnmock("@/core/auth/dal");
+        vi.doUnmock("next/cache");
+        vi.doUnmock("server-only");
+      }
+      const [settings] = await db().select().from(schema.miningPnlSettings).where(sql`user_id = ${userB}`);
+      expect(settings.incomeSource).toBe("sales");
+      const entries = await db().select().from(schema.miningPnlEntries).where(sql`user_id = ${userB}`);
+      expect(entries.map((e) => e.amount)).toEqual([2.1e9]);
     });
   });
 
@@ -2262,8 +2393,9 @@ describe.skipIf(!enabled)("integration", async () => {
       const { disableOptionalScope, enableOptionalScope } = await import("@/core/auth/scope-switch");
       const { fleetJobs } = await import("@/modules/fleet/jobs");
       const { FLEET_SCOPE } = await import("@/modules/fleet/logic");
-      const MINING = "esi-industry.read_character_mining.v1";
-      await db().insert(schema.esiTokens).values({ characterId: 1, refreshTokenEnc: "x", scopes: [MINING, FLEET_SCOPE] });
+      // A corporation scope: never opt-in, so the switch refuses it.
+      const CORP_MINING = "esi-industry.read_corporation_mining.v1";
+      await db().insert(schema.esiTokens).values({ characterId: 1, refreshTokenEnc: "x", scopes: [CORP_MINING, FLEET_SCOPE] });
       const token = async () => (await db().select().from(schema.esiTokens))[0];
       const fleetJobEnabled = async () => {
         await scheduler.planJobs(fleetJobs);
@@ -2272,15 +2404,15 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(await fleetJobEnabled()).toBe(true);
 
       expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
-      expect(await token()).toMatchObject({ scopes: [MINING], disabledScopes: [FLEET_SCOPE] });
+      expect(await token()).toMatchObject({ scopes: [CORP_MINING], disabledScopes: [FLEET_SCOPE] });
       expect(await fleetJobEnabled()).toBe(false);
       // Idempotent, and only for opt-in scopes the token holds.
       expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
-      expect(await disableOptionalScope(1, MINING)).toBe("unknownScope");
+      expect(await disableOptionalScope(1, CORP_MINING)).toBe("unknownScope");
       expect(await disableOptionalScope(2, FLEET_SCOPE)).toBe("notHeld");
 
       expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
-      expect(await token()).toMatchObject({ scopes: [MINING, FLEET_SCOPE], disabledScopes: [] });
+      expect(await token()).toMatchObject({ scopes: [CORP_MINING, FLEET_SCOPE], disabledScopes: [] });
       expect(await fleetJobEnabled()).toBe(true);
       expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
       expect(await enableOptionalScope(2, FLEET_SCOPE)).toBe("notHeld");
@@ -2289,13 +2421,13 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(await disableOptionalScope(1, FLEET_SCOPE)).toBe("ok");
       await db().execute(sql`UPDATE esi_tokens SET status = 'invalid' WHERE character_id = 1`);
       expect(await enableOptionalScope(1, FLEET_SCOPE)).toBe("notHeld");
-      expect(await token()).toMatchObject({ scopes: [MINING], disabledScopes: [FLEET_SCOPE] });
+      expect(await token()).toMatchObject({ scopes: [CORP_MINING], disabledScopes: [FLEET_SCOPE] });
     });
   });
 
   describe("skills", async () => {
-    const { skillQueueJob, characterSkillsJob } = await import("@/modules/skills/jobs");
-    const { SKILLQUEUE_SCOPE, SKILLS_SCOPE } = await import("@/modules/skills/module");
+    const { skillQueueJob, characterSkillsJob, implantsJob } = await import("@/modules/skills/jobs");
+    const { IMPLANTS_SCOPE, SKILLQUEUE_SCOPE, SKILLS_SCOPE } = await import("@/modules/skills/module");
     const skills = await import("@/modules/skills/queries");
 
     type QueueItem = { queue_position: number; skill_id: number; finished_level: number; start_date?: string; finish_date?: string;
@@ -2303,6 +2435,12 @@ describe.skipIf(!enabled)("integration", async () => {
     let queues: Record<number, QueueItem[]> = {};
     let trained: Record<number, { skill_id: number; trained_skill_level: number; active_skill_level: number; skillpoints_in_skill: number }[]> = {};
     let typeRequests: number[] = [];
+    let implants: Record<number, number[]> = {};
+    // Ocular Filter - Standard (+4 perception) and an implant without attribute bonuses.
+    const IMPLANT_DOGMA: Record<number, { attribute_id: number; value: number }[]> = {
+      10216: [175, 176, 177, 178, 179].map((id) => ({ attribute_id: id, value: id === 178 ? 4 : 0 })),
+      9957: [{ attribute_id: 331, value: 7 }],
+    };
     const esi = new EsiClient({
       baseUrl: "https://esi.test",
       userAgent: "t",
@@ -2315,11 +2453,14 @@ describe.skipIf(!enabled)("integration", async () => {
         const type = /^\/universe\/types\/(\d+)$/.exec(path);
         if (type) {
           typeRequests.push(Number(type[1]));
+          const implantDogma = IMPLANT_DOGMA[Number(type[1])];
+          if (implantDogma) return reply({ type_id: Number(type[1]), name: "Implant", group_id: 745, published: true, dogma_attributes: implantDogma });
           return reply({ type_id: Number(type[1]), name: "Skill", group_id: 255, published: true,
             dogma_attributes: [{ attribute_id: 180, value: 165 }, { attribute_id: 181, value: 168 }, { attribute_id: 275, value: 2 }] });
         }
-        const m = /^\/characters\/(\d+)\/(skillqueue|skills|attributes)$/.exec(path)!;
+        const m = /^\/characters\/(\d+)\/(skillqueue|skills|attributes|implants)$/.exec(path)!;
         const id = Number(m[1]);
+        if (m[2] === "implants") return reply(implants[id] ?? []);
         if (m[2] === "skillqueue") return reply(queues[id] ?? []);
         if (m[2] === "skills") return reply({ skills: trained[id] ?? [], total_sp: 5_000_000, unallocated_sp: 1000 });
         return reply({ charisma: 19, intelligence: 27, memory: 21, perception: 20, willpower: 20, bonus_remaps: 1,
@@ -2332,6 +2473,7 @@ describe.skipIf(!enabled)("integration", async () => {
 
     beforeEach(async () => {
       typeRequests = [];
+      implants = { 2: [10216, 9957] };
       queues = {
         2: [
           { queue_position: 0, skill_id: 3300, finished_level: 4, start_date: future(-1), finish_date: future(10),
@@ -2345,6 +2487,8 @@ describe.skipIf(!enabled)("integration", async () => {
       // Names are already known, so ensureTypes stays off the network.
       await db().insert(schema.eveGroups).values({ groupId: 255, name: "Gunnery", categoryId: 16 });
       await db().insert(schema.eveTypes).values([3300, 3301, 3302].map((typeId) => ({ typeId, name: `Skill ${typeId}`, groupId: 255 })));
+      await db().insert(schema.eveGroups).values({ groupId: 745, name: "Cyber Learning", categoryId: 20 });
+      await db().insert(schema.eveTypes).values([10216, 9957].map((typeId) => ({ typeId, name: `Implant ${typeId}`, groupId: 745 })));
       await db().insert(schema.characters).values({ characterId: 4, userId: userA, name: "Alpha Abroad", corporationId: 200, ownerHash: "h4" });
       await db().insert(schema.esiTokens).values([
         { characterId: 1, refreshTokenEnc: "x", scopes: [] },
@@ -2412,6 +2556,53 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(ownB.characters.map((c) => [c.characterId, c.queueEnabled])).toEqual([[2, false], [3, false]]);
       expect(ownB.queues.size).toBe(0);
       expect((await skills.getSkillsAccess(userB)).map((a) => [a.characterId, a.granted, a.hasData])).toEqual([[2, false, true], [3, false, false]]);
+    });
+
+    it("stores implants with their attribute bonuses for the remap optimiser", async () => {
+      await skillQueueJob.run(ctx(2));
+      expect(await skills.getRemapInputs([2], [3300, 3301, 3302])).toMatchObject({ implantsShared: new Set() });
+
+      await db().update(schema.esiTokens).set({ scopes: [SKILLQUEUE_SCOPE, SKILLS_SCOPE, IMPLANTS_SCOPE] }).where(sql`character_id = 2`);
+      // Shared but not read yet: implants unknown, not "none".
+      expect((await skills.getRemapInputs([2], [])).implants.get(2)).toBeNull();
+
+      expect((await implantsJob.run(ctx(2)))?.summary).toBe("2 implants");
+      const attrs = await db().select().from(schema.skillsImplantAttributes);
+      expect(attrs.map((a) => [a.typeId, a.perception]).sort()).toEqual([[10216, 4], [9957, 0]].sort());
+      const inputs = await skills.getRemapInputs([2], [3300, 3301, 3302]);
+      expect(inputs.implants.get(2)).toEqual({ charisma: 0, intelligence: 0, memory: 0, perception: 4, willpower: 0 });
+      expect(inputs.implantsShared.has(2)).toBe(true);
+      // Skill 3302 was never queued, so its attributes are unknown.
+      expect([...inputs.skillAttributes.keys()].sort()).toEqual([3300, 3301]);
+
+      // Unplugged implants disappear; known bonuses aren't fetched again.
+      implants[2] = [];
+      typeRequests = [];
+      await db().execute(sql`DELETE FROM esi_cache`);
+      expect((await implantsJob.run(ctx(2)))?.summary).toBe("0 implants");
+      expect((await skills.getRemapInputs([2], [])).implants.get(2)).toEqual({ charisma: 0, intelligence: 0, memory: 0, perception: 0, willpower: 0 });
+      expect(typeRequests).toEqual([]);
+    });
+
+    it("stores implant bonuses even when their names can't be resolved", async () => {
+      const { getEsi } = await import("@/core/esi");
+      // Unknown names send ensureTypes to ESI, where the implant's group can't be read.
+      await db().execute(sql`DELETE FROM eve_types WHERE type_id = 10216`);
+      const names = vi.spyOn(getEsi(), "get").mockImplementation(async (path: string) => {
+        if (path.startsWith("/universe/groups/")) throw new Error("ESI down");
+        return { data: { type_id: 10216, name: "Ocular Filter - Standard", group_id: 99_999 } } as never;
+      });
+      implants[2] = [10216];
+      expect((await implantsJob.run(ctx(2)))?.summary).toBe("1 implant");
+      names.mockRestore();
+      const [bonus] = await db().select().from(schema.skillsImplantAttributes);
+      expect(bonus).toMatchObject({ typeId: 10216, perception: 4 });
+    });
+
+    it("counts a character as sharing with the queue and skills scopes alone", async () => {
+      const [access] = await skills.getSkillsAccess(userB);
+      expect(access).toMatchObject({ characterId: 2, granted: true, implantsGranted: false });
+      expect((await skills.getRemapInputs([2], [])).implantsShared.has(2)).toBe(false);
     });
 
     it("switches sharing off and back on in Keystar while the token holds both scopes", async () => {
@@ -2517,6 +2708,23 @@ describe.skipIf(!enabled)("integration", async () => {
       expect(STRUCTURES_SCOPE).toBeTruthy();
     });
 
+    it("keeps the structure scope while market access uses it", async () => {
+      const { deleteIndustryData, setIndustryAccess } = await import("@/app/(app)/industry/actions");
+      const { MARKET_ORDERS_SCOPE } = await import("@/modules/market/module");
+      actor = { id: userB, characterIds: [2, 3] };
+      await db().update(schema.esiTokens).set({ scopes: [...INDUSTRY_SCOPES, MARKET_ORDERS_SCOPE] }).where(sql`character_id = 2`);
+
+      expect(await setIndustryAccess(2, false)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([MARKET_ORDERS_SCOPE, STRUCTURES_SCOPE].sort());
+      // Switched off, not partly enabled: the structure scope left is market access's.
+      expect((await industry.getIndustryAccess(userB))[0]).toMatchObject({ granted: false, partial: false, switchedOff: true });
+      expect(await industry.enabledCharacterIds([2])).toEqual([]);
+      expect(await deleteIndustryData(2)).toEqual({ ok: true });
+
+      expect(await setIndustryAccess(2, true)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([...INDUSTRY_SCOPES, MARKET_ORDERS_SCOPE].sort());
+    });
+
     it("checks the permission and the owner, also against the database", async () => {
       const { deleteIndustryData, setIndustryAccess } = await import("@/app/(app)/industry/actions");
       actor = null;
@@ -2593,6 +2801,401 @@ describe.skipIf(!enabled)("integration", async () => {
       // The cached copy of the jobs goes too; other cached responses stay.
       expect((await db().select().from(schema.esiCache)).map((r) => r.key)).toEqual(["2:GET /characters/2/roles"]);
       expect((await industry.getIndustryAccess(userB))[0]).toMatchObject({ characterId: 2, hasData: false });
+    });
+  });
+
+  describe("mining access", async () => {
+    const { MINING_LEDGER_SCOPE: MINING } = await import("@/modules/mining/module");
+    const { characterLedgerJob } = await import("@/modules/mining/jobs");
+    // Who the server actions run as; null makes the permission check fail.
+    let actor: { id: string; characterIds: number[] } | null = null;
+
+    beforeEach(async () => {
+      await db().insert(schema.esiTokens).values([
+        { characterId: 1, refreshTokenEnc: "x", scopes: [MINING] },
+        { characterId: 2, refreshTokenEnc: "x", scopes: [MINING] },
+        { characterId: 3, refreshTokenEnc: "x", scopes: [] },
+      ]);
+      const windowEnd = new Date("2026-09-10T12:00:00Z");
+      for (const characterId of [1, 2]) {
+        await db().insert(schema.miningActivity).values({
+          characterId,
+          windowStart: new Date(windowEnd.getTime() - 900_000),
+          windowEnd,
+          date: "2026-09-10",
+          typeId: 1230,
+          quantity: 10,
+        });
+        await db().insert(schema.miningActivityCoverage).values({ characterId, since: windowEnd, lastObservedAt: windowEnd });
+      }
+      vi.doMock("@/core/auth/dal", () => ({
+        assertPermission: async () => {
+          if (!actor) throw new Error("forbidden");
+          return actor;
+        },
+        getCurrentUser: async () => actor,
+      }));
+      vi.doMock("next/cache", () => ({ revalidatePath: vi.fn() }));
+      vi.doMock("server-only", () => ({}));
+    });
+    afterEach(() => {
+      vi.doUnmock("@/core/auth/dal");
+      vi.doUnmock("next/cache");
+      vi.doUnmock("server-only");
+    });
+    const characterRows = async (table: typeof schema.miningCharacterLedger | typeof schema.miningActivity | typeof schema.miningActivityCoverage) =>
+      (await db().select({ characterId: table.characterId }).from(table)).map((r) => r.characterId).sort();
+
+    it("switches the ledger off and on in Keystar, keeping the history", async () => {
+      const { setOptionalScope } = await import("@/app/(app)/characters/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      expect(await q.getMiningAccess(userB)).toMatchObject([
+        { characterId: 2, granted: true, switchedOff: false, tokenStatus: "active", firstDate: "2026-09-10", lastDate: "2026-09-10" },
+        { characterId: 3, granted: false, switchedOff: false, firstDate: "2026-09-11" },
+      ]);
+      expect(await q.getCoverage(own([2, 3]))).toMatchObject({ trackedCharacters: 1, notEnabled: 1, invalidTokens: 0 });
+
+      expect(await setOptionalScope(2, MINING, false)).toEqual({ ok: true });
+      const [token] = await db().select().from(schema.esiTokens).where(sql`character_id = 2`);
+      expect(token).toMatchObject({ scopes: [], disabledScopes: [MINING] });
+      expect((await q.getMiningAccess(userB))[0]).toMatchObject({ granted: false, switchedOff: true, firstDate: "2026-09-10" });
+      expect(await q.getCoverage(own([2, 3]))).toMatchObject({ trackedCharacters: 0, notEnabled: 2 });
+      // The sync stops, but the stored history still counts.
+      await scheduler.planJobs([characterLedgerJob]);
+      expect((await db().select().from(schema.syncJobs)).filter((j) => j.enabled).map((j) => j.ownerId)).toEqual([1]);
+      expect((await q.getMiningSummary(filters(), own([2, 3]), val)).current.value).toBe(100 * 600 + 500 * 10);
+
+      expect(await setOptionalScope(2, MINING, true)).toEqual({ ok: true });
+      expect(await q.getCoverage(own([2, 3]))).toMatchObject({ trackedCharacters: 1, notEnabled: 1 });
+      // A token that never held the scope needs the EVE login.
+      expect(await setOptionalScope(3, MINING, true)).toEqual({ ok: false, error: "notHeld" });
+    });
+
+    it("counts characters without a token as not sharing, and revoked tokens apart", async () => {
+      await db().delete(schema.esiTokens).where(sql`character_id = 3`);
+      await db().update(schema.esiTokens).set({ status: "invalid" }).where(sql`character_id = 1`);
+      expect(await q.getCoverage(corp)).toMatchObject({ trackedCharacters: 1, notEnabled: 1, invalidTokens: 1 });
+      expect((await q.getMiningAccess(userB))[1]).toMatchObject({ characterId: 3, granted: false, tokenStatus: null });
+    });
+
+    it("deletes the stored ledger only once it is off", async () => {
+      const { setOptionalScope } = await import("@/app/(app)/characters/actions");
+      const { deleteMiningData } = await import("@/app/(app)/mining/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      await db().insert(schema.esiCache).values(
+        ["2:GET /characters/2/mining?page=1", "2:GET /characters/2/roles", "1:GET /characters/1/mining?page=1"].map((key) => ({ key, body: [] })),
+      );
+      expect(await deleteMiningData(2)).toEqual({ ok: false, error: "stillEnabled" });
+      expect(await setOptionalScope(2, MINING, false)).toEqual({ ok: true });
+      expect(await deleteMiningData(2)).toEqual({ ok: true });
+
+      expect(await characterRows(schema.miningCharacterLedger)).toEqual([1, 3]);
+      expect(await characterRows(schema.miningActivity)).toEqual([1]);
+      expect(await characterRows(schema.miningActivityCoverage)).toEqual([1]);
+      // Moon-drill records belong to the corporation and stay.
+      expect((await db().select().from(schema.miningObserverLedger)).map((r) => r.characterId).sort()).toEqual([2, 9]);
+      // The cached copy of the ledger goes too; other cached responses stay.
+      expect((await db().select().from(schema.esiCache)).map((r) => r.key).sort()).toEqual([
+        "1:GET /characters/1/mining?page=1",
+        "2:GET /characters/2/roles",
+      ]);
+      expect((await q.getMiningAccess(userB))[0]).toMatchObject({ characterId: 2, firstDate: null, lastDate: null });
+    });
+
+    it("checks the permission and the owner, also against the database", async () => {
+      const { setOptionalScope } = await import("@/app/(app)/characters/actions");
+      const { deleteMiningData } = await import("@/app/(app)/mining/actions");
+      actor = null;
+      expect(await setOptionalScope(2, MINING, false)).toEqual({ ok: false, error: "forbidden" });
+      expect(await deleteMiningData(2)).toEqual({ ok: false, error: "forbidden" });
+      actor = { id: userB, characterIds: [3] };
+      expect(await setOptionalScope(2, MINING, false)).toEqual({ ok: false, error: "notOwned" });
+      expect(await deleteMiningData(2)).toEqual({ ok: false, error: "notOwned" });
+      // The session's character list is stale: character 1 belongs to Alpha, not Bravo.
+      await db().update(schema.esiTokens).set({ scopes: [] }).where(sql`character_id = 1`);
+      actor = { id: userB, characterIds: [1] };
+      expect(await deleteMiningData(1)).toEqual({ ok: false, error: "notOwned" });
+      expect(await characterRows(schema.miningCharacterLedger)).toEqual([1, 2, 3]);
+    });
+
+    it("skips a sync's write once the ledger is off, so deleted history stays deleted", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      let requests = 0;
+      let offAfterFetch = false;
+      const esi = new EsiClient({
+        baseUrl: "https://esi.test",
+        userAgent: "t",
+        compatibilityDate: "2026-08-18",
+        tokenProvider: async () => "token",
+        maxRetries: 0,
+        fetchImpl: (async () => {
+          requests++;
+          // Simulates the ledger being switched off while the ESI request is in flight.
+          if (offAfterFetch) await db().update(schema.esiTokens).set({ scopes: [] }).where(sql`character_id = 2`);
+          return new Response(JSON.stringify([{ date: today, quantity: 700, solar_system_id: 30000180, type_id: 1230 }]), {
+            status: 200,
+            headers: { "content-type": "application/json", "last-modified": new Date().toUTCString() },
+          });
+        }) as unknown as typeof fetch,
+      });
+      const ctx = { jobId: 1, ownerType: "character" as const, ownerId: 2, characterId: 2, esi, db: db(), log: undefined as never, meta: {} };
+      const todayRows = async () => db().select().from(schema.miningCharacterLedger).where(sql`character_id = 2 AND date = ${today}`);
+
+      // Off: a run claimed before the planner disables the schedule reads nothing from ESI.
+      await db().update(schema.esiTokens).set({ scopes: [] }).where(sql`character_id = 2`);
+      expect((await characterLedgerJob.run(ctx))?.summary).toBe("Mining ledger is switched off");
+      expect(requests).toBe(0);
+
+      // A run whose ESI request already happened when the ledger went off writes nothing either, and drops the cached
+      // response (stored on its way in), which a run after switching back on would otherwise skip as already applied.
+      await db().update(schema.esiTokens).set({ scopes: [MINING] }).where(sql`character_id = 2`);
+      await db().insert(schema.esiCache).values(
+        ["2:GET /characters/2/mining?page=1", "2:GET /characters/2/roles"].map((key) => ({ key, body: [] })),
+      );
+      offAfterFetch = true;
+      expect((await characterLedgerJob.run(ctx))?.summary).toBe("Mining ledger was switched off during the sync");
+      expect(requests).toBe(1);
+      expect(await todayRows()).toEqual([]);
+      expect((await db().select().from(schema.esiCache)).map((r) => r.key)).toEqual(["2:GET /characters/2/roles"]);
+
+
+      // On: the run stores the ledger.
+      offAfterFetch = false;
+      await db().update(schema.esiTokens).set({ scopes: [MINING] }).where(sql`character_id = 2`);
+      await db().delete(schema.esiCache);
+      expect((await characterLedgerJob.run(ctx))?.summary).toContain("1 ledger entries");
+      expect(await todayRows()).toHaveLength(1);
+
+      // A revoked token isn't "switched off": the run goes on to fail at the token refresh (stubbed here), as before.
+      await db().update(schema.esiTokens).set({ status: "invalid" }).where(sql`character_id = 2`);
+      const before = requests;
+      expect((await characterLedgerJob.run(ctx))?.summary).not.toContain("switched off");
+      expect(requests).toBe(before + 1);
+    });
+  });
+
+  describe("market access", async () => {
+    const { INDUSTRY_JOBS_SCOPE, INDUSTRY_SCOPES } = await import("@/modules/industry/module");
+    const { MARKET_ORDERS_SCOPE, MARKET_SCOPES } = await import("@/modules/market/module");
+    const market = await import("@/modules/market/queries");
+    const industry = await import("@/modules/industry/queries");
+    const { parseMarketFilters } = await import("@/modules/market/filters");
+    const order = (orderId: number, characterId: number, extra: Partial<typeof schema.marketOrders.$inferInsert> = {}) => ({
+      orderId,
+      characterId,
+      typeId: 34,
+      regionId: 10000002,
+      locationId: 60003760,
+      isBuyOrder: false,
+      isCorporation: false,
+      price: 5,
+      volumeTotal: 100,
+      volumeRemain: 40,
+      range: "region" as const,
+      duration: 90,
+      issued: new Date(Date.now() - 86_400_000),
+      state: "open" as const,
+      ...extra,
+    });
+    // Who the server actions run as; null makes the permission check fail.
+    let actor: { id: string; characterIds: number[] } | null = null;
+
+    beforeEach(async () => {
+      await db().insert(schema.esiTokens).values([
+        { characterId: 1, refreshTokenEnc: "x", scopes: [...MARKET_SCOPES] },
+        { characterId: 2, refreshTokenEnc: "x", scopes: [...MARKET_SCOPES] },
+        { characterId: 3, refreshTokenEnc: "x", scopes: [] },
+      ]);
+      await db().insert(schema.marketOrders).values([order(1, 1), order(2, 2)]);
+      vi.doMock("@/core/auth/dal", () => ({
+        assertPermission: async () => {
+          if (!actor) throw new Error("forbidden");
+          return actor;
+        },
+      }));
+      vi.doMock("next/cache", () => ({ revalidatePath: vi.fn() }));
+      vi.doMock("server-only", () => ({}));
+    });
+    afterEach(() => {
+      vi.doUnmock("@/core/auth/dal");
+      vi.doUnmock("next/cache");
+      vi.doUnmock("server-only");
+    });
+    const scopesOf = async (characterId: number) =>
+      (await db().select({ scopes: schema.esiTokens.scopes }).from(schema.esiTokens).where(sql`character_id = ${characterId}`))[0].scopes.sort();
+
+    it("switches both scopes off and on together, in Keystar only", async () => {
+      const { setMarketAccess } = await import("@/app/(app)/market/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      expect(await market.enabledCharacterIds([2, 3])).toEqual([2]);
+
+      expect(await setMarketAccess(2, false)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([]);
+      expect((await market.getMarketAccess(userB))[0]).toMatchObject({ characterId: 2, granted: false, partial: false, switchedOff: true, hasData: true });
+      // The stored orders stay, but the page no longer reads the character.
+      expect(await market.enabledCharacterIds([2, 3])).toEqual([]);
+      expect(await market.getMarketCoverage([2, 3])).toMatchObject({ tracked: 0, notEnabled: 2 });
+
+      expect(await setMarketAccess(2, true)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([...MARKET_SCOPES].sort());
+      expect(await market.getMarketCoverage([2, 3])).toMatchObject({ tracked: 1, notEnabled: 1 });
+
+      // A token that never held the scopes needs the EVE login.
+      expect(await setMarketAccess(3, true)).toEqual({ ok: false, error: "notHeld" });
+    });
+
+    it("keeps the structure scope while industry access uses it", async () => {
+      const { deleteMarketData, setMarketAccess } = await import("@/app/(app)/market/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      await db().update(schema.esiTokens).set({ scopes: [MARKET_ORDERS_SCOPE, ...INDUSTRY_SCOPES] }).where(sql`character_id = 2`);
+
+      // Market off: industry still names its structures.
+      expect(await setMarketAccess(2, false)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([...INDUSTRY_SCOPES].sort());
+      expect(await industry.enabledCharacterIds([2])).toEqual([2]);
+      expect((await market.getMarketAccess(userB))[0]).toMatchObject({ granted: false, partial: false, switchedOff: true });
+      // The structure scope still held doesn't keep the market orders from being deleted.
+      expect(await deleteMarketData(2)).toEqual({ ok: true });
+      expect((await db().select().from(schema.marketOrders)).map((o) => o.orderId)).toEqual([1]);
+
+      // And back on without a login: the structure scope was never switched off.
+      expect(await setMarketAccess(2, true)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([MARKET_ORDERS_SCOPE, ...INDUSTRY_SCOPES].sort());
+
+      // With industry off, switching market off takes the structure scope too.
+      await db()
+        .update(schema.esiTokens)
+        .set({ scopes: [...MARKET_SCOPES], disabledScopes: [INDUSTRY_JOBS_SCOPE] })
+        .where(sql`character_id = 2`);
+      expect(await setMarketAccess(2, false)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([]);
+    });
+
+    it("refuses a token holding only one scope rather than enabling half", async () => {
+      const { setMarketAccess } = await import("@/app/(app)/market/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      await db().update(schema.esiTokens).set({ scopes: [MARKET_ORDERS_SCOPE] }).where(sql`character_id = 2`);
+      expect(await setMarketAccess(2, true)).toEqual({ ok: false, error: "notHeld" });
+      expect((await market.getMarketAccess(userB))[0]).toMatchObject({ granted: false, partial: true, switchedOff: false });
+      expect(await market.enabledCharacterIds([2])).toEqual([]);
+      expect(await setMarketAccess(2, false)).toEqual({ ok: true });
+      expect(await scopesOf(2)).toEqual([]);
+      // A structure scope industry access left behind alone is not market access.
+      await db().update(schema.esiTokens).set({ scopes: [...INDUSTRY_SCOPES], disabledScopes: [] }).where(sql`character_id = 2`);
+      expect((await market.getMarketAccess(userB))[0]).toMatchObject({ granted: false, partial: false, switchedOff: false });
+    });
+
+    it("checks the permission and the owner, also against the database", async () => {
+      const { deleteMarketData, setMarketAccess } = await import("@/app/(app)/market/actions");
+      actor = null;
+      expect(await setMarketAccess(2, false)).toEqual({ ok: false, error: "forbidden" });
+      expect(await deleteMarketData(2)).toEqual({ ok: false, error: "forbidden" });
+      actor = { id: userB, characterIds: [3] };
+      expect(await setMarketAccess(2, false)).toEqual({ ok: false, error: "notOwned" });
+      expect(await deleteMarketData(2)).toEqual({ ok: false, error: "notOwned" });
+      // The session's character list is stale: character 1 belongs to Alpha, not Bravo.
+      actor = { id: userB, characterIds: [1] };
+      expect(await setMarketAccess(1, false)).toEqual({ ok: false, error: "notOwned" });
+      expect(await deleteMarketData(1)).toEqual({ ok: false, error: "notOwned" });
+      expect(await scopesOf(1)).toEqual([...MARKET_SCOPES].sort());
+      expect((await db().select().from(schema.marketOrders)).map((o) => o.orderId).sort()).toEqual([1, 2]);
+    });
+
+    it("deletes stored orders only once access is off", async () => {
+      const { deleteMarketData, setMarketAccess } = await import("@/app/(app)/market/actions");
+      actor = { id: userB, characterIds: [2, 3] };
+      await db().insert(schema.esiCache).values(
+        ["2:GET /characters/2/orders", "2:GET /characters/2/orders/history", "2:GET /characters/2/roles"].map((key) => ({ key, body: [] })),
+      );
+      expect(await deleteMarketData(2)).toEqual({ ok: false, error: "stillEnabled" });
+      expect(await setMarketAccess(2, false)).toEqual({ ok: true });
+      expect(await deleteMarketData(2)).toEqual({ ok: true });
+      expect((await db().select().from(schema.marketOrders)).map((o) => o.orderId)).toEqual([1]);
+      // The cached copies of the orders go too; other cached responses stay.
+      expect((await db().select().from(schema.esiCache)).map((r) => r.key)).toEqual(["2:GET /characters/2/roles"]);
+      expect((await market.getMarketAccess(userB))[0]).toMatchObject({ characterId: 2, hasData: false });
+    });
+
+    it("syncs open and closed orders, and notices orders that left the market", async () => {
+      const { characterMarketOrdersJob } = await import("@/modules/market/jobs");
+      await db().delete(schema.marketOrders);
+      await db().insert(schema.eveTypes).values({ typeId: 34, name: "Tritanium", groupId: 462 });
+      await db().insert(schema.eveEntities).values({ id: 10000002, name: "The Forge", category: "region" });
+      const issued = new Date(Date.now() - 2 * 86_400_000).toISOString();
+      const esiOrder = (orderId: number, extra: Record<string, unknown> = {}) => ({
+        order_id: orderId, type_id: 34, region_id: 10000002, location_id: 60003760, is_corporation: false, price: 5,
+        volume_total: 100, volume_remain: 40, range: "region", duration: 90, issued, ...extra,
+      });
+      let open: unknown[] = [esiOrder(900), esiOrder(901, { is_buy_order: true, range: "station", escrow: 200, min_volume: 1 })];
+      let history: unknown[] = [esiOrder(902, { state: "cancelled", volume_remain: 70 })];
+      let requests = 0;
+      const esi = new EsiClient({
+        baseUrl: "https://esi.test",
+        userAgent: "t",
+        compatibilityDate: "2026-08-18",
+        tokenProvider: async () => "token",
+        maxRetries: 0,
+        fetchImpl: (async (url: string) => {
+          const path = new URL(String(url)).pathname;
+          const reply = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+          if (/\/orders$/.test(path)) {
+            requests++;
+            return reply(open);
+          }
+          if (/\/orders\/history$/.test(path)) return reply(history);
+          if (/\/universe\/stations\//.test(path)) return reply({ name: "Jita IV - Moon 4 - Caldari Navy Assembly Plant", system_id: 30000180, type_id: 52678 });
+          return reply([]);
+        }) as typeof fetch,
+      });
+      const ctx = { jobId: 1, ownerType: "character" as const, ownerId: 2, characterId: 2, esi, db: db(), log: undefined as never, meta: {} };
+      const stored = async () =>
+        Object.fromEntries((await db().select().from(schema.marketOrders)).map((o) => [o.orderId, o] as const));
+
+      expect((await characterMarketOrdersJob.run(ctx))?.summary).toBe("2 open orders, 3 listed");
+      let rows = await stored();
+      expect(rows[900]).toMatchObject({ state: "open", isBuyOrder: false, volumeRemain: 40, closedAt: null });
+      expect(rows[901]).toMatchObject({ state: "open", isBuyOrder: true, range: "station", escrow: 200 });
+      expect(rows[902]).toMatchObject({ state: "cancelled", volumeRemain: 70, closedAt: null });
+
+      // The page reads them, named, with the summary of what is open.
+      const scope = { ownCharacterIds: [2] };
+      const page = await market.getMarketOrders(parseMarketFilters({ view: "all" }), scope, { limit: 10, offset: 0 });
+      expect(page.total).toBe(3);
+      expect(page.orders[0]).toMatchObject({ typeName: "Tritanium", locationName: "Jita IV - Moon 4 - Caldari Navy Assembly Plant", systemName: "Osmon", regionName: "The Forge" });
+      expect(page.orders.map((o) => o.state)).toEqual(["open", "open", "cancelled"]);
+      expect((await market.getMarketOrders(parseMarketFilters({ side: "buy" }), scope, { limit: 10, offset: 0 })).orders.map((o) => o.orderId)).toEqual([901]);
+      expect(await market.getMarketSummary(parseMarketFilters({ view: "closed" }), scope, new Date())).toMatchObject({
+        sellOrders: 1,
+        sellValue: 200,
+        buyOrders: 1,
+        buyValue: 200,
+        escrow: 200,
+        expiringSoon: 0,
+        byLocation: [{ locationId: 60003760, orders: 2, value: 400, regionName: "The Forge" }],
+      });
+
+      // The buy order is gone from the market, the sell order was repriced; the history hasn't caught up yet.
+      open = [esiOrder(900, { price: 4.9, volume_remain: 30 })];
+      expect((await characterMarketOrdersJob.run(ctx))?.summary).toBe("1 open order, 2 listed");
+      rows = await stored();
+      expect(rows[900]).toMatchObject({ state: "open", price: 4.9, volumeRemain: 30 });
+      expect(rows[901].state).toBe("closed");
+      const noticed = rows[901].closedAt;
+      expect(noticed).toBeInstanceOf(Date);
+
+      // Now the history has it (filled), while a stale open list still shows the cancelled one: the history wins.
+      history = [esiOrder(902, { state: "cancelled", volume_remain: 70 }), esiOrder(901, { is_buy_order: true, range: "station", state: "expired", volume_remain: 0 })];
+      open = [esiOrder(900, { price: 4.9, volume_remain: 30 }), esiOrder(902)];
+      await characterMarketOrdersJob.run(ctx);
+      rows = await stored();
+      expect(rows[901]).toMatchObject({ state: "expired", volumeRemain: 0, closedAt: noticed });
+      expect(rows[902]).toMatchObject({ state: "cancelled", volumeRemain: 70 });
+
+      // Access off: a run claimed before the planner disables the schedule reads nothing from ESI.
+      await db().update(schema.esiTokens).set({ scopes: [] }).where(sql`character_id = 2`);
+      const before = requests;
+      expect((await characterMarketOrdersJob.run(ctx))?.summary).toBe("Market access is switched off");
+      expect(requests).toBe(before);
     });
   });
 
@@ -2874,6 +3477,14 @@ describe.skipIf(!enabled)("integration", async () => {
         matched: 5,
         accountName: null,
       });
+    });
+
+    it("counts only revoked tokens while no scope is required of every member", async () => {
+      // Bravo Alt has no token and Bravo only some scopes: fine while every scope is opt-in.
+      expect((await audit.getMemberAuditStats(100, [], params())).esiTrouble).toBe(0);
+      await db().update(schema.esiTokens).set({ status: "invalid" }).where(sql`character_id = 2`);
+      expect((await audit.getMemberAuditStats(100, [], params())).esiTrouble).toBe(1);
+      expect((await audit.getMemberAuditPage(100, [], params({ filter: "esi" }))).map((r) => r.id)).toEqual(["2"]);
     });
 
     it("lists registered characters first, then by name", async () => {

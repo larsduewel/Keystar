@@ -3,6 +3,7 @@ import { getDb } from "@/core/db";
 import type { ValuationSource } from "@/core/db/schema/eve";
 import { ORE_CLASSES, oreClassSqlCase, type OreClass } from "@/core/eve/ore";
 import { addDays, daysBetween, type MiningFilters, type MiningView } from "./filters";
+import { MINING_LEDGER_SCOPE } from "./module";
 
 /**
  * Aggregation queries for the mining dashboards. Every query starts from the
@@ -233,6 +234,34 @@ export async function getDailySeries(f: MiningFilters, scope: MiningScope, val: 
     point.value += num(r.value);
   }
   return [...byDate.values()];
+}
+
+export interface DailyTypeRow {
+  date: string;
+  typeId: number;
+  name: string;
+  oreClass: OreClass;
+  /** The filters' metric. */
+  amount: number;
+}
+
+/** Per-day totals of each type, for the daily chart's per-ore view. */
+export async function getDailyTypeSeries(f: MiningFilters, scope: MiningScope, val: Valuation): Promise<DailyTypeRow[]> {
+  const rows = await getDb().execute<Record<string, unknown>>(sql`
+    WITH ${ledgerCte(f, scope, val)}
+    SELECT to_char(l.date, 'YYYY-MM-DD') AS date, l.type_id::int AS type_id,
+           MAX(l.type_name) AS name, MAX(l.ore_class) AS ore_class,
+           SUM(l.quantity)::float8 AS quantity,
+           SUM(l.quantity * l.unit_volume)::float8 AS volume,
+           SUM(l.quantity * l.unit_price)::float8 AS value
+    FROM ledger l GROUP BY 1, 2 ORDER BY 1`);
+  return rows.map((r) => ({
+    date: String(r.date),
+    typeId: num(r.type_id),
+    name: (r.name as string | null) ?? `Type ${r.type_id}`,
+    oreClass: (r.ore_class as OreClass) ?? "other",
+    amount: num(r[f.metric]),
+  }));
 }
 
 export interface MemberRow {
@@ -650,8 +679,11 @@ export async function getObserverSummaries(f: MiningFilters, val: Valuation, hom
 export const ALL_ORE_CLASSES = ORE_CLASSES;
 
 export interface Coverage {
+  /** Characters whose working token shares the mining ledger. */
   trackedCharacters: number;
-  missingScope: number;
+  /** Characters that don't share it (no token, or a token without the scope): opt-in, so not a problem. */
+  notEnabled: number;
+  /** Characters sharing it whose token EVE revoked. */
   invalidTokens: number;
   lastLedgerSync: Date | null;
   lastObserverSync: Date | null;
@@ -675,9 +707,9 @@ export async function getCoverage(scope: MiningScope): Promise<Coverage> {
   const [tokens, jobs, observers, roster] = await Promise.all([
     db.execute<Record<string, unknown>>(sql`
       SELECT
-        COUNT(*) FILTER (WHERE t.status = 'active' AND 'esi-industry.read_character_mining.v1' = ANY(t.scopes))::int AS tracked,
-        COUNT(*) FILTER (WHERE t.character_id IS NULL OR NOT ('esi-industry.read_character_mining.v1' = ANY(t.scopes)))::int AS missing,
-        COUNT(*) FILTER (WHERE t.status = 'invalid')::int AS invalid
+        COUNT(*) FILTER (WHERE t.status = 'active' AND ${MINING_LEDGER_SCOPE}::text = ANY(t.scopes))::int AS tracked,
+        COUNT(*) FILTER (WHERE t.character_id IS NULL OR NOT (${MINING_LEDGER_SCOPE}::text = ANY(t.scopes)))::int AS not_enabled,
+        COUNT(*) FILTER (WHERE t.status = 'invalid' AND ${MINING_LEDGER_SCOPE}::text = ANY(t.scopes))::int AS invalid
       FROM characters c LEFT JOIN esi_tokens t ON t.character_id = c.character_id
       WHERE true ${charFilter}`),
     db.execute<Record<string, unknown>>(sql`
@@ -696,11 +728,65 @@ export async function getCoverage(scope: MiningScope): Promise<Coverage> {
   const toDate = (v: unknown) => (v ? new Date(String(v)) : null);
   return {
     trackedCharacters: num(tokens[0]?.tracked),
-    missingScope: num(tokens[0]?.missing),
+    notEnabled: num(tokens[0]?.not_enabled),
     invalidTokens: num(tokens[0]?.invalid),
     lastLedgerSync: toDate(jobs[0]?.last),
     lastObserverSync: scope.corp ? toDate(observers[0]?.last) : null,
     observerError: scope.corp ? ((observers[0]?.error as string | null) ?? null) : null,
     unregisteredMembers: roster ? num(roster[0]?.n) : null,
   };
+}
+
+export interface MiningAccessStatus {
+  characterId: number;
+  name: string;
+  grantedScopes: string[];
+  /** The token shares the mining ledger with Keystar. */
+  granted: boolean;
+  /** Switched off in Keystar while the active token still holds the scope: can be switched back on without a login. */
+  switchedOff: boolean;
+  tokenStatus: "active" | "invalid" | null;
+  lastSuccessAt: Date | null;
+  lastStatus: string | null;
+  lastError: string | null;
+  /** First and last day of the stored personal ledger (null: nothing stored). */
+  firstDate: string | null;
+  lastDate: string | null;
+}
+
+/** The viewer's characters with their mining ledger access, for the access page. */
+export async function getMiningAccess(userId: string): Promise<MiningAccessStatus[]> {
+  const rows = await getDb().execute<Record<string, unknown>>(sql`
+    SELECT c.character_id, c.name, t.scopes, t.disabled_scopes, t.status AS token_status,
+           j.last_success_at, j.last_status, j.last_error, l.first_date, l.last_date
+    FROM characters c
+    JOIN users u ON u.id = c.user_id
+    LEFT JOIN esi_tokens t ON t.character_id = c.character_id
+    LEFT JOIN sync_jobs j ON j.job_key = 'mining.character-ledger' AND j.owner_type = 'character' AND j.owner_id = c.character_id
+    LEFT JOIN LATERAL (
+      SELECT MIN(date)::text AS first_date, MAX(date)::text AS last_date
+      FROM mining_character_ledger WHERE character_id = c.character_id
+    ) l ON TRUE
+    WHERE c.user_id = ${userId}::uuid
+    ORDER BY c.character_id IS NOT DISTINCT FROM u.main_character_id DESC, c.name`);
+  const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
+  return rows.map((r) => {
+    const scopes = Array.isArray(r.scopes) ? (r.scopes as string[]) : [];
+    const disabled = Array.isArray(r.disabled_scopes) ? (r.disabled_scopes as string[]) : [];
+    const granted = scopes.includes(MINING_LEDGER_SCOPE);
+    return {
+      characterId: num(r.character_id),
+      name: String(r.name),
+      grantedScopes: scopes,
+      granted,
+      // A revoked token can't be switched back on in Keystar; it needs the EVE login.
+      switchedOff: !granted && r.token_status === "active" && disabled.includes(MINING_LEDGER_SCOPE),
+      tokenStatus: r.token_status === "active" || r.token_status === "invalid" ? r.token_status : null,
+      lastSuccessAt: r.last_success_at ? new Date(String(r.last_success_at)) : null,
+      lastStatus: str(r.last_status),
+      lastError: str(r.last_error),
+      firstDate: str(r.first_date),
+      lastDate: str(r.last_date),
+    };
+  });
 }

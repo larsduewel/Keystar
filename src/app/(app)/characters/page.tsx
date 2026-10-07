@@ -1,6 +1,6 @@
 import { inArray } from "drizzle-orm";
 import Link from "next/link";
-import { Building2, Crown, KeyRound, Link2, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
+import { Building2, Crown, ExternalLink, KeyRound, Link2, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { ActionForm } from "@/components/ui/action-form";
@@ -9,10 +9,12 @@ import { CorpLogo, Portrait } from "@/components/ui/eve-image";
 import { Glass, Panel } from "@/components/ui/glass";
 import { requireUser } from "@/core/auth/dal";
 import { characterCorpRoles, esiTokens, eveCorporations, getDb, syncJobs } from "@/core/db";
+import { EVE_AUTHORIZED_APPS_URL } from "@/core/eve/links";
 import {
   allScopeRequirements,
   characterScopes,
   corporationScopes,
+  esiHealth,
   optionalScopeLabels,
   optionalScopes,
   parseOptionalScopes,
@@ -58,7 +60,20 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
   const reasons = new Map(allScopeRequirements().map((s) => [s.scope, s.reason(t)]));
   const scopeLabels = optionalScopeLabels(t);
   const tc = m.toast;
-  const manageHrefs = new Map(allScopeRequirements().flatMap((s) => (s.manageHref ? [[s.scope, s.manageHref] as const] : [])));
+  // A scope two accesses share (structure names) links to the first module that declares it, as its permission does.
+  const manageHrefs = new Map(allScopeRequirements().flatMap((s) => (s.manageHref ? [[s.scope, s.manageHref] as const] : [])).reverse());
+  const authorizedApps = (text: string) => (
+    <a
+      href={EVE_AUTHORIZED_APPS_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-0.5 text-accent hover:underline"
+    >
+      {text}
+      <ExternalLink className="size-3" aria-hidden />
+      <span className="sr-only">{t.common.opensInNewTab}</span>
+    </a>
+  );
 
   return (
     <div className="space-y-6">
@@ -99,8 +114,11 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
           {user.characters.map((c) => {
             const token = tokens.find((x) => x.characterId === c.characterId);
             const granted = token?.scopes ?? [];
+            const health = esiHealth(token, memberScopes);
             const missing = memberScopes.filter((s) => !granted.includes(s));
             const corpGranted = corpOnly.filter((s) => granted.includes(s));
+            // Member scopes (none while every character scope is opt-in) and the corporation scopes held.
+            const fixedScopes = memberScopes.length > 0 || corpGranted.length > 0;
             const charRoles = roles.find((r) => r.characterId === c.characterId)?.roles ?? [];
             const corp = corps.find((x) => x.corporationId === c.corporationId);
             const charJobs = jobs.filter((j) => j.ownerType === "character" && j.ownerId === c.characterId && j.enabled);
@@ -119,12 +137,13 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
                           <Crown className="size-3" aria-hidden /> {m.card.main}
                         </Badge>
                       )}
-                      {!token ? (
-                        <StatusBadge status="warning" label={m.card.noToken} />
-                      ) : token.status === "invalid" ? (
+                      {health === "revoked" ? (
                         <StatusBadge status="error" label={m.card.tokenRevoked} />
-                      ) : missing.length ? (
-                        <StatusBadge status="warning" label={m.card.scopesMissing(missing.length)} />
+                      ) : health === "missing" ? (
+                        <StatusBadge status="warning" label={token ? m.card.scopesMissing(missing.length) : m.card.noToken} />
+                      ) : health === "none" ? (
+                        // Nothing granted is fine: every ESI scope is opt-in.
+                        <Badge>{m.card.noToken}</Badge>
                       ) : (
                         <StatusBadge status="ok" label={m.card.esiActive} />
                       )}
@@ -147,7 +166,7 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(!token || token.status === "invalid" || missing.length > 0) && (
+                    {(health === "revoked" || health === "missing") && (
                       <ButtonLink href={reauthorizeHref(granted, { characterId: c.characterId })} size="sm" variant="primary">
                         <KeyRound className="size-3.5" aria-hidden /> {m.card.reauthorise}
                       </ButtonLink>
@@ -212,20 +231,22 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-2xl glass-inset px-4 py-3">
                     <div className="eve-label mb-2 text-2xs text-ink-3">{m.card.scopes}</div>
-                    <ul className="space-y-1 text-xs">
-                      {memberScopes.map((s) => (
-                        <li key={s} className="flex items-center justify-between gap-2" title={reasons.get(s)}>
-                          <code className="truncate text-ink-2">{s}</code>
-                          {granted.includes(s) ? <Badge tone="good">{m.card.granted}</Badge> : <Badge tone="warning">{m.card.missing}</Badge>}
-                        </li>
-                      ))}
-                      {corpGranted.length > 0 && (
-                        <li className="pt-1 text-ink-3">{m.card.corporationScopes(corpGranted.length)}</li>
-                      )}
-                    </ul>
+                    {fixedScopes && (
+                      <ul className="mb-3 space-y-1 text-xs">
+                        {memberScopes.map((s) => (
+                          <li key={s} className="flex items-center justify-between gap-2" title={reasons.get(s)}>
+                            <code className="truncate text-ink-2">{s}</code>
+                            {granted.includes(s) ? <Badge tone="good">{m.card.granted}</Badge> : <Badge tone="warning">{m.card.missing}</Badge>}
+                          </li>
+                        ))}
+                        {corpGranted.length > 0 && (
+                          <li className="pt-1 text-ink-3">{m.card.corporationScopes(corpGranted.length)}</li>
+                        )}
+                      </ul>
+                    )}
                     {optional.length > 0 && (
                       <>
-                        <div className="eve-label mt-3 mb-2 text-2xs text-ink-3">{m.card.optional}</div>
+                        {fixedScopes && <div className="eve-label mb-2 text-2xs text-ink-3">{m.card.optional}</div>}
                         <ul className="space-y-1 text-xs">
                           {optional.map((s) => {
                             const badge = granted.includes(s) ? <Badge tone="good">{m.card.optionalOn}</Badge> : <Badge>{m.card.optionalOff}</Badge>;
@@ -296,9 +317,10 @@ export default async function CharactersPage({ searchParams }: PageProps<"/chara
               <li>{m.privacy.encrypted}</li>
               <li>{m.privacy.readOnly}</li>
               <li>{m.privacy.removal}</li>
+              <li>{m.privacy.mining}</li>
               <li>{m.privacy.wallet}</li>
               <li>{m.privacy.mail}</li>
-              <li>{m.privacy.revoke}</li>
+              <li>{m.privacy.revoke(authorizedApps)}</li>
             </ul>
           </Panel>
         </div>

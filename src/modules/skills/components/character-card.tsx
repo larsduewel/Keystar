@@ -1,11 +1,13 @@
-import { GraduationCap, KeyRound } from "lucide-react";
+import { Brain, GraduationCap, KeyRound } from "lucide-react";
+import Link from "next/link";
 import { StatusBadge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Portrait, TypeIcon } from "@/components/ui/eve-image";
 import { Glass } from "@/components/ui/glass";
 import type { Messages } from "@/i18n/messages";
 import type { Formatter } from "@/lib/format";
-import { SKILLS_MANAGE_HREF } from "../module";
+import { skillsQueryString } from "../filters";
+import { SKILLS_MANAGE_HREF, SKILLS_REMAP_HREF } from "../module";
 import type { QueueRow, SkillCharacter } from "../queries";
 import { ATTRIBUTE_NAMES, romanLevel, summarizeQueue, type QueueStatus } from "../queue";
 import { Countdown } from "./countdown";
@@ -144,6 +146,14 @@ export function SkillCharacterCard({
                   : t.attributes.remapAvailable}
                 {c.bonusRemaps ? ` · ${t.attributes.bonusRemaps(c.bonusRemaps)}` : ""}
               </div>
+              {summary.entries.length > 0 && (
+                <Link
+                  href={`${SKILLS_REMAP_HREF}?${skillsQueryString({ view: c.isOwn ? "own" : "corp", characters: [c.characterId] })}`}
+                  className="inline-flex items-center gap-1 text-accent hover:underline"
+                >
+                  <Brain className="size-3.5" aria-hidden /> {t.card.remapLink}
+                </Link>
+              )}
             </dl>
           )}
 

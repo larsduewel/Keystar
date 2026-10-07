@@ -20,7 +20,7 @@ import {
   type MemberAuditParams,
   type MemberFilter,
 } from "@/core/member-audit-filters";
-import { characterScopes } from "@/core/modules/registry";
+import { characterScopes, esiHealth } from "@/core/modules/registry";
 import { getSetting } from "@/core/settings";
 import { getI18n } from "@/i18n/server";
 import { cn } from "@/lib/utils";
@@ -171,6 +171,7 @@ export default async function MemberAuditPage({ searchParams }: PageProps<"/admi
                   )}
                   {rows.map((r) => {
                     const missing = required.filter((s) => !r.scopes.includes(s));
+                    const health = esiHealth(r, required);
                     return (
                       <tr key={r.id}>
                         <td>
@@ -192,12 +193,13 @@ export default async function MemberAuditPage({ searchParams }: PageProps<"/admi
                         <td>
                           {!r.registered ? (
                             <span className="text-ink-3">—</span>
-                          ) : r.status === "invalid" ? (
+                          ) : health === "revoked" ? (
                             <StatusBadge status="error" label={tm.esi.tokenRevoked} />
-                          ) : !r.status ? (
-                            <StatusBadge status="warning" label={tm.esi.noToken} />
-                          ) : missing.length ? (
-                            <StatusBadge status="warning" label={tm.esi.missing(missing.length)} />
+                          ) : health === "missing" ? (
+                            <StatusBadge status="warning" label={r.status ? tm.esi.missing(missing.length) : tm.esi.noToken} />
+                          ) : health === "none" ? (
+                            // Nothing granted is fine: every ESI scope is opt-in.
+                            <Badge>{tm.esi.noToken}</Badge>
                           ) : (
                             <StatusBadge status="ok" label={tm.esi.complete} />
                           )}

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SectionTone } from "@/core/modules/types";
-import { useSidebar } from "./sidebar-state";
+import { DESKTOP_QUERY, useSidebar } from "./sidebar-state";
 
 const CLOSE_DELAY_MS = 120;
 
@@ -38,6 +38,8 @@ export function RailFlyout({
 
   const show = useCallback(() => {
     clearTimeout(closeTimer.current);
+    // The rail only exists from `md` up; the phone drawer shows full labels.
+    if (!window.matchMedia(DESKTOP_QUERY).matches) return;
     setOpen(true);
     setOpenedAt(pathname);
   }, [pathname]);

@@ -52,7 +52,16 @@ export const socialModule: KeystarModule = {
       label: (t) => t.social.module.navSection,
       order: 30,
       tone: "social",
-      items: [{ href: "/mail", label: (t) => t.social.module.nav.mail, icon: Mail, anyPermission: [SOCIAL_PERMISSIONS.mail] }],
+      items: [
+        {
+          href: "/mail",
+          label: (t) => t.social.module.nav.mail,
+          icon: Mail,
+          help: (t) => t.social.module.help.mail,
+          ownDataOnly: true,
+          anyPermission: [SOCIAL_PERMISSIONS.mail],
+        },
+      ],
     },
   ],
 };

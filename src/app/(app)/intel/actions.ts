@@ -8,6 +8,7 @@ import { audit } from "@/core/audit";
 import { assertPermission } from "@/core/auth/dal";
 import { getDb, intelScans } from "@/core/db";
 import { getI18n } from "@/i18n/server";
+import { ok, refused, type ActionResult } from "@/lib/action-result";
 import { SHARE_ID_PATTERN } from "@/lib/share-id";
 import { INTEL_PERMISSIONS } from "@/modules/intel/module";
 import { writeBriefing, writeDossier as writeDossierNote, writeDscanRead } from "@/modules/intel/ai/generate";
@@ -43,13 +44,13 @@ async function start(input: Omit<StartScanInput, "userId" | "userName" | "aiAllo
 
 /** Scans a pasted pilot list (and optional d-scan) and opens the result. */
 export async function createScan(_prev: ScanFormState, formData: FormData): Promise<ScanFormState> {
-  await assertPermission(INTEL_PERMISSIONS.use);
+  const user = await assertPermission(INTEL_PERMISSIONS.use);
   const { t } = await getI18n();
   const dscanText = String(formData.get("dscan") ?? "");
   let dscan = null;
   if (dscanText.trim()) {
     if (dscanText.length > MAX_DSCAN_CHARS) return { error: t.intel.errors.dscanTooLong };
-    const parsed = await dscanShips(dscanText);
+    const parsed = await dscanShips(dscanText, { userId: user.id });
     if (!parsed.lines) return { error: t.intel.errors.notDscan };
     dscan = parsed.ships;
   }
@@ -62,12 +63,12 @@ export async function createScan(_prev: ScanFormState, formData: FormData): Prom
 
 /** Adds or replaces the scan's d-scan. */
 export async function setDscan(_prev: ScanFormState, formData: FormData): Promise<ScanFormState> {
-  await assertPermission(INTEL_PERMISSIONS.use);
+  const user = await assertPermission(INTEL_PERMISSIONS.use);
   const { t } = await getI18n();
   const id = scanIdFrom(formData);
   const text = String(formData.get("dscan") ?? "");
   if (text.length > MAX_DSCAN_CHARS) return { error: t.intel.errors.dscanTooLong };
-  const parsed = await dscanShips(text);
+  const parsed = await dscanShips(text, { userId: user.id });
   if (!parsed.lines) return { error: t.intel.errors.pasteDscan };
   // dscanAt hides d-scan reads of the previous d-scan.
   const now = new Date();
@@ -76,26 +77,40 @@ export async function setDscan(_prev: ScanFormState, formData: FormData): Promis
   return { error: null };
 }
 
+export type IntelActionError = "forbidden" | "notFound" | "notAllowed";
+
+/** The signed-in user if they hold `permission`; null otherwise (the action refuses). */
+async function intelUser(permission: string) {
+  return assertPermission(permission).catch(() => null);
+}
+
 /** Claude's read of who is flying what on the d-scan, in the asker's language. */
-export async function readDscan(formData: FormData): Promise<void> {
-  const user = await assertPermission(INTEL_PERMISSIONS.ai);
+export async function readDscan(scanId: string): Promise<ActionResult<IntelActionError>> {
+  const user = await intelUser(INTEL_PERMISSIONS.ai);
+  if (!user) return refused("forbidden");
+  if (!SHARE_ID_PATTERN.test(scanId)) return refused("notFound");
   const { locale } = await getI18n();
-  await writeDscanRead(scanIdFrom(formData), { createdBy: user.id, locale });
+  if (!(await writeDscanRead(scanId, { createdBy: user.id, locale }))) return refused("notFound");
   refresh();
+  return ok;
 }
 
 /** Profiles the pilots of a scan that were skipped (friendlies, very large lists). */
-export async function profileScanPilots(formData: FormData): Promise<void> {
-  await assertPermission(INTEL_PERMISSIONS.use);
-  await profileRemaining(scanIdFrom(formData));
+export async function profileScanPilots(scanId: string): Promise<ActionResult<IntelActionError>> {
+  if (!(await intelUser(INTEL_PERMISSIONS.use))) return refused("forbidden");
+  if (!SHARE_ID_PATTERN.test(scanId)) return refused("notFound");
+  await profileRemaining(scanId);
   refresh();
+  return ok;
 }
 
-export async function deleteScan(formData: FormData): Promise<void> {
-  const user = await assertPermission(INTEL_PERMISSIONS.use);
-  const scan = await getScan(scanIdFrom(formData));
-  if (!scan) redirect("/intel");
-  if (scan.createdBy !== user.id && !user.can(INTEL_PERMISSIONS.manage)) throw new Error("Only the creator or an intel manager can delete a scan");
+/** Deletes a scan (its creator or an intel manager); the page then leaves for /intel. */
+export async function deleteScan(scanId: string): Promise<ActionResult<IntelActionError>> {
+  const user = await intelUser(INTEL_PERMISSIONS.use);
+  if (!user) return refused("forbidden");
+  const scan = SHARE_ID_PATTERN.test(scanId) ? await getScan(scanId) : null;
+  if (!scan) return refused("notFound");
+  if (scan.createdBy !== user.id && !user.can(INTEL_PERMISSIONS.manage)) return refused("notAllowed");
   await getDb().delete(intelScans).where(eq(intelScans.id, scan.id));
   await audit({
     actorUserId: user.id,
@@ -105,23 +120,28 @@ export async function deleteScan(formData: FormData): Promise<void> {
     targetId: scan.id,
     details: { pilots: scan.pilotCount, createdBy: scan.createdByName },
   });
-  redirect("/intel");
+  // No revalidation: that would render this scan's page again; the button navigates to /intel, which renders fresh.
+  return ok;
 }
 
 /** Writes the scan's briefing again with the latest data (Claude when configured), in the asker's language. */
-export async function rewriteBriefing(formData: FormData): Promise<void> {
-  const user = await assertPermission(INTEL_PERMISSIONS.ai);
+export async function rewriteBriefing(scanId: string): Promise<ActionResult<IntelActionError>> {
+  const user = await intelUser(INTEL_PERMISSIONS.ai);
+  if (!user) return refused("forbidden");
+  if (!SHARE_ID_PATTERN.test(scanId)) return refused("notFound");
   const { locale } = await getI18n();
-  await writeBriefing(scanIdFrom(formData), { createdBy: user.id, automatic: false, locale });
+  if (!(await writeBriefing(scanId, { createdBy: user.id, automatic: false, locale }))) return refused("notFound");
   refresh();
+  return ok;
 }
 
 /** A dossier on one pilot of the scan, in the asker's language. */
-export async function writeDossier(formData: FormData): Promise<void> {
-  const user = await assertPermission(INTEL_PERMISSIONS.ai);
-  const characterId = Number(formData.get("characterId"));
-  if (!Number.isSafeInteger(characterId) || characterId <= 0) throw new Error("Unknown pilot");
+export async function writeDossier(scanId: string, characterId: number): Promise<ActionResult<IntelActionError>> {
+  const user = await intelUser(INTEL_PERMISSIONS.ai);
+  if (!user) return refused("forbidden");
+  if (!SHARE_ID_PATTERN.test(scanId) || !Number.isSafeInteger(characterId) || characterId <= 0) return refused("notFound");
   const { locale } = await getI18n();
-  await writeDossierNote(scanIdFrom(formData), characterId, { createdBy: user.id, locale });
+  if (!(await writeDossierNote(scanId, characterId, { createdBy: user.id, locale }))) return refused("notFound");
   refresh();
+  return ok;
 }
