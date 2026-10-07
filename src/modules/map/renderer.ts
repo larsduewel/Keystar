@@ -132,6 +132,21 @@ export function createMapRenderer(canvas: HTMLCanvasElement, systems: MapSystem[
     schedule();
    }
   }
+  // A glowing sphere marks only route waypoints with confirmed gate-kill evidence.
+  let pulsing=false;
+  for(const p of onScreen) {
+   if(!route.has(p.system[0]) || overlay?.risks[p.system[0]]!=="red")continue;
+   const phase=reducedMotion ? .35 :((now-beamStarted)%2200)/2200;
+   const radius=10+phase*22,alpha=reducedMotion ? .35 :(1-phase)*.55;
+   ctx.save();
+   const glow=ctx.createRadialGradient(p.hit.x,p.hit.y,0,p.hit.x,p.hit.y,radius);
+   glow.addColorStop(0,colors.red||ink);glow.addColorStop(.45,colors.red||ink);glow.addColorStop(1,"transparent");
+   ctx.globalAlpha=alpha;ctx.fillStyle=glow;ctx.beginPath();ctx.arc(p.hit.x,p.hit.y,radius,0,Math.PI*2);ctx.fill();
+   ctx.globalAlpha=alpha*.8;ctx.strokeStyle=colors.red||ink;ctx.lineWidth=1;
+   ctx.beginPath();ctx.arc(p.hit.x,p.hit.y,radius,0,Math.PI*2);ctx.stroke();ctx.restore();
+   pulsing=true;
+  }
+  if(pulsing&&!reducedMotion)schedule();
   if(overlay?.range) {
    const origin=pointsById.get(overlay?.originId ?? -1);
    if(origin){ctx.strokeStyle=colors.range||ink;ctx.lineWidth=1;ctx.beginPath();ctx.arc(origin.hit.x,origin.hit.y,overlay.range*scale,0,Math.PI*2);ctx.stroke();}
