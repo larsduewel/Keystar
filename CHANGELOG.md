@@ -15,7 +15,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Fixed
 
-- **Historical roster coverage.** Keep loot from before attendance tracking began unallocated instead of applying the current roster to an earlier fight.
+- **Historical roster coverage.** Keep loot from before attendance tracking began unallocated instead of applying the current roster to an earlier fight. ([PR #26](https://github.com/larsduewel/Keystar/pull/26))
 
 - **Copied EVE loot history.** Accept `21:06:00 Pilot has looted 3,005 x Item` entries directly, with an explicit UTC loot date. Import failures now explain invalid lines, wrong dates, duplicates and concurrent changes rather than showing only a generic save error. ([PR #25](https://github.com/larsduewel/Keystar/pull/25))
 
