@@ -161,13 +161,16 @@ export function settlement(ledger: Ledger) {
           : Math.floor((poolCents * value) / gross);
       remaining -= cents;
       const at = item.time ? Date.parse(item.time) : NaN;
+      const covered =
+        ledger.attendanceFrom !== undefined &&
+        at >= Date.parse(ledger.attendanceFrom);
       const weights = groupsArray.map((group) =>
         Math.max(
           0,
           ...ledger.participants
             .filter(
               (p) =>
-                p.eligible !== false &&
+                covered && p.eligible !== false &&
                 (p.payee.trim() || p.name).toLowerCase() ===
                   group.name.toLowerCase() &&
                 p.attendance?.some(

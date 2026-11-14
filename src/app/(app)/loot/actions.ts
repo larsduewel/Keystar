@@ -161,7 +161,7 @@ export async function updateLootOperation(
       if (!tracker?.fleetId || tracker.status !== "tracking")
         throw new Error("fleet access");
       linkedFleetId = tracker.fleetId;
-      ledger.splitMode="atLoot";
+      ledger.splitMode = "atLoot";
       // Visits from a previously linked fleet must never affect the new fleet's split.
       ledger.participants.forEach((p) => (p.attendance = []));
     }

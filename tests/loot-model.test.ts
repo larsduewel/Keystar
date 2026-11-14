@@ -224,6 +224,7 @@ describe("per-loot attendance shares", () => {
   it("excludes late joiners from earlier loot, but includes them in later loot", () => {
     const ledger = emptyLedger();
     ledger.splitMode = "atLoot";
+    ledger.attendanceFrom = "2026-11-14T17:00:00Z";
     ledger.participants = [
       { ...participant("A"), attendance: [visit("18:00", "20:00")] },
       { ...participant("B"), attendance: [visit("19:00", "20:00")] },
@@ -244,6 +245,7 @@ describe("per-loot attendance shares", () => {
   it("keeps rejoin gaps, missing timestamps and unobserved future attendance unallocated", () => {
     const ledger = emptyLedger();
     ledger.splitMode = "atLoot";
+    ledger.attendanceFrom = "2026-11-14T17:00:00Z";
     ledger.participants = [
       {
         ...participant("A"),
@@ -264,6 +266,7 @@ describe("per-loot attendance shares", () => {
   it("respects alt exclusions and groups mains/alts once per loot event", () => {
     const ledger = emptyLedger();
     ledger.splitMode = "atLoot";
+    ledger.attendanceFrom = "2026-11-14T17:00:00Z";
     ledger.participants = [
       { ...participant("Main"), attendance: [visit("18:00", null)] },
       { ...participant("Alt", "Main"), attendance: [visit("18:00", null)] },
@@ -278,4 +281,26 @@ describe("per-loot attendance shares", () => {
       100, 0,
     ]);
   });
+});
+
+it("does not use the current roster to distribute loot from before tracking began", () => {
+  const ledger = emptyLedger();
+  ledger.splitMode = "atLoot";
+  ledger.attendanceFrom = "2026-11-14T20:00:00Z";
+  ledger.participants = [
+    {
+      ...participant("A"),
+      attendance: [
+        {
+          joined: "2026-11-14T18:00:00Z",
+          lastSeen: "2026-11-14T23:00:00Z",
+          left: null,
+          stopped: false,
+        },
+      ],
+    },
+  ];
+  ledger.items = [item({ time: "2026-11-14T19:00:00Z" })];
+  expect(settlement(ledger).unallocated).toBe(100);
+  expect(settlement(ledger).shares[0].entitlement).toBe(0);
 });
