@@ -1,3 +1,4 @@
+import * as loot from "@/modules/loot/schema";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { env } from "@/core/env";
@@ -17,7 +18,7 @@ import * as social from "@/modules/social/schema";
 import * as trade from "@/modules/trade/schema";
 import * as wallet from "@/modules/wallet/schema";
 
-export const schema = { ...core, ...eve, ...map, ...sync, ...mining, ...killboard, ...fleet, ...trade, ...intel, ...wallet, ...social, ...skills, ...industry, ...gatecheck, ...market };
+export const schema = { ...loot, ...core, ...eve, ...map, ...sync, ...mining, ...killboard, ...fleet, ...trade, ...intel, ...wallet, ...social, ...skills, ...industry, ...gatecheck, ...market };
 
 export type Db = PostgresJsDatabase<typeof schema>;
 
@@ -71,3 +72,5 @@ export * from "@/modules/industry/schema";
 
 export * from "@/modules/map/schema";
 export * from "@/modules/market/schema";
+
+export * from "@/modules/loot/schema";

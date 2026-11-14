@@ -1,4 +1,4 @@
-import { Brain, Factory, GraduationCap, Pickaxe, Route, Store, type LucideIcon } from "lucide-react";
+import { Package, Users, Brain, Factory, GraduationCap, Pickaxe, Route, Store, type LucideIcon } from "lucide-react";
 import type { Messages } from "@/i18n/messages";
 import { en } from "@/i18n/messages/en";
 import { compareVersions } from "@/lib/semver";
@@ -29,6 +29,10 @@ export interface HighlightDef {
 type ReleaseDef<V extends ReleaseVersion> = { [K in ItemKey<V>]: HighlightDef };
 
 export const RELEASES: { [V in ReleaseVersion]: ReleaseDef<V> } = {
+  "0.20.0": {
+    fleetLoot: { icon: Package, kind: "new", href: "/loot", anyPermission: ["loot.view"] },
+    payoutSelection: { icon: Users, kind: "new", anyPermission: ["loot.view"] },
+  },
   "0.19.0": {
     mapPlanning: { icon: StarMap, kind: "improved", href: "/map", anyPermission: ["map.view"] },
     gateCheck: { icon: Route, kind: "new", href: "/gatecheck", anyPermission: ["gatecheck.use"] },
