@@ -18,6 +18,7 @@ type Operation = {
   id: string;
   title: string;
   ownerId: string;
+  fleetId: number | null;
   ledger: Ledger;
   revision: number;
   startsAt: string;
@@ -57,10 +58,20 @@ export function LootWorkspace({
     totals = settlement(ledger),
     disabled = busy || !owner || op.closed;
   useEffect(() => {
-    if (op.syncStatus !== "pending") return;
-    const timer = setInterval(() => router.refresh(), 10000);
+    if (op.syncStatus !== "pending" && (op.closed || !op.fleetId)) return;
+    const timer = setInterval(() => {
+      const active = document.activeElement;
+      // Do not reset an unsaved edit when an attendance snapshot arrives.
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement
+      )
+        return;
+      router.refresh();
+    }, 10000);
     return () => clearInterval(timer);
-  }, [op.syncStatus, router]);
+  }, [op.syncStatus, op.closed, op.fleetId, router]);
   async function run(command: LootCommand) {
     setBusy(true);
     setError(false);
