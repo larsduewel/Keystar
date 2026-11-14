@@ -1,3 +1,4 @@
+import { LootTracking } from "@/modules/loot/tracking";
 import Link from "next/link";
 import { requirePermission } from "@/core/auth/dal";
 import { getI18n } from "@/i18n/server";
@@ -5,7 +6,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Panel } from "@/components/ui/glass";
 import { CreateLoot } from "@/modules/loot/create";
 import { listOperations } from "@/modules/loot/queries";
-import { getLiveFleets, getPastFleets } from "@/modules/fleet/queries";
+import {
+  getLiveFleets,
+  getPastFleets,
+  getTrackers,
+} from "@/modules/fleet/queries";
 import { settlement } from "@/modules/loot/model";
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -26,6 +31,9 @@ export default async function LootPage({
     Number.isFinite(Date.parse(params.day))
       ? params.day
       : undefined;
+  const trackers = user.can("fleet.track")
+    ? await getTrackers(user.characterIds)
+    : [];
   const operations = await listOperations(user.id, user.characterIds, day);
   const fleets = user.can("fleet.view")
     ? [...(await getLiveFleets()), ...(await getPastFleets(30))]
@@ -37,9 +45,15 @@ export default async function LootPage({
         title={m.title}
         description={m.help}
       />
+      {user.can("fleet.track") && (
+        <LootTracking characters={user.characters} trackers={trackers} />
+      )}
       <CreateLoot
         fleets={fleets.map((x) => ({
           id: x.fleetId,
+          preferred: trackers.some(
+            (t) => t.fleetId === x.fleetId && t.status === "tracking",
+          ),
           name: `${x.bossName ?? x.bossCharacterId} · ${f.dateTime(x.startedAt)}`,
         }))}
       />

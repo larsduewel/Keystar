@@ -1,3 +1,4 @@
+import { getTrackers } from "@/modules/fleet/queries";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/core/auth/dal";
 import { readOperation } from "@/modules/loot/queries";
@@ -20,6 +21,18 @@ export default async function LootOperationPage({
         endsAt: op.endsAt.toISOString(),
         syncedAt: op.syncedAt?.toISOString() ?? null,
       }}
+      trackers={
+        op.ownerId === user.id
+          ? (await getTrackers(user.characterIds))
+              .filter((tr) => tr.status === "tracking" && tr.fleetId)
+              .map((tr) => ({
+                characterId: tr.characterId,
+                name:
+                  user.characters.find((c) => c.characterId === tr.characterId)
+                    ?.name ?? String(tr.characterId),
+              }))
+          : []
+      }
       owner={op.ownerId === user.id}
     />
   );

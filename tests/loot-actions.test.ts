@@ -12,7 +12,10 @@ vi.mock("@/core/db", () => ({
   lootOperations: { id: "id", ownerId: "ownerId", createdAt: "createdAt" },
   fleetTrackers: { userId: "userId", fleetId: "fleetId" },
 }));
-import { updateLootOperation } from "@/app/(app)/loot/actions";
+import {
+  updateLootOperation,
+  importLootOperation,
+} from "@/app/(app)/loot/actions";
 const id = "36b8329c-e0a4-48e8-8563-cae0af887425";
 let op: {
   id: string;
@@ -134,4 +137,29 @@ it("refuses over-allocation of a killmail drop", async () => {
       match: "confirmed",
     }),
   ).rejects.toThrow("allocation");
+});
+
+it("returns specific import failures instead of production-hidden exception messages", async () => {
+  expect(
+    await importLootOperation(id, 1, {
+      kind: "import",
+      text: "21:06:00 Ancient Wolf has looted 1 x Item",
+      collector: "",
+    }),
+  ).toMatchObject({ ok: false, code: "date" });
+  expect(
+    await importLootOperation(id, 1, {
+      kind: "import",
+      text: "21:06:00 Ancient Wolf has looted 1 x Item",
+      collector: "",
+      day: "2026-11-13",
+    }),
+  ).toMatchObject({ ok: false, code: "window" });
+  expect(
+    await importLootOperation(id, 1, {
+      kind: "import",
+      text: "Invalid row",
+      collector: "",
+    }),
+  ).toMatchObject({ ok: false, code: "line", line: 1 });
 });

@@ -6,6 +6,12 @@ export type Participant = {
   weight: number;
   eligible?: boolean;
   paid: number;
+  attendance?: {
+    joined: string;
+    lastSeen: string;
+    left: string | null;
+    stopped: boolean;
+  }[];
   source: "manual" | "fleet" | "loot";
 };
 export type LootItem = {
@@ -40,6 +46,7 @@ export type Ledger = {
   expenses: number;
   corpPercent: number;
   basis: "estimate" | "sales";
+  splitMode?: "equal" | "atLoot";
   audit: { at: string; action: string }[];
 };
 export const emptyLedger = (): Ledger => ({

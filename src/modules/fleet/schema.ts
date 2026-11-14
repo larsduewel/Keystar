@@ -1,7 +1,22 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { users } from "@/core/db/schema/core";
 
-export type FleetTrackerStatus = "tracking" | "not_boss" | "no_fleet" | "stopped";
+export type FleetTrackerStatus =
+  | "tracking"
+  | "not_boss"
+  | "no_fleet"
+  | "stopped";
 
 /**
  * Characters whose owner chose to share their fleet. Only these are polled:
@@ -13,10 +28,15 @@ export const fleetTrackers = pgTable("fleet_trackers", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  status: text("status").$type<FleetTrackerStatus>().notNull().default("tracking"),
+  status: text("status")
+    .$type<FleetTrackerStatus>()
+    .notNull()
+    .default("tracking"),
   /** The fleet the character was last seen in. */
   fleetId: bigint("fleet_id", { mode: "number" }),
-  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   checkedAt: timestamp("checked_at", { withTimezone: true }),
 });
 
@@ -35,8 +55,12 @@ export const fleets = pgTable(
     motd: text("motd").notNull().default(""),
     isFreeMove: boolean("is_free_move").notNull().default(false),
     wings: jsonb("wings").$type<FleetWing[]>().notNull().default([]),
-    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },
   (t) => [index("fleets_first_seen_idx").on(t.firstSeenAt)],
@@ -58,9 +82,34 @@ export const fleetMembers = pgTable(
     shipTypeId: integer("ship_type_id").notNull(),
     solarSystemId: bigint("solar_system_id", { mode: "number" }).notNull(),
     takesFleetWarp: boolean("takes_fleet_warp").notNull().default(true),
-    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     leftAt: timestamp("left_at", { withTimezone: true }),
   },
-  (t) => [primaryKey({ columns: [t.fleetId, t.characterId] }), index("fleet_members_character_idx").on(t.characterId)],
+  (t) => [
+    primaryKey({ columns: [t.fleetId, t.characterId] }),
+    index("fleet_members_character_idx").on(t.characterId),
+  ],
+);
+
+/** Each ESI join-time identifies a distinct visit; leaving/rejoining must not erase attendance. */
+export const fleetAttendance = pgTable(
+  "fleet_attendance",
+  {
+    fleetId: bigint("fleet_id", { mode: "number" }).notNull(),
+    characterId: bigint("character_id", { mode: "number" }).notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    leftAt: timestamp("left_at", { withTimezone: true }),
+    endReason: text("end_reason").$type<"left" | "tracking_stopped">(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.fleetId, t.characterId, t.joinedAt] }),
+    index("fleet_attendance_window_idx").on(t.fleetId, t.joinedAt),
+  ],
 );
