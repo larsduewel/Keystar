@@ -213,3 +213,7 @@ Route planning for ships with a jump drive.
 - 💡 Backfill of camp history from EVE Ref's daily killmail archives, so estimates are useful from day one
 - 💡 System traffic from ESI (`/universe/system_jumps`) to weigh kills against how busy a system is
 - 💡 A live alert when a camp appears on a saved route
+
+## Fleet Loot Organizer
+
+Implemented operations, tracked rosters, loot imports, Jita snapshots, killmail comparison and manually selectable payout recipients. Follow-ups: optional wallet reconciliation and richer participation weighting.

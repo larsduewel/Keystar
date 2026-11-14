@@ -1,3 +1,4 @@
+import { lootModule } from "@/modules/loot/module";
 import { mapModule } from "@/modules/map/module";
 import { fleetModule } from "@/modules/fleet/module";
 import { gatecheckModule } from "@/modules/gatecheck/module";
@@ -28,6 +29,7 @@ export const MODULES: KeystarModule[] = [
   industryModule,
   killboardModule,
   fleetModule,
+  lootModule,
   intelModule,
   gatecheckModule,
   mapModule,

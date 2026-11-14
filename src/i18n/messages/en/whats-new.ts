@@ -30,6 +30,11 @@ export const whatsNew = {
     link: (version: string) => `Upgrade notes for v${version}`,
   },
   releases: {
+    "0.20.0": { items: {
+      fleetLoot: { title: "Fleet loot ledger", body: "Import recovered loot, compare killmail drops and save Jita sell valuations for each fleet operation." },
+      payoutSelection: { title: "Choose who gets paid", body: "Exclude alts, group recipients and see recalculated shares with expenses, retained loot and recorded payments." },
+    } },
+
     "0.19.0": {
       upgrade: "Add esi-clones.read_implants.v1 and esi-markets.read_character_orders.v1 to your EVE application before enabling implant-aware skills or Market Orders.",
       items: {

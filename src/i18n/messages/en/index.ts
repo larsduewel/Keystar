@@ -1,3 +1,4 @@
+import { loot } from "./loot";
 import { map } from "./map";
 import { admin } from "./admin";
 import { auth } from "./auth";
@@ -28,6 +29,7 @@ import { whatsNew } from "./whats-new";
  * `Messages` type every other language must match exactly.
  */
 export const en = {
+  loot,
   map,
   common,
   shell,

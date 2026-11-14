@@ -1,3 +1,4 @@
+import { loot } from "./loot";
 import { map } from "./map";
 import type { Messages } from "../en";
 import { admin } from "./admin";
@@ -26,6 +27,7 @@ import { whatsNew } from "./whats-new";
 
 /** German dictionary. Informal "du", EVE terms as German players use them (Corporation, Killboard, ISK, ESI). */
 export const de: Messages = {
+  loot,
   map,
   common,
   shell,

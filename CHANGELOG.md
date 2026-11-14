@@ -6,6 +6,16 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-14
+
+### Added
+
+- **Fleet Loot Organizer.** Track operations by date, import fleet loot history or cargo lists, and reconcile recovered items against killmail drops.
+  - Save Jita 4-4 sell-price snapshots, flag unknown prices, and record handovers, sales or loot kept as a share.
+  - Select payout recipients manually, exclude alts, group characters under one recipient, and recalculate weighted shares with expenses, corporation cuts and recorded payments.
+  - Organizers edit the ledger; explicitly shared operations are read-only for listed linked characters. Duplicate timed imports, over-allocated drops and concurrent edits are checked.
+
+
 ## [0.19.0] - 2026-10-07
 
 ### Upgrade notes

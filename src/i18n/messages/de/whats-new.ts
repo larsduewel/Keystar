@@ -20,6 +20,11 @@ export const whatsNew: typeof en = {
     link: (version: string) => `Upgrade-Hinweise zu v${version}`,
   },
   releases: {
+    "0.20.0": { items: {
+      fleetLoot: { title: "Flottenbeute verwalten", body: "Importiere geborgene Beute, vergleiche Killmail-Drops und speichere Jita-Verkaufswerte für jeden Einsatz." },
+      payoutSelection: { title: "Auszahlungen gezielt aufteilen", body: "Schließe Alts aus, gruppiere Empfänger und berechne Anteile mit Ausgaben, behaltener Beute und erfassten Zahlungen neu." },
+    } },
+
     "0.19.0": {
       upgrade: "Füge esi-clones.read_implants.v1 und esi-markets.read_character_orders.v1 zur EVE-Anwendung hinzu, bevor du implantatgestützte Skills oder Marktaufträge aktivierst.",
       items: {

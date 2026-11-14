@@ -23,6 +23,7 @@ const workerId = `${hostname()}:${process.pid}`;
 const DEMO_SAFE_JOBS = new Set([
   "core.server-status",
   "core.market-prices",
+  "loot.sync",
   "core.housekeeping",
   "killboard.situation-report",
   // Threat intel reads generated demo data instead of zKillboard in demo mode.

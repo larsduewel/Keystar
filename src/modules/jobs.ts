@@ -1,3 +1,4 @@
+import { lootJob } from "./loot/jobs";
 import {
   affiliationsJob,
   characterRolesJob,
@@ -38,6 +39,7 @@ export const JOBS: JobDefinition[] = [
   housekeepingJob,
   universeSystemsJob,
   mapNamesJob,
+  lootJob,
   mapSkyhooksJob,
   ...miningJobs,
   ...industrySyncJobs,
