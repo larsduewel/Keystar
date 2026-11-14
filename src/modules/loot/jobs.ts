@@ -3,6 +3,7 @@ import { and, sql, eq, gte, or, isNotNull, lte, inArray } from "drizzle-orm";
 import {
   lootOperations,
   fleetMembers,
+  fleetAttendance,
   eveEntities,
   typeValues,
   getDb,
@@ -33,7 +34,7 @@ export const lootJob: JobDefinition = {
             eq(lootOperations.syncStatus, "pending"),
             and(
               isNotNull(lootOperations.fleetId),
-              gte(lootOperations.endsAt, new Date()),
+              gte(lootOperations.endsAt, new Date(Date.now() - 120000)),
             ),
           ),
         ),
@@ -93,6 +94,27 @@ export const lootJob: JobDefinition = {
             );
             if (found) p.characterId = found.id;
           }
+        }
+        if (op.fleetId) {
+          const visits = await db
+            .select()
+            .from(fleetAttendance)
+            .where(
+              and(
+                eq(fleetAttendance.fleetId, op.fleetId),
+                lte(fleetAttendance.joinedAt, op.endsAt),
+                gte(fleetAttendance.lastSeenAt, op.startsAt),
+              ),
+            );
+          for (const participant of ledger.participants)
+            participant.attendance = visits
+              .filter((v) => v.characterId === participant.characterId)
+              .map((v) => ({
+                joined: v.joinedAt.toISOString(),
+                lastSeen: v.lastSeenAt.toISOString(),
+                left: v.leftAt?.toISOString() ?? null,
+                stopped: v.endReason === "tracking_stopped",
+              }));
         }
         const names = [
           ...new Set(

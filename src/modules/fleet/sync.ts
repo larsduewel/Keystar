@@ -2,7 +2,7 @@ import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "@/core/db";
 import type { EsiFleet, EsiFleetMember, EsiFleetWing } from "./logic";
 import { toWings } from "./logic";
-import { fleetMembers, fleets } from "./schema";
+import { fleetMembers, fleets, fleetAttendance } from "./schema";
 
 /**
  * Stores one poll of a fleet: the fleet itself, everyone currently in it, and
@@ -10,7 +10,13 @@ import { fleetMembers, fleets } from "./schema";
  */
 export async function recordFleetSnapshot(
   db: Db,
-  snapshot: { fleetId: number; bossCharacterId: number; fleet: EsiFleet; members: EsiFleetMember[]; wings: EsiFleetWing[] },
+  snapshot: {
+    fleetId: number;
+    bossCharacterId: number;
+    fleet: EsiFleet;
+    members: EsiFleetMember[];
+    wings: EsiFleetWing[];
+  },
   now: Date,
 ): Promise<void> {
   const { fleetId } = snapshot;
@@ -72,21 +78,79 @@ export async function recordFleetSnapshot(
         });
     }
 
+    if (snapshot.members.length)
+      await tx
+        .insert(fleetAttendance)
+        .values(
+          snapshot.members.map((m) => ({
+            fleetId,
+            characterId: m.character_id,
+            joinedAt: new Date(m.join_time),
+            firstSeenAt: now,
+            lastSeenAt: now,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: [
+            fleetAttendance.fleetId,
+            fleetAttendance.characterId,
+            fleetAttendance.joinedAt,
+          ],
+          set: { lastSeenAt: now, leftAt: null, endReason: null },
+        });
+    await tx
+      .update(fleetAttendance)
+      .set({ leftAt: now, endReason: "left" })
+      .where(
+        and(
+          eq(fleetAttendance.fleetId, fleetId),
+          isNull(fleetAttendance.leftAt),
+          lt(fleetAttendance.lastSeenAt, now),
+        ),
+      );
+
     // Everyone not in this poll has left since the previous one.
     await tx
       .update(fleetMembers)
       .set({ leftAt: now })
-      .where(and(eq(fleetMembers.fleetId, fleetId), isNull(fleetMembers.leftAt), lt(fleetMembers.lastSeenAt, now)));
+      .where(
+        and(
+          eq(fleetMembers.fleetId, fleetId),
+          isNull(fleetMembers.leftAt),
+          lt(fleetMembers.lastSeenAt, now),
+        ),
+      );
   });
 }
 
 /** Marks a fleet and everyone still in it as gone (the boss left or tracking stopped). */
-export async function closeFleet(db: Db, fleetId: number, now: Date): Promise<void> {
+export async function closeFleet(
+  db: Db,
+  fleetId: number,
+  now: Date,
+): Promise<void> {
   await db.transaction(async (tx) => {
-    await tx.update(fleets).set({ endedAt: now }).where(and(eq(fleets.fleetId, fleetId), isNull(fleets.endedAt)));
+    await tx
+      .update(fleetAttendance)
+      .set({
+        leftAt: sql`${fleetAttendance.lastSeenAt}`,
+        endReason: "tracking_stopped",
+      })
+      .where(
+        and(
+          eq(fleetAttendance.fleetId, fleetId),
+          isNull(fleetAttendance.leftAt),
+        ),
+      );
+    await tx
+      .update(fleets)
+      .set({ endedAt: now })
+      .where(and(eq(fleets.fleetId, fleetId), isNull(fleets.endedAt)));
     await tx
       .update(fleetMembers)
       .set({ leftAt: now })
-      .where(and(eq(fleetMembers.fleetId, fleetId), isNull(fleetMembers.leftAt)));
+      .where(
+        and(eq(fleetMembers.fleetId, fleetId), isNull(fleetMembers.leftAt)),
+      );
   });
 }

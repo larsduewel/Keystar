@@ -30,6 +30,11 @@ export const whatsNew = {
     link: (version: string) => `Upgrade notes for v${version}`,
   },
   releases: {
+    "0.21.0": { items: {
+      attendanceLoot: { title: "Loot shares by attendance", body: "Track joins, departures and return visits. Split each loot entry among eligible pilots present at its timestamp." },
+      copiedLoot: { title: "Paste EVE loot history", body: "Import copied ‘has looted’ entries directly and see specific explanations when an import needs correction." },
+    } },
+
     "0.20.0": { items: {
       fleetLoot: { title: "Fleet loot ledger", body: "Import recovered loot, compare killmail drops and save Jita sell valuations for each fleet operation." },
       payoutSelection: { title: "Choose who gets paid", body: "Exclude alts, group recipients and see recalculated shares with expenses, retained loot and recorded payments." },

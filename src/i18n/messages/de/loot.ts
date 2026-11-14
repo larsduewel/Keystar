@@ -1,4 +1,42 @@
 export const loot = {
+  linkFleet: "Erfasste Flotte dieses Charakters verwenden",
+  splitMode: "Teilnahmeregel",
+  equal: "Gleiche Anteile für gewählte Teilnehmer",
+  atLoot: "Jeden Gegenstand unter den zur Beutezeit anwesenden Piloten teilen",
+  unallocated: "Nicht zugeteilt — Zeit oder Teilnahme fehlt",
+  attendance: "Flottenteilnahme (UTC)",
+  joined: "Beigetreten",
+  left: "Austritt erkannt",
+  lastSeen: "Zuletzt gesehen",
+  trackingStopped: "Erfassung beendet; spätere Teilnahme unbekannt",
+  attendanceHint:
+    "ESI-Beitrittszeiten werden je Besuch gespeichert. Austritte werden etwa alle 15 Sekunden erkannt; Ausfälle können die Verzögerung erhöhen. Fehlende historische Teilnahme wird nicht geschätzt. Manuelle Ausschlüsse gelten weiterhin.",
+  atLootHint:
+    "Die Aufteilung pro Gegenstand nutzt Beutezeit und erfasste Besuche. Beute ohne Zeit oder belegte berechtigte Teilnehmer bleibt unzugeteilt. Ausgaben und Corporation-Abzüge senken alle Gegenstandsanteile proportional.",
+  startTracking: "Meine aktuelle Flotte erfassen",
+  trackingSetup: "Zugriff zur Flottenerfassung",
+  trackingHint:
+    "Charakter wählen und vor dem Einsatz die Erfassung starten. Die vollständige Mitgliederliste benötigt Flottenboss-Zugriff. EVE-Flottenzugriff zuvor auf der Flottenseite aktivieren.",
+  not_boss:
+    "Dein Charakter ist kein Flottenboss; die Mitgliederliste ist nicht lesbar.",
+  tracking: "Erfassung angefordert / aktiv",
+  no_fleet: "Keine aktuelle Flotte; Erfassung nach Beitritt erneut starten.",
+  stopped: "Erfassung beendet",
+  lootDate: "Beutedatum (UTC)",
+  lootDateHint:
+    "Kopierte Chronik enthält nur Uhrzeiten. Wähle den Tag der Bergung.",
+  importErrors: {
+    line: "Ungültiger Beuteeintrag in Zeile",
+    date: "Wähle das Beutedatum (UTC) für die kopierte Chronik.",
+    window:
+      "Die Beutezeit liegt außerhalb des Einsatzzeitraums. Datum und Beginn/Ende prüfen.",
+    duplicate: "Diese Beutechronik wurde bereits importiert.",
+    conflict:
+      "Der Einsatz wurde zwischenzeitlich geändert. Bitte erneut importieren.",
+    limit: "Der Import überschreitet die Mengen- oder Größenbegrenzung.",
+    closed: "Öffne den Einsatz vor dem Import wieder.",
+    generic: "Beuteimport fehlgeschlagen. Zugriff prüfen und erneut versuchen.",
+  },
   remove: "Verknüpfung entfernen",
   eligible: "Erhält Auszahlung",
   recalculated: "Neu berechnete Auszahlung",
@@ -48,7 +86,7 @@ export const loot = {
   paste: "Tabulatorgetrenntes Beuteprotokoll oder Gegenstandsliste einfügen",
   upload: "Beuteexport einlesen (.txt / .tsv)",
   importHint:
-    "Flotten-Beuteprotokoll vor Verlassen exportieren. Unterstützte Kopfzeilen: Time, Character, Item Type, Quantity (Tabulatoren). Für Frachtlisten Item[TAB]Quantity einfügen und Sammler angeben. Zeiten sind UTC. Jede Zeile muss gültig sein; nichts wird still verworfen.",
+    "Flotten-Beuteprotokoll vor Verlassen exportieren. Kopierte Einträge wie „21:06:00 Pilot has looted 1 x Item“ werden ebenfalls unterstützt. Kopfzeilen: Time, Character, Item Type, Quantity (Tabulatoren). Für Frachtlisten Item[TAB]Quantity einfügen und Sammler angeben. Zeiten sind UTC. Jede Zeile muss gültig sein; nichts wird still verworfen.",
   duplicateHint:
     "Identische Importe und wiederholte zeitgestempelte Ereignisse werden erkannt. Listen ohne Zeit belegen keine Bergung und erkennen keine teilweise überlappenden Importe; vor Abrechnung prüfen.",
   item: "Gegenstand",

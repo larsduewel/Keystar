@@ -1,5 +1,5 @@
 import type { Ledger, LootItem } from "./types";
-export function parseLoot(text: string, collector: string) {
+export function parseLoot(text: string, collector: string, day?: string) {
   if (text.length > 200000) throw new Error("limit");
   const lines = text
     .replace(/^\uFEFF/, "")
@@ -21,17 +21,35 @@ export function parseLoot(text: string, collector: string) {
   );
   const hasHeader = item >= 0 && qty >= 0;
   return (hasHeader ? lines.slice(1) : lines).map((line, i) => {
+    const copied =
+      /^(\d{2}:\d{2}:\d{2})\s+(.+?)\s+has looted\s+([\d,]+)\s+x\s+(.+)$/.exec(
+        line.trim(),
+      );
     const cols = line.split("\t").map((s) => s.trim());
-    const name = cols[hasHeader ? item : 0];
-    const raw = cols[hasHeader ? qty : 1];
-    const quantity = Number(raw?.replace(/(?<=\d)[, ](?=\d{3}(?:\D|$))/g, ""));
-    const person = hasHeader && who >= 0 ? cols[who] : collector.trim();
-    const rawTime = hasHeader && time >= 0 ? cols[time] : "";
+    if (copied && (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)))
+      throw new Error("date");
+    const name = copied ? copied[4] : cols[hasHeader ? item : 0];
+    const raw = copied ? copied[3] : cols[hasHeader ? qty : 1];
+    const quantity =
+      raw && /^(?:\d+|\d{1,3}(?:,\d{3})+)$/.test(raw)
+        ? Number(raw.replaceAll(",", ""))
+        : NaN;
+    const person = copied
+      ? copied[2]
+      : hasHeader && who >= 0
+        ? cols[who]
+        : collector.trim();
+    const rawTime = copied
+      ? `${day}T${copied[1]}Z`
+      : hasHeader && time >= 0
+        ? cols[time]
+        : "";
     // EVE export times are UTC; never interpret them in the web server's local zone.
     const stamp = rawTime
       ? Date.parse(
-          rawTime.replaceAll(".", "-").replace(" ", "T") +
-            (/Z$|[+-]\d\d:\d\d$/.test(rawTime) ? "" : "Z"),
+          rawTime
+            .replace(/^(\d{4})\.(\d{2})\.(\d{2})/, "$1-$2-$3")
+            .replace(" ", "T") + (/Z$|[+-]\d\d:\d\d$/.test(rawTime) ? "" : "Z"),
         )
       : NaN;
     if (
@@ -42,9 +60,10 @@ export function parseLoot(text: string, collector: string) {
       !Number.isSafeInteger(quantity) ||
       quantity <= 0 ||
       quantity > 1000000000 ||
-      (rawTime && !Number.isFinite(stamp))
+      (rawTime && !Number.isFinite(stamp)) ||
+      (copied && !/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(copied[1]))
     )
-      throw new Error(`line:${i + 1}`);
+      throw new Error(`line:${i + (hasHeader ? 2 : 1)}`);
     return {
       name,
       quantity,
@@ -102,20 +121,73 @@ export function settlement(ledger: Ledger) {
       .reduce((s, i) => s + (i.price ?? 0) * i.quantity, 0);
     groups.set(key, group);
   }
-  const weight = [...groups.values()].reduce((s, p) => s + p.weight, 0);
   const poolCents = Math.round((net - corp) * 100);
   const groupsArray = [...groups.values()];
-  const allocations = groupsArray.map((p) =>
-    weight ? Math.floor((poolCents * p.weight) / weight) : 0,
-  );
-  let remainder = weight
-    ? poolCents - allocations.reduce((sum, n) => sum + n, 0)
-    : 0;
-  for (let i = 0; remainder > 0 && i < groupsArray.length; i++)
-    if (groupsArray[i].weight > 0) {
-      allocations[i]++;
-      remainder--;
+  let unallocated = 0;
+  const allocations = groupsArray.map(() => 0);
+  const allocate = (cents: number, weights: number[]) => {
+    const total = weights.reduce((sum, value) => sum + value, 0);
+    if (!total) {
+      unallocated += cents / 100;
+      return;
     }
+    const parts = weights.map((value) => Math.floor((cents * value) / total));
+    let remainder = cents - parts.reduce((sum, value) => sum + value, 0);
+    for (let i = 0; remainder > 0 && i < parts.length; i++)
+      if (weights[i] > 0) {
+        parts[i]++;
+        remainder--;
+      }
+    parts.forEach((value, index) => (allocations[index] += value));
+  };
+  if (ledger.splitMode === "atLoot") {
+    const values = eligible.map((item) => ({
+      item,
+      value:
+        ledger.basis === "sales"
+          ? item.status === "sold"
+            ? (item.proceeds ?? 0)
+            : item.status === "retained"
+              ? (item.price ?? 0) * item.quantity
+              : 0
+          : (item.price ?? 0) * item.quantity,
+    }));
+    let remaining = poolCents;
+    const nonzero = values.filter((row) => row.value > 0);
+    nonzero.forEach(({ item, value }, index) => {
+      const cents =
+        index === nonzero.length - 1
+          ? remaining
+          : Math.floor((poolCents * value) / gross);
+      remaining -= cents;
+      const at = item.time ? Date.parse(item.time) : NaN;
+      const weights = groupsArray.map((group) =>
+        Math.max(
+          0,
+          ...ledger.participants
+            .filter(
+              (p) =>
+                p.eligible !== false &&
+                (p.payee.trim() || p.name).toLowerCase() ===
+                  group.name.toLowerCase() &&
+                p.attendance?.some(
+                  (visit) =>
+                    at >= Date.parse(visit.joined) &&
+                    (visit.left
+                      ? at < Date.parse(visit.left)
+                      : at <= Date.parse(visit.lastSeen)),
+                ),
+            )
+            .map((p) => p.weight),
+        ),
+      );
+      allocate(cents, weights);
+    });
+  } else
+    allocate(
+      poolCents,
+      groupsArray.map((p) => p.weight),
+    );
   const shares = groupsArray.map((p, index) => {
     const entitlement = allocations[index] / 100;
     return {
@@ -125,6 +197,7 @@ export function settlement(ledger: Ledger) {
     };
   });
   return {
+    unallocated,
     estimated,
     sales,
     retained,

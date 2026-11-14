@@ -1,4 +1,42 @@
 export const loot = {
+  linkFleet: "Use this character’s tracked fleet",
+  splitMode: "Attendance rule",
+  equal: "Equal shares for selected participants",
+  atLoot: "Share each item among pilots present at loot time",
+  unallocated: "Not allocated — missing time or attendance",
+  attendance: "Fleet attendance (UTC)",
+  joined: "Joined",
+  left: "Departure detected",
+  lastSeen: "Last observed",
+  trackingStopped: "Tracking stopped; later attendance unknown",
+  attendanceHint:
+    "ESI join times are recorded per visit. Departures are detected approximately every 15 seconds; outages may increase this delay. Missing historical attendance is never guessed. Manual exclusions still apply.",
+  atLootHint:
+    "Per-item mode uses the loot timestamp and recorded visits. Untimed loot or loot without eligible observed participants remains unallocated. Expenses and corporation cuts reduce all item shares proportionally.",
+  startTracking: "Track my current fleet",
+  trackingSetup: "Fleet tracking access",
+  trackingHint:
+    "Choose your character and start tracking before the operation. Full membership requires fleet-boss access. Enable EVE fleet access on the Fleet page first.",
+  not_boss: "Your character is not fleet boss; the roster cannot be read.",
+  tracking: "Tracking requested / active",
+  no_fleet: "No current fleet; start tracking again after joining.",
+  stopped: "Tracking stopped",
+  lootDate: "Loot date (UTC)",
+  lootDateHint:
+    "Copied chat-style history contains times only. Choose the date the loot was collected.",
+  importErrors: {
+    line: "Invalid loot entry on line",
+    date: "Choose the loot date (UTC) for copied history.",
+    window:
+      "The loot time is outside this operation’s start/end. Check the loot date and operation window.",
+    duplicate: "This loot history has already been imported.",
+    conflict:
+      "The operation changed while you were editing. Please try the import again.",
+    limit: "The import exceeds the item or size limit.",
+    closed: "Reopen this operation before importing loot.",
+    generic:
+      "Could not import the loot history. Check your access and try again.",
+  },
   remove: "Remove reference",
   eligible: "Receives payout",
   recalculated: "Recalculated payout",
@@ -48,7 +86,7 @@ export const loot = {
   paste: "Paste tab-separated loot history or item list",
   upload: "Read loot export (.txt / .tsv)",
   importHint:
-    "Export fleet Loot History before leaving the fleet. Supported headers: Time, Character, Item Type, Quantity (tab-separated). For cargo lists paste Item[TAB]Quantity and choose a collector. Times are UTC. Every row must be valid; no rows are silently discarded.",
+    "Export fleet Loot History before leaving the fleet. Paste copied entries such as “21:06:00 Pilot has looted 1 x Item”, or use headers: Time, Character, Item Type, Quantity (tab-separated). For cargo lists paste Item[TAB]Quantity and choose a collector. Times are UTC. Every row must be valid; no rows are silently discarded.",
   duplicateHint:
     "Exact imports and repeated timed events are deduplicated. Untimed lists cannot prove collection or detect partially overlapping imports; review them before splitting.",
   item: "Item",

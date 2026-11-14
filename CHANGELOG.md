@@ -6,6 +6,18 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-14
+
+### Added
+
+- **Attendance-based loot shares.** Track each fleet visit with ESI join times and observed departure times, preserving leave/rejoin history. Split every loot entry among eligible pilots present when it was collected; missing times or attendance remain unallocated.
+- **Track your current fleet.** Start tracking your character from Fleet Loot, automatically prefer its fleet for new operations, and link existing operations to your tracked fleet. Fleet-boss access remains required.
+
+### Fixed
+
+- **Copied EVE loot history.** Accept `21:06:00 Pilot has looted 3,005 x Item` entries directly, with an explicit UTC loot date. Import failures now explain invalid lines, wrong dates, duplicates and concurrent changes rather than showing only a generic save error.
+
+
 ## [0.20.0] - 2026-11-14
 
 ### Added

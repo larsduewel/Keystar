@@ -29,6 +29,10 @@ export interface HighlightDef {
 type ReleaseDef<V extends ReleaseVersion> = { [K in ItemKey<V>]: HighlightDef };
 
 export const RELEASES: { [V in ReleaseVersion]: ReleaseDef<V> } = {
+  "0.21.0": {
+    attendanceLoot: { icon: Users, kind: "new", href: "/loot", anyPermission: ["loot.view"] },
+    copiedLoot: { icon: Package, kind: "improved", anyPermission: ["loot.view"] },
+  },
   "0.20.0": {
     fleetLoot: { icon: Package, kind: "new", href: "/loot", anyPermission: ["loot.view"] },
     payoutSelection: { icon: Users, kind: "new", anyPermission: ["loot.view"] },

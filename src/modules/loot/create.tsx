@@ -8,7 +8,7 @@ import { createLootOperation } from "@/app/(app)/loot/actions";
 export function CreateLoot({
   fleets,
 }: {
-  fleets: { id: number; name: string }[];
+  fleets: { id: number; name: string; preferred?: boolean }[];
 }) {
   const { t } = useI18n(),
     m = t.loot,
@@ -70,7 +70,12 @@ export function CreateLoot({
         </label>
         <label className="text-xs">
           {m.fleet}
-          <select name="fleet" className="mt-1 w-full rounded bg-space-700 p-2">
+          <select
+            name="fleet"
+            defaultValue={fleets.find((f) => f.preferred)?.id ?? ""}
+            key={fleets.find((f) => f.preferred)?.id ?? "none"}
+            className="mt-1 w-full rounded bg-space-700 p-2"
+          >
             <option value="">{m.none}</option>
             {fleets.map((f) => (
               <option key={f.id} value={f.id}>

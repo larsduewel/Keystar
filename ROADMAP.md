@@ -217,3 +217,5 @@ Route planning for ships with a jump drive.
 ## Fleet Loot Organizer
 
 Implemented operations, tracked rosters, loot imports, Jita snapshots, killmail comparison and manually selectable payout recipients. Follow-ups: optional wallet reconciliation and richer participation weighting.
+
+Fleet Loot now supports copied in-game loot sentences, persistent fleet attendance visits, current-fleet tracking controls and per-loot-time payout allocation.

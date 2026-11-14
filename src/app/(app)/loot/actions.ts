@@ -32,6 +32,7 @@ const command = z.discriminatedUnion("kind", [
     kind: z.literal("import"),
     text: z.string().min(1).max(200000),
     collector: z.string().trim().max(100),
+    day: z.iso.date().optional(),
   }),
   z.object({
     kind: z.literal("item"),
@@ -48,6 +49,7 @@ const command = z.discriminatedUnion("kind", [
     expenses: money,
     corpPercent: z.number().finite().min(0).max(100),
     basis: z.enum(["estimate", "sales"]),
+    splitMode: z.enum(["equal", "atLoot"]).optional(),
     shared: z.boolean(),
   }),
   z.object({
@@ -57,6 +59,10 @@ const command = z.discriminatedUnion("kind", [
       .max(30),
   }),
   z.object({ kind: z.literal("removeKill"), id: z.number().int().positive() }),
+  z.object({
+    kind: z.literal("linkFleet"),
+    characterId: z.number().int().positive(),
+  }),
   z.object({ kind: z.literal("sync") }),
   z.object({ kind: z.literal("close"), closed: z.boolean() }),
 ]);
@@ -113,7 +119,7 @@ export async function createLootOperation(input: {
         startsAt: start,
         endsAt: end,
         fleetId: data.fleetId,
-        ledger: emptyLedger(),
+        ledger: { ...emptyLedger(), splitMode: "atLoot" },
       })
       .returning({ id: lootOperations.id });
     return op.id;
@@ -140,6 +146,26 @@ export async function updateLootOperation(
     if (op.revision !== revision) throw new Error("conflict");
     if (op.closed && c.kind !== "close") throw new Error("closed");
     const ledger = op.ledger;
+    let linkedFleetId = op.fleetId;
+    if (c.kind === "linkFleet") {
+      if (!user.characterIds.includes(c.characterId)) throw new Error("access");
+      const [tracker] = await tx
+        .select()
+        .from(fleetTrackers)
+        .where(
+          and(
+            eq(fleetTrackers.characterId, c.characterId),
+            eq(fleetTrackers.userId, user.id),
+          ),
+        );
+      if (!tracker?.fleetId || tracker.status !== "tracking")
+        throw new Error("fleet access");
+      linkedFleetId = tracker.fleetId;
+      ledger.splitMode="atLoot";
+      // Visits from a previously linked fleet must never affect the new fleet's split.
+      ledger.participants.forEach((p) => (p.attendance = []));
+    }
+
     if (c.kind === "participant") {
       if (
         ledger.participants.length >= 256 ||
@@ -169,7 +195,7 @@ export async function updateLootOperation(
       Object.assign(p, { payee: c.payee, weight: c.weight, paid: c.paid });
     }
     if (c.kind === "import") {
-      const rows = parseLoot(c.text, c.collector);
+      const rows = parseLoot(c.text, c.collector, c.day);
       if (!rows.length) throw new Error("empty");
       if (
         rows.some(
@@ -291,6 +317,7 @@ export async function updateLootOperation(
         expenses: c.expenses,
         corpPercent: c.corpPercent,
         basis: c.basis,
+        splitMode: c.splitMode ?? ledger.splitMode ?? "equal",
       });
     if (c.kind === "killmails")
       ledger.killIds = [...new Set([...ledger.killIds, ...c.ids])];
@@ -304,6 +331,7 @@ export async function updateLootOperation(
     if (c.kind === "close" && c.closed) {
       const totals = settlement(ledger);
       if (
+        totals.unallocated ||
         totals.missing ||
         totals.shortfall ||
         !totals.shares.some((p) => p.weight > 0)
@@ -312,9 +340,13 @@ export async function updateLootOperation(
     }
     ledger.audit.push({ at: new Date().toISOString(), action: c.kind });
     ledger.audit = ledger.audit.slice(-200);
-    const sync = ["sync", "import", "participant", "killmails"].includes(
-      c.kind,
-    );
+    const sync = [
+      "sync",
+      "import",
+      "participant",
+      "killmails",
+      "linkFleet",
+    ].includes(c.kind);
     if (
       c.kind === "sync" &&
       op.syncedAt &&
@@ -325,6 +357,7 @@ export async function updateLootOperation(
       .update(lootOperations)
       .set({
         ledger,
+        fleetId: linkedFleetId,
         revision: op.revision + 1,
         updatedAt: new Date(),
         shared: c.kind === "settings" ? c.shared : op.shared,
@@ -335,4 +368,33 @@ export async function updateLootOperation(
   });
   revalidatePath(`/loot/${id}`);
   revalidatePath("/loot");
+}
+
+/** Expected import failures are returned explicitly because production Next hides thrown messages. */
+export async function importLootOperation(
+  id: string,
+  revision: number,
+  input: Extract<LootCommand, { kind: "import" }>,
+) {
+  try {
+    await updateLootOperation(id, revision, input);
+    return { ok: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const line = /^line:(\d+)$/.exec(message);
+    if (line)
+      return {
+        ok: false as const,
+        code: "line" as const,
+        line: Number(line[1]),
+      };
+    const code = (
+      ["date", "window", "duplicate", "conflict", "limit", "closed"] as const
+    ).find((code) => code === message);
+    return {
+      ok: false as const,
+      code: code ?? ("generic" as const),
+      line: undefined,
+    };
+  }
 }

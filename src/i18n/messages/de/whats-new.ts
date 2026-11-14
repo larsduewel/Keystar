@@ -20,6 +20,11 @@ export const whatsNew: typeof en = {
     link: (version: string) => `Upgrade-Hinweise zu v${version}`,
   },
   releases: {
+    "0.21.0": { items: {
+      attendanceLoot: { title: "Beute nach Anwesenheit teilen", body: "Erfasse Beitritte, Austritte und erneute Besuche. Teile jeden Beuteeintrag unter den zur Beutezeit berechtigten Piloten auf." },
+      copiedLoot: { title: "EVE-Beutechronik einfügen", body: "Importiere kopierte ‘has looted’-Einträge direkt und erhalte konkrete Hinweise bei fehlerhaften Importen." },
+    } },
+
     "0.20.0": { items: {
       fleetLoot: { title: "Flottenbeute verwalten", body: "Importiere geborgene Beute, vergleiche Killmail-Drops und speichere Jita-Verkaufswerte für jeden Einsatz." },
       payoutSelection: { title: "Auszahlungen gezielt aufteilen", body: "Schließe Alts aus, gruppiere Empfänger und berechne Anteile mit Ausgaben, behaltener Beute und erfassten Zahlungen neu." },

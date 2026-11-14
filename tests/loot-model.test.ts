@@ -176,3 +176,106 @@ it("recalculates payouts when characters are manually excluded", () => {
     1000, 0, 0,
   ]);
 });
+
+describe("copied EVE loot history", () => {
+  it("reads multi-word pilots, quoted item names and grouped quantities from actual copied lines", () => {
+    const result = parseLoot(
+      "21:06:00 Ancient Wolf has looted 1 x Glorification-1 'Devana' Filament\n21:06:00 Ancient Wolf has looted 3,005 x Nova Fury Heavy Missile\n21:06:00 Cornelius York has looted 1 x Republic Fleet Large Cap Battery\n20:39:20 Toastbrotkillor has looted 22 x Warp Disrupt Probe",
+      "",
+      "2026-11-14",
+    );
+    expect(result[0]).toEqual({
+      name: "Glorification-1 'Devana' Filament",
+      quantity: 1,
+      collector: "Ancient Wolf",
+      time: "2026-11-14T21:06:00.000Z",
+    });
+    expect(result[1].quantity).toBe(3005);
+    expect(result[2].collector).toBe("Cornelius York");
+    expect(result[3].time).toBe("2026-11-14T20:39:20.000Z");
+  });
+  it("requires an explicit date and refuses invalid times or malformed quantities", () => {
+    expect(() =>
+      parseLoot("21:06:00 Ancient Wolf has looted 1 x Item", ""),
+    ).toThrow("date");
+    for (const line of [
+      "24:06:00 Ancient Wolf has looted 1 x Item",
+      "21:06:00 Ancient Wolf has looted 3,00 x Item",
+    ])
+      expect(() => parseLoot(line, "", "2026-11-14")).toThrow("line:1");
+  });
+  it("preserves ISO timestamp fractions in tab-separated exports", () => {
+    expect(
+      parseLoot(
+        "Time\tCharacter\tItem Type\tQuantity\n2026-11-14T21:06:00.123Z\tPilot\tTritanium\t10",
+        "",
+      )[0].time,
+    ).toBe("2026-11-14T21:06:00.123Z");
+  });
+});
+
+describe("per-loot attendance shares", () => {
+  const visit = (joined: string, left: string | null) => ({
+    joined: `2026-11-14T${joined}:00Z`,
+    lastSeen: "2026-11-14T23:00:00Z",
+    left: left ? `2026-11-14T${left}:00Z` : null,
+    stopped: false,
+  });
+  it("excludes late joiners from earlier loot, but includes them in later loot", () => {
+    const ledger = emptyLedger();
+    ledger.splitMode = "atLoot";
+    ledger.participants = [
+      { ...participant("A"), attendance: [visit("18:00", "20:00")] },
+      { ...participant("B"), attendance: [visit("19:00", "20:00")] },
+    ];
+    ledger.items = [
+      item({ time: "2026-11-14T18:30:00Z" }),
+      item({ id: "b", time: "2026-11-14T19:30:00Z" }),
+    ];
+    expect(settlement(ledger).shares.map((p) => p.entitlement)).toEqual([
+      150, 50,
+    ]);
+    ledger.expenses = 20;
+    ledger.corpPercent = 10;
+    expect(settlement(ledger).shares.map((p) => p.entitlement)).toEqual([
+      121.5, 40.5,
+    ]);
+  });
+  it("keeps rejoin gaps, missing timestamps and unobserved future attendance unallocated", () => {
+    const ledger = emptyLedger();
+    ledger.splitMode = "atLoot";
+    ledger.participants = [
+      {
+        ...participant("A"),
+        attendance: [visit("18:00", "19:00"), visit("21:00", "22:00")],
+      },
+    ];
+    ledger.items = [
+      item({ time: "2026-11-14T20:00:00Z" }),
+      item({ id: "b", time: null }),
+    ];
+    expect(settlement(ledger).unallocated).toBe(200);
+    expect(settlement(ledger).shares[0].entitlement).toBe(0);
+    ledger.participants[0].attendance = [
+      { ...visit("18:00", null), lastSeen: "2026-11-14T19:00:00Z" },
+    ];
+    expect(settlement(ledger).unallocated).toBe(200);
+  });
+  it("respects alt exclusions and groups mains/alts once per loot event", () => {
+    const ledger = emptyLedger();
+    ledger.splitMode = "atLoot";
+    ledger.participants = [
+      { ...participant("Main"), attendance: [visit("18:00", null)] },
+      { ...participant("Alt", "Main"), attendance: [visit("18:00", null)] },
+      { ...participant("Other"), attendance: [visit("18:00", null)] },
+    ];
+    ledger.items = [item({ time: "2026-11-14T19:00:00Z" })];
+    expect(settlement(ledger).shares.map((p) => p.entitlement)).toEqual([
+      50, 50,
+    ]);
+    ledger.participants[2].eligible = false;
+    expect(settlement(ledger).shares.map((p) => p.entitlement)).toEqual([
+      100, 0,
+    ]);
+  });
+});

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shell/page-header";
 import {
   updateLootOperation,
+  importLootOperation,
   type LootCommand,
 } from "@/app/(app)/loot/actions";
 import { settlement } from "./model";
@@ -33,9 +34,11 @@ const nullable = (form: FormData, key: string) =>
 export function LootWorkspace({
   operation: op,
   owner,
+  trackers = [],
 }: {
   operation: Operation;
   owner: boolean;
+  trackers?: { characterId: number; name: string }[];
 }) {
   const { t, f } = useI18n(),
     m = t.loot,
@@ -46,6 +49,10 @@ export function LootWorkspace({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(false),
     [paste, setPaste] = useState("");
+  const [importError, setImportError] = useState<{
+    code: keyof typeof m.importErrors;
+    line?: number;
+  } | null>(null);
   const ledger = op.ledger,
     totals = settlement(ledger),
     disabled = busy || !owner || op.closed;
@@ -57,8 +64,16 @@ export function LootWorkspace({
   async function run(command: LootCommand) {
     setBusy(true);
     setError(false);
+    setImportError(null);
     try {
-      await updateLootOperation(op.id, op.revision, command);
+      if (command.kind === "import") {
+        const result = await importLootOperation(op.id, op.revision, command);
+        if (!result.ok) {
+          setImportError(result);
+          router.refresh();
+          return;
+        }
+      } else await updateLootOperation(op.id, op.revision, command);
       router.refresh();
     } catch {
       setError(true);
@@ -162,6 +177,12 @@ export function LootWorkspace({
           {m.error}
         </p>
       )}
+      {importError && (
+        <p role="alert" className="text-sm text-critical-text">
+          {m.importErrors[importError.code]}
+          {importError.line ? ` (${importError.line})` : ""}
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label={m.estimate} value={f.isk(totals.estimated)} />
         <StatTile label={m.sales} value={f.isk(totals.sales)} />
@@ -193,10 +214,22 @@ export function LootWorkspace({
                 onSubmit={submit((form) => ({
                   kind: "import",
                   text: paste,
+                  day: String(form.get("day")),
                   collector: String(form.get("collector")),
                 }))}
               >
                 <fieldset disabled={disabled} className="space-y-3">
+                  <label className="block max-w-md text-xs">
+                    {m.lootDate}
+                    <input
+                      required
+                      type="date"
+                      name="day"
+                      defaultValue={op.startsAt.slice(0, 10)}
+                      className={field}
+                    />
+                    <span className="text-ink-3">{m.lootDateHint}</span>
+                  </label>
                   <label className="block max-w-md text-xs">
                     {m.collector}
                     <input name="collector" maxLength={100} className={field} />
@@ -394,6 +427,25 @@ export function LootWorkspace({
       {tab === "participants" && (
         <Panel title={m.participants}>
           <p className="mb-3 text-xs text-ink-3">{m.eligibilityHint}</p>
+          {owner && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {trackers.map((tr) => (
+                <Button
+                  disabled={disabled}
+                  key={tr.characterId}
+                  onClick={() =>
+                    run({ kind: "linkFleet", characterId: tr.characterId })
+                  }
+                >
+                  {m.linkFleet} · {tr.name}
+                </Button>
+              ))}
+              <Link href="/fleet" className="self-center text-xs text-accent">
+                {m.trackingSetup}
+              </Link>
+            </div>
+          )}
+          <p className="mb-3 text-xs text-ink-3">{m.attendanceHint}</p>
           <div className="mb-4 flex flex-wrap gap-3">
             {totals.shares.map((p) => (
               <div className="glass-chip rounded-lg p-3 text-sm" key={p.name}>
@@ -567,7 +619,15 @@ export function LootWorkspace({
                       ? `${f.dateTime(k.time)} · ${k.items.length} ${m.item}`
                       : m.unknown}
                   </span>
-                  {owner && <Button size="sm" disabled={disabled} onClick={() => run({kind:"removeKill",id})}>{m.remove}</Button>}
+                  {owner && (
+                    <Button
+                      size="sm"
+                      disabled={disabled}
+                      onClick={() => run({ kind: "removeKill", id })}
+                    >
+                      {m.remove}
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -583,6 +643,7 @@ export function LootWorkspace({
                 kind: "settings",
                 basis: String(form.get("basis")) as "estimate" | "sales",
                 expenses: number(form, "expenses"),
+                splitMode: String(form.get("splitMode")) as "equal" | "atLoot",
                 corpPercent: number(form, "corpPercent"),
                 shared: form.get("shared") === "on",
               }))}
@@ -591,6 +652,17 @@ export function LootWorkspace({
                 disabled={disabled}
                 className="grid gap-3 sm:grid-cols-3"
               >
+                <label className="text-xs">
+                  {m.splitMode}
+                  <select
+                    name="splitMode"
+                    defaultValue={ledger.splitMode ?? "equal"}
+                    className={field}
+                  >
+                    <option value="equal">{m.equal}</option>
+                    <option value="atLoot">{m.atLoot}</option>
+                  </select>
+                </label>
                 <label className="text-xs">
                   {m.basis}
                   <select
@@ -639,12 +711,15 @@ export function LootWorkspace({
           </Panel>
           <Panel title={m.settlement}>
             <p className="mb-3 text-xs text-ink-3">{m.splitHint}</p>
-            {(totals.missing > 0 || totals.shortfall > 0) && (
+            <p className="mb-3 text-xs text-ink-3">{m.atLootHint}</p>
+            {(totals.missing > 0 ||
+              totals.shortfall > 0 ||
+              totals.unallocated > 0) && (
               <p className="mb-3 text-sm text-warn-text">{m.provisional}</p>
             )}
             <p className="mb-3 text-sm">
-              {m.corp}: {f.isk(totals.corp)} · {m.shortfall}:{" "}
-              {f.isk(totals.shortfall)}
+              {m.unallocated}: {f.isk(totals.unallocated)} · {m.corp}:{" "}
+              {f.isk(totals.corp)} · {m.shortfall}: {f.isk(totals.shortfall)}
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">

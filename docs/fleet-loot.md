@@ -27,3 +27,13 @@ Handed-to-organizer, sold and retained are states of the same loot entry; a tran
 Only the creator edits. Operations are private by default. Sharing is limited to authenticated users owning a character listed by verified EVE character ID; it does not create an anonymous public link. Names in unverified uploads are not authentication. Worker writes use revision checks and organizer mutations lock the row, rejecting stale changes instead of overwriting them.
 
 Closed ledgers stop edits and worker updates until reopened by the owner. Finalization refuses missing basis values, uncovered expenses or no eligible recipients. CSV export supports the loot ledger; formula-like cells are escaped. A generated migration creates `loot_operations`; the normal app/worker migration process applies it. No additional cloud resources or credentials are needed.
+
+## Copied history and attendance splits
+
+Chat-style copied entries (`21:06:00 Ancient Wolf has looted 3,005 x Nova Fury Heavy Missile`) are accepted directly. Choose their UTC loot date because the clipboard text contains no date. The operation time window still applies. Invalid line numbers, duplicates and out-of-window times are shown explicitly.
+
+On Fleet Loot, select your character and **Track my current fleet**. Enable the existing optional fleet access on `/fleet` first. ESI only exposes the full roster to the fleet boss; a non-boss tracker shows that limitation instead of inventing members. An active character's tracked fleet is preferred when creating an operation. Existing operations can link the owner's tracked fleet in Participants.
+
+Every successful 15-second fleet poll saves visits keyed by fleet, character and ESI join time. A missing member receives an approximate detected departure time. Rejoining creates a separate visit; stopping tracking ends coverage at the last actual observation, not an assumed fleet departure. API outages and cache delays can widen uncertainty. Historical attendance that was never tracked cannot be recovered.
+
+New operations default to **Share each item among pilots present at loot time**. Existing operations retain equal splitting unless changed in Split settings. Per-item mode applies the manual eligibility checkbox and weights, deduplicates alts grouped under the same recipient, and allocates each item's net pool to attendees at its timestamp. Expenses and corporation cuts reduce every item's available share proportionally. Untimed loot or loot with no eligible observed attendee stays unallocated and prevents closing the ledger. Organizers can use the explicit equal-share rule when reliable historical attendance is unavailable.
