@@ -47,6 +47,7 @@ export type Ledger = {
   corpPercent: number;
   basis: "estimate" | "sales";
   splitMode?: "equal" | "atLoot";
+  attendanceFrom?: string;
   audit: { at: string; action: string }[];
 };
 export const emptyLedger = (): Ledger => ({

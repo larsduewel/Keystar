@@ -106,6 +106,11 @@ export const lootJob: JobDefinition = {
                 gte(fleetAttendance.lastSeenAt, op.startsAt),
               ),
             );
+          ledger.attendanceFrom = visits.length
+            ? new Date(
+                Math.min(...visits.map((v) => v.firstSeenAt.getTime())),
+              ).toISOString()
+            : undefined;
           for (const participant of ledger.participants)
             participant.attendance = visits
               .filter((v) => v.characterId === participant.characterId)
