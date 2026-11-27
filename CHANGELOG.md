@@ -8,7 +8,7 @@ version (0.2.0 → 0.2.1). Releasing is described in [docs/releasing.md](docs/re
 
 ### Security
 
-- Upgrade Next.js and its ESLint configuration to 16.4.6, which includes the fix for the App Router Server Actions denial-of-service advisory.
+- Upgrade Next.js and its ESLint configuration to 16.4.6, which includes the fix for the App Router Server Actions denial-of-service advisory. ([PR #27](https://github.com/larsduewel/Keystar/pull/27))
 
 ## [0.21.0] - 2026-11-14
 
